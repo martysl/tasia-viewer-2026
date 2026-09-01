@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Tasia Viewer
+Exec=firestorm
+Comment=Client for virtual worlds
+Icon=tasia_icon
+Categories=Development;
+Terminal=true

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater can_close="false" can_minimize="false" can_resize="false" height="125" layout="topleft" name="mp3_batch_progress" title="MP3 Batch Upload" width="390">
+  <text follows="left|top|right" height="22" left="18" name="status_text" top="24" width="354">Preparing MP3 conversion…</text>
+  <progress_bar follows="left|top|right" height="20" left="18" name="progress_bar" top="55" width="354" />
+  <text follows="left|top|right" height="20" left="18" name="progress_count" top="84" width="354">0 / 0</text>
+</floater>

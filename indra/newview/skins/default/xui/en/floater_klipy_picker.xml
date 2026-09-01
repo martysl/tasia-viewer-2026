@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<floater
+ name="floater_klipy_picker"
+ title="KLIPY Picker"
+ width="560"
+ height="440"
+ min_width="440"
+ min_height="340">
+
+  <text
+   name="instructions_text"
+   font="SansSerifSmall"
+   follows="top|left|right"
+   layout="topleft"
+   left="10"
+   top="10"
+   width="540"
+   height="18">
+Search for GIFs, clips, stickers, or memes, then choose a result.
+  </text>
+
+  <combo_box
+   name="content_type_combo"
+   follows="top|right"
+   layout="topleft"
+   left_pad="0"
+   top_delta="0"
+   width="110"
+   height="24">
+    <combo_box.item
+     label="GIFs"
+     name="cb_gifs"
+     value="gifs" />
+    <combo_box.item
+     label="Clips"
+     name="cb_clips"
+     value="clips" />
+    <combo_box.item
+     label="Stickers"
+     name="cb_stickers"
+     value="stickers" />
+    <combo_box.item
+     label="Memes"
+     name="cb_memes"
+     value="memes" />
+  </combo_box>
+
+  <line_editor
+   name="search_edit"
+   follows="top|left|right"
+   layout="topleft"
+   left="10"
+   top="35"
+   width="345"
+   height="24"
+   max_length="128"
+   length="1" />
+
+  <button
+   name="search_btn"
+   label="Search"
+   follows="top|right"
+   layout="topleft"
+   left_pad="8"
+   top_delta="0"
+   width="80"
+   height="24" />
+
+  <button
+   name="trending_btn"
+   label="Trending"
+   follows="top|right"
+   layout="topleft"
+   left_pad="8"
+   top_delta="0"
+   width="90"
+   height="24" />
+
+  <scroll_list
+   name="results_list"
+   follows="top|left|right|bottom"
+   layout="topleft"
+   left="10"
+   top="70"
+   width="540"
+   height="295"
+   draw_heading="true"
+   multi_select="false">
+    <scroll_list.columns
+     name="title"
+     label="Title"
+     width="220" />
+    <scroll_list.columns
+     name="url"
+     label="URL"
+     width="300" />
+  </scroll_list>
+
+  <text
+   name="status_text"
+   font="SansSerifSmall"
+   follows="left|right|bottom"
+   layout="topleft"
+   left="10"
+   bottom="38"
+   width="350"
+   height="18">
+Powered by KLIPY
+  </text>
+
+  <text
+   name="powered_by_klipy_text"
+   font="SansSerifSmall"
+   follows="right|bottom"
+   layout="topleft"
+   right="-110"
+   bottom="38"
+   width="120"
+   height="18">
+Powered by KLIPY
+  </text>
+
+  <button
+   name="use_btn"
+   label="Use Selected"
+   follows="right|bottom"
+   layout="topleft"
+   right="-10"
+   bottom="10"
+   width="100"
+   height="24" />
+</floater>

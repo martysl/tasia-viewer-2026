@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<panel
+ border="true"
+ follows="all"
+ height="500"
+ layout="topleft"
+ left="1"
+ top="1"
+ width="540"
+ label="Tasia"
+ name="tasia">
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="20"
+     top="15"
+     name="tasia_chat_label"
+     font="SansSerifBold"
+     font-size="12"
+     width="500">
+     Chat Preview Features
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_chat_desc"
+     font="SansSerif"
+     width="480">
+     Show inline previews when hovering supported URLs in chat history.
+    </text>
+
+    <check_box
+     control_name="TasiaYouTubeChatPreview"
+     follows="left|top"
+     height="16"
+     label="Enable YouTube chat previews"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="TasiaYouTubeChatPreview"
+     width="400" />
+
+    <check_box
+     control_name="TasiaImageChatPreview"
+     follows="left|top"
+     height="16"
+     label="Enable image chat previews"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaImageChatPreview"
+     width="400" />
+
+    <check_box
+     control_name="TasiaAnimatedGifChatPreview"
+     follows="left|top"
+     height="16"
+     label="Enable animated GIF (GIPHY) chat previews"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaAnimatedGifChatPreview"
+     width="400" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="20"
+     top_pad="14"
+     name="tasia_dj_label"
+     font="SansSerifBold"
+     font-size="12"
+     width="500">
+     DJ Mode — Tip Thank-yous
+    </text>
+
+    <check_box
+     control_name="TasiaTipThankEnabled"
+     follows="left|top"
+     height="16"
+     label="Enable DJ mode automatic thank-yous for tips"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaTipThankEnabled"
+     width="400" />
+
+    <spinner
+     allow_text_entry="true"
+     control_name="TasiaTipThankChannel"
+     decimal_digits="0"
+     follows="left|top"
+     height="20"
+     increment="1"
+     label="Reply channel"
+     layout="topleft"
+     left="35"
+     max_val="2147483647"
+     min_val="-2147483648"
+     name="TasiaTipThankChannel"
+     top_pad="6"
+     width="160" />
+
+    <line_editor
+     control_name="TasiaTipThankMessage"
+     follows="left|top"
+     height="20"
+     label="Message ({NAME}, {AMOUNT})"
+     layout="topleft"
+     left_pad="10"
+     name="TasiaTipThankMessage"
+     top_delta="0"
+     width="305" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="4"
+     name="tasia_dj_desc"
+     font="SansSerif"
+     width="475">
+     Off by default. Channel 0 sends an ordinary, visible local-chat reply.
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="20"
+     top_pad="14"
+     name="tasia_anim_label"
+     font="SansSerifBold"
+     font-size="12"
+     width="500">
+     Animation Priority Overrides
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_anim_desc"
+     font="SansSerif"
+     width="480">
+     Force a priority (1-6) for specific animations so they win over lower-priority animations (e.g. AOs). Enter an inventory animation name or its UUID, then a priority and press Add.
+    </text>
+
+    <check_box
+     control_name="TasiaAnimPriorityEnabled"
+     follows="left|top"
+     height="16"
+     label="Enable animation priority overrides"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="TasiaAnimPriorityEnabled"
+     width="400" />
+
+    <line_editor
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="tasia_anim_uuid"
+     tool_tip="Inventory animation name or UUID"
+     width="330" />
+
+    <spinner
+     allow_text_entry="true"
+     decimal_digits="0"
+     follows="left|top"
+     height="20"
+     increment="1"
+     initial_val="4"
+     layout="topleft"
+     left_pad="6"
+     max_val="6"
+     min_val="1"
+     name="tasia_anim_priority"
+     top_pad="10"
+     width="50" />
+
+    <button
+     follows="left|top"
+     height="20"
+     label="Add"
+     layout="topleft"
+     left_pad="6"
+     name="tasia_anim_add"
+     top_pad="10"
+     width="60"
+     function="Pref.TasiaAnimAdd" />
+
+    <scroll_list
+     follows="all"
+     height="100"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="tasia_anim_list"
+     width="475">
+      <column
+       dynamicwidth="true"
+       label="Animation UUID"
+       name="uuid" />
+      <column
+       dynamicwidth="true"
+       label="Priority"
+       name="priority" />
+    </scroll_list>
+
+    <button
+     follows="left|top"
+     height="20"
+     label="Remove Selected"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_anim_remove"
+     width="130"
+     function="Pref.TasiaAnimRemove" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_anim_status"
+     font="SansSerif"
+     width="475" />
+
+    <string name="invalid_uuid">
+     Invalid animation name or UUID. Enter a full UUID or an exact inventory animation name.
+    </string>
+
+    <check_box
+     control_name="TasiaKlipyEnabled"
+     follows="left|top"
+     height="16"
+     label="Enable KLIPY GIF &amp; clip picker"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaKlipyEnabled"
+     width="400" />
+
+</panel>

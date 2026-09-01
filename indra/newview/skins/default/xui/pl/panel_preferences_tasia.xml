@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<panel
+ border="true"
+ follows="all"
+ height="500"
+ layout="topleft"
+ left="1"
+ top="1"
+ width="540"
+ label="Tasia"
+ name="tasia">
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="20"
+     top="15"
+     name="tasia_chat_label"
+     font="SansSerifBold"
+     font-size="12"
+     width="500">
+     Funkcje podglądu na czacie
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_chat_desc"
+     font="SansSerif"
+     width="480">
+     Pokazuj podgląd po najechaniu na obsługiwane adresy URL w historii czatu.
+    </text>
+
+    <check_box
+     control_name="TasiaYouTubeChatPreview"
+     follows="left|top"
+     height="16"
+     label="Włącz podgląd YouTube na czacie"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="TasiaYouTubeChatPreview"
+     width="400" />
+
+    <check_box
+     control_name="TasiaImageChatPreview"
+     follows="left|top"
+     height="16"
+     label="Włącz podgląd obrazków na czacie"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaImageChatPreview"
+     width="400" />
+
+    <check_box
+     control_name="TasiaAnimatedGifChatPreview"
+     follows="left|top"
+     height="16"
+     label="Włącz podgląd animowanych GIF (GIPHY) na czacie"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaAnimatedGifChatPreview"
+     width="400" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="20"
+     top_pad="14"
+     name="tasia_dj_label"
+     font="SansSerifBold"
+     font-size="12"
+     width="500">
+     Tryb DJ — podziękowania za tipy
+    </text>
+
+    <check_box
+     control_name="TasiaTipThankEnabled"
+     follows="left|top"
+     height="16"
+     label="Włącz automatyczne podziękowania za tipy"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaTipThankEnabled"
+     width="400" />
+
+    <spinner
+     allow_text_entry="true"
+     control_name="TasiaTipThankChannel"
+     decimal_digits="0"
+     follows="left|top"
+     height="20"
+     increment="1"
+     label="Kanał odpowiedzi"
+     layout="topleft"
+     left="35"
+     max_val="2147483647"
+     min_val="-2147483648"
+     name="TasiaTipThankChannel"
+     top_pad="6"
+     width="160" />
+
+    <line_editor
+     control_name="TasiaTipThankMessage"
+     follows="left|top"
+     height="20"
+     label="Wiadomość ({NAME}, {AMOUNT})"
+     layout="topleft"
+     left_pad="10"
+     name="TasiaTipThankMessage"
+     top_delta="0"
+     width="305" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="4"
+     name="tasia_dj_desc"
+     font="SansSerif"
+     width="475">
+     Domyślnie wyłączony. Kanał 0 wysyła widoczną wiadomość na lokalnym czacie.
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="20"
+     top_pad="14"
+     name="tasia_anim_label"
+     font="SansSerifBold"
+     font-size="12"
+     width="500">
+     Nadpisywanie priorytetu animacji
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_anim_desc"
+     font="SansSerif"
+     width="480">
+     Wymuś priorytet (1-6) dla wybranych animacji, aby wygrywały z animacjami o niższym priorytecie (np. AO). Wpisz nazwę animacji z ekwipunku lub jej UUID, potem priorytet i naciśnij Dodaj.
+    </text>
+
+    <check_box
+     control_name="TasiaAnimPriorityEnabled"
+     follows="left|top"
+     height="16"
+     label="Włącz nadpisywanie priorytetu animacji"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="TasiaAnimPriorityEnabled"
+     width="400" />
+
+    <line_editor
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="tasia_anim_uuid"
+     width="330" />
+
+    <spinner
+     allow_text_entry="true"
+     decimal_digits="0"
+     follows="left|top"
+     height="20"
+     increment="1"
+     initial_val="4"
+     layout="topleft"
+     left_pad="6"
+     max_val="6"
+     min_val="1"
+     name="tasia_anim_priority"
+     top_pad="10"
+     width="50" />
+
+    <button
+     follows="left|top"
+     height="20"
+     label="Dodaj"
+     layout="topleft"
+     left_pad="6"
+     name="tasia_anim_add"
+     top_pad="10"
+     width="60"
+     function="Pref.TasiaAnimAdd" />
+
+    <scroll_list
+     follows="all"
+     height="100"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="tasia_anim_list"
+     width="475">
+      <column
+       dynamicwidth="true"
+       label="UUID animacji"
+       name="uuid" />
+      <column
+       dynamicwidth="true"
+       label="Priorytet"
+       name="priority" />
+    </scroll_list>
+
+    <button
+     follows="left|top"
+     height="20"
+     label="Usuń zaznaczoną"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_anim_remove"
+     width="130"
+     function="Pref.TasiaAnimRemove" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_anim_status"
+     font="SansSerif"
+     width="475" />
+
+    <string name="invalid_uuid">
+     Nieprawidłowy UUID. Wpisz pełny UUID animacji.
+    </string>
+
+</panel>

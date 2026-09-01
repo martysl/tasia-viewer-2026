@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater
+ can_close="true"
+ can_minimize="false"
+ can_resize="false"
+ height="180"
+ layout="topleft"
+ name="upload_clipboard"
+ title="Upload from Clipboard"
+ width="360">
+    <text
+     follows="left|top|right"
+     height="48"
+     layout="topleft"
+     left="18"
+     name="instructions"
+     top="22"
+     width="324"
+     word_wrap="true">
+Paste a PNG/JPEG image from your system clipboard, then review it in the normal upload preview.
+    </text>
+    <text
+     follows="left|top|right"
+     height="38"
+     layout="topleft"
+     left="18"
+     name="drop_hint"
+     top="76"
+     width="324"
+     word_wrap="true">
+Tip: press Ctrl+V here, or click Paste. Linux requires wl-clipboard or xclip.
+    </text>
+    <button
+     follows="left|bottom"
+     height="24"
+     label="Paste"
+     layout="topleft"
+     left="78"
+     name="paste_btn"
+     top="122"
+     width="96" />
+    <button
+     follows="right|bottom"
+     height="24"
+     label="Close"
+     layout="topleft"
+     left="190"
+     name="close_btn"
+     top="122"
+     width="96" />
+    <text
+     follows="left|right|bottom"
+     height="24"
+     layout="topleft"
+     left="18"
+     name="status_text"
+     top="152"
+     width="324"
+     word_wrap="true">
+Ready.
+    </text>
+</floater>
