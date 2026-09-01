@@ -19,6 +19,7 @@ if (WIN32)
 
     # Download and extract Microsoft's signed binaries
     if (NOT EXISTS "${_msquic_marker}")
+        file(MAKE_DIRECTORY "${_msquic_install_dir}")
         message(STATUS "MsQuic: Downloading pre-built signed DLL from Microsoft (v${MSQUIC_GIT_TAG})...")
         file(DOWNLOAD "${_msquic_archive_url}" "${_msquic_install_dir}/msquic.zip"
              STATUS _dl_status)
@@ -103,9 +104,37 @@ else ()
     set(CMAKE_CXX_FLAGS_RELEASE        "${_msquic_saved_CXX_FLAGS_RELEASE}")
     set(BUILD_SHARED_LIBS              "${_msquic_saved_BUILD_SHARED_LIBS}")
 
-    find_program(MSQUIC_NM_EXE nm)
+    # MsQuic bundles quictls/OpenSSL. Localize those symbols before static
+    # linking so they cannot collide with the viewer's libcrypto/libssl.
+    # macOS has no GNU objcopy; Homebrew LLVM provides compatible tools.
+    if (APPLE)
+        find_program(MSQUIC_NM_EXE NAMES llvm-nm)
+        if (NOT MSQUIC_NM_EXE)
+            execute_process(COMMAND xcrun --find llvm-nm
+                            OUTPUT_VARIABLE MSQUIC_NM_EXE
+                            OUTPUT_STRIP_TRAILING_WHITESPACE
+                            ERROR_QUIET)
+        endif()
+    else ()
+        find_program(MSQUIC_NM_EXE nm)
+    endif ()
     if (NOT MSQUIC_NM_EXE)
         message(FATAL_ERROR "MsQuic: 'nm' is required to localize bundled OpenSSL symbols")
+    endif()
+
+    if (APPLE)
+        find_program(MSQUIC_OBJCOPY_EXE NAMES llvm-objcopy)
+        if (NOT MSQUIC_OBJCOPY_EXE)
+            execute_process(COMMAND xcrun --find llvm-objcopy
+                            OUTPUT_VARIABLE MSQUIC_OBJCOPY_EXE
+                            OUTPUT_STRIP_TRAILING_WHITESPACE
+                            ERROR_QUIET)
+        endif()
+    else ()
+        find_program(MSQUIC_OBJCOPY_EXE NAMES objcopy)
+    endif ()
+    if (NOT MSQUIC_OBJCOPY_EXE)
+        message(FATAL_ERROR "MsQuic: an objcopy supporting --redefine-syms is required (llvm-objcopy on macOS, objcopy elsewhere)")
     endif()
 
     set(_msquic_marker  "${msquic_BINARY_DIR}/msquic_localized.stamp")
@@ -117,7 +146,7 @@ else ()
                 -DMSQUIC_AR_PATH=${_msquic_archive}
                 -DAR=${CMAKE_AR}
                 -DNM=${MSQUIC_NM_EXE}
-                -DOBJCOPY=${CMAKE_OBJCOPY}
+                -DOBJCOPY=${MSQUIC_OBJCOPY_EXE}
                 -DMARKER=${_msquic_marker}
                 -P "${CMAKE_CURRENT_LIST_DIR}/MsQuicLocalize.cmake"
         DEPENDS msquic_lib "${CMAKE_CURRENT_LIST_DIR}/MsQuicLocalize.cmake"

@@ -42,7 +42,7 @@ public:
         mSessionId(LLUUID()) {};
     ~LLPanelChatControlPanel();
 
-    virtual BOOL postBuild();
+    virtual bool postBuild();
 
     virtual void setSessionId(const LLUUID& session_id);
     const LLUUID& getSessionId() { return mSessionId; }
@@ -60,7 +60,7 @@ public:
     LLPanelGroupControlPanel(const LLUUID& session_id);
     ~LLPanelGroupControlPanel();
 
-    BOOL postBuild();
+    bool postBuild();
 
     void setSessionId(const LLUUID& session_id);
     /*virtual*/ void draw();
@@ -79,7 +79,7 @@ class LLPanelAdHocControlPanel : public LLPanelGroupControlPanel
 public:
     LLPanelAdHocControlPanel(const LLUUID& session_id);
 
-    BOOL postBuild();
+    bool postBuild();
 
 };
 

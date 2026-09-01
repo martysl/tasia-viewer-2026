@@ -1,0 +1,304 @@
+name: Build Tasia Viewer - macOS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish GitHub pre-release"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: write
+
+env:
+  AUTOBUILD_ADDRSIZE: 64
+  AUTOBUILD_BUILD_ID: ${{ github.run_id }}
+  AUTOBUILD_INSTALLABLE_CACHE: ${{ github.workspace }}/.autobuild-installables
+  AUTOBUILD_VARIABLES_FILE: ${{ github.workspace }}/.build-variables/variables
+  AUTOBUILD_VCS_INFO: "true"
+  LL_SKIP_REQUIRE_SYSROOT: 1
+  XZ_DEFAULTS: -T0
+
+jobs:
+  build:
+    name: Build Tasia Viewer - macOS ${{ matrix.arch }}
+    timeout-minutes: 240
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-15-intel
+            cmake_arch_flag: ""
+
+    runs-on: ${{ matrix.runner }}
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.arch }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout viewer source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Restore autobuild installables cache
+        id: cache-autobuild
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
+          key: autobuild-macos-${{ matrix.arch }}-${{ hashFiles('autobuild.xml') }}
+
+      - name: Install autobuild and Python deps
+        run: pip install -r requirements.txt
+
+      - name: Checkout build variables
+        uses: actions/checkout@v4
+        with:
+          repository: FirestormViewer/fs-build-variables
+          path: .build-variables
+
+      - name: Remove KDU (proprietary, cannot use)
+        shell: bash
+        run: |
+          autobuild installables remove kdu || true
+          echo "KDU installable removed."
+
+      - name: Download private FMOD autobuild package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.FMOD_DEPS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::FMOD_DEPS_TOKEN secret is missing."
+            exit 1
+          fi
+
+          mkdir -p private-deps
+
+          FMOD_PLATFORM="darwin64"
+          FMOD_PATTERN="*darwin64*.tar.bz2"
+
+          echo "FMOD_PLATFORM=$FMOD_PLATFORM" >> "$GITHUB_ENV"
+
+          echo "::group::Downloading FMOD package"
+          gh release download fmod-20307 \
+            --repo martysl/tasia-private-deps \
+            --pattern "$FMOD_PATTERN" \
+            --dir private-deps
+          echo "::endgroup::"
+
+          FMOD_PACKAGE="$(find private-deps -type f -name '*.tar.bz2' | head -n 1)"
+
+          if [ -z "$FMOD_PACKAGE" ]; then
+            echo "::error::FMOD macOS autobuild package was not downloaded."
+            exit 1
+          fi
+
+          echo "FMOD_PACKAGE=$FMOD_PACKAGE" >> "$GITHUB_ENV"
+
+          FMOD_HASH=$(python3 -c "import hashlib,sys; print(hashlib.md5(open(sys.argv[1],'rb').read()).hexdigest())" "$FMOD_PACKAGE")
+          FMOD_FILE_URL=$(python3 -c "import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())" "$FMOD_PACKAGE")
+
+          echo "FMOD_HASH=$FMOD_HASH" >> "$GITHUB_ENV"
+          echo "FMOD_FILE_URL=$FMOD_FILE_URL" >> "$GITHUB_ENV"
+
+      - name: Point autobuild to private FMOD package
+        shell: bash
+        run: |
+          set -euo pipefail
+          autobuild installables edit fmodstudio \
+            platform="$FMOD_PLATFORM" \
+            hash="$FMOD_HASH" \
+            url="$FMOD_FILE_URL"
+
+      - name: Load autobuild environment
+        shell: bash
+        run: |
+          autobuild source_environment > .source_env
+          . .source_env
+          echo "LL_BUILD=$LL_BUILD" >> "$GITHUB_ENV"
+          echo "LL_BUILD_RELEASE=$LL_BUILD_RELEASE" >> "$GITHUB_ENV"
+
+      - name: Install macOS build prerequisites
+        run: |
+          brew install bash gnu-sed ninja llvm
+          # llvm-objcopy is NOT bundled with Xcode/CLT; it is required to
+          # localize MsQuic's bundled quictls/OpenSSL symbols (--redefine-syms)
+          # so they cannot collide with the viewer's libcrypto/libssl at link time.
+          echo "LLVM_BIN=$(brew --prefix llvm)/bin" >> "$GITHUB_ENV"
+
+      - name: Set Tasia build metadata
+        shell: bash
+        run: |
+          echo "revision=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "VIEWER_VERSION_GITHASH=${{ github.sha }}" >> "$GITHUB_ENV"
+          TASIA_SHORT_SHA="${{ github.sha }}"
+          echo "TASIA_SHORT_SHA=${TASIA_SHORT_SHA::7}" >> "$GITHUB_ENV"
+          echo "TASIA_DISPLAY_VERSION=8.0.1.${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "TASIA_BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Configure macOS with FMOD - ${{ matrix.arch }}
+        shell: bash
+        env:
+          TASIA_GIPHY_API_KEY: ${{ secrets.TASIA_GIPHY_API_KEY }}
+          TASIA_KLIPY_API_KEY: ${{ secrets.TASIA_KLIPY_API_KEY }}
+        run: |
+          set -euo pipefail
+          CMAKE_ARGS=()
+          CMAKE_ARGS+=("-DGCC_DISABLE_FATAL_WARNINGS=ON")
+          CMAKE_ARGS+=("--fmodstudio")
+          CMAKE_ARGS+=("--package")
+          if [ -n "${{ matrix.cmake_arch_flag }}" ]; then
+            CMAKE_ARGS+=("${{ matrix.cmake_arch_flag }}")
+          fi
+
+          export PATH="$LLVM_BIN:$PATH"
+          autobuild configure \
+            -c ReleaseFS_open \
+            -A ${{ env.AUTOBUILD_ADDRSIZE }} \
+            -- \
+            "${CMAKE_ARGS[@]}"
+
+      - name: Build macOS with FMOD - ${{ matrix.arch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$LLVM_BIN:$PATH"
+          autobuild build \
+            -c ReleaseFS_open \
+            -A ${{ env.AUTOBUILD_ADDRSIZE }} \
+            --no-configure \
+            -- \
+            --fmodstudio \
+            --package
+
+      - name: List build output files
+        shell: bash
+        run: |
+          echo "=== Build output listing ==="
+          find build-darwin-x86_64/newview -type f 2>/dev/null | head -50 || echo "(no files found)"
+          echo "=== Also checking build dir ==="
+          find build-darwin-x86_64 -maxdepth 4 -name "*.dmg" -o -name "*.bz2" -o -name "*.tar.*" 2>/dev/null | head -20 || echo "(no packages found)"
+
+      - name: Verify macOS DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE="$(find build-darwin-x86_64/newview -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          if [ -z "$PACKAGE" ]; then
+            echo "::error::Build completed without producing a macOS DMG."
+            exit 1
+          fi
+          hdiutil verify "$PACKAGE"
+          echo "Verified macOS DMG: $PACKAGE"
+
+      - name: Upload artifact - macOS ${{ matrix.arch }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tasia-Viewer-macOS-${{ matrix.arch }}-FMOD
+          if-no-files-found: error
+          path: build-darwin-x86_64/newview/*.dmg
+
+      - name: Publish GitHub pre-release - macOS ${{ matrix.arch }}
+        if: inputs.publish_release == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          ARCH_LABEL="${{ matrix.arch == 'x86_64' && 'Intel' || 'Apple Silicon' }}"
+          TAG="v8.0.1-${GITHUB_RUN_NUMBER}"
+          TITLE="Tasia Viewer 8.0.1.${GITHUB_RUN_NUMBER} macOS ${ARCH_LABEL} Beta"
+
+          PACKAGE="$(find build-darwin-x86_64/newview -type f -name '*.dmg' -print -quit)"
+
+          if [ -z "$PACKAGE" ]; then
+            echo "ERROR: No macOS viewer package found."
+            exit 1
+          fi
+
+          NOTES="$(mktemp)"
+          printf '%s\n' \
+            "Tasia Viewer macOS ${ARCH_LABEL} beta build." \
+            "" \
+            "Version: 8.0.1.${GITHUB_RUN_NUMBER}" \
+            "Architecture: ${ARCH_LABEL} (${{ matrix.arch }})" \
+            "Commit: ${GITHUB_SHA::7}" \
+            "Channel: Tasia-Releasex64" \
+            "FMOD: enabled" \
+            "KDU: removed" \
+            "" \
+            "This is a beta/pre-release build." \
+            "Mom must test before stable release." \
+            > "$NOTES"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$PACKAGE" --clobber
+          else
+            gh release create "$TAG" "$PACKAGE" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes-file "$NOTES" \
+              --prerelease
+          fi
+
+      - name: Post to Discord
+        if: inputs.publish_release == 'true' && matrix.arch == 'x86_64'
+        shell: bash
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          python3 - "${{ github.repository }}" "${{ github.sha }}" "${{ github.run_number }}" <<'PYEOF'
+          import json, os, sys, urllib.request
+
+          repo = sys.argv[1]
+          sha = sys.argv[2][:7]
+          run = sys.argv[3]
+          version = f"8.0.1.{run}"
+          tag = f"v8.0.1-{run}"
+          release_url = f"https://github.com/{repo}/releases/tag/{tag}"
+
+          payload = {
+              "embeds": [{
+                  "title": f"Tasia Viewer {version} — macOS Beta",
+                  "description": "macOS build ready!",
+                  "url": release_url,
+                  "color": 15277667,
+                  "fields": [
+                      {"name": "Version", "value": version, "inline": True},
+                      {"name": "Platform", "value": "macOS Intel (x86_64)", "inline": True},
+                      {"name": "Commit", "value": sha, "inline": True},
+                  ],
+                  "footer": {"text": "💚 Tasia Release"}
+              }]
+          }
+
+          req = urllib.request.Request(
+              os.environ["DISCORD_WEBHOOK_URL"],
+              data=json.dumps(payload).encode(),
+              headers={"Content-Type": "application/json"},
+              method="POST"
+          )
+          urllib.request.urlopen(req)
+          PYEOF
