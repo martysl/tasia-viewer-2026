@@ -121,6 +121,13 @@ jobs:
           set -euo pipefail
           autobuild source_environment > .source_env
           . .source_env
+          # ReleaseFS_open has no dedicated LL_BUILD mapping in some versions
+          # of fs-build-variables. Fall back to the normal Release flags.
+          LL_BUILD="${LL_BUILD:-${LL_BUILD_RELEASE:-}}"
+          if [ -z "$LL_BUILD" ]; then
+            echo "::error::Both LL_BUILD and LL_BUILD_RELEASE are empty."
+            exit 1
+          fi
           # Release artifacts do not need /Zi debug information. It makes the
           # PCH compile exceed the hosted Windows runner's time budget.
           LL_BUILD="${LL_BUILD//\/Zi/}"
@@ -145,7 +152,8 @@ jobs:
       - name: Set Tasia build metadata
         shell: bash
         run: |
-          echo "revision=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          # Do not export lowercase 'revision': MSBuild property lookup is
+          # case-insensitive and can collide with the existing REVISION key.
           echo "VIEWER_VERSION_GITHASH=${GITHUB_SHA}" >> "$GITHUB_ENV"
           TASIA_SHORT_SHA="${GITHUB_SHA}"
           echo "TASIA_SHORT_SHA=${TASIA_SHORT_SHA::7}" >> "$GITHUB_ENV"
