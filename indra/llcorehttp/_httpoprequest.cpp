@@ -276,9 +276,14 @@ void HttpOpRequest::visitNotifier(HttpRequest * request)
 
         HttpResponse::TransferStats::ptr_t stats = std::make_shared<HttpResponse::TransferStats>();
 
-        curl_easy_getinfo(mCurlHandle, CURLINFO_SIZE_DOWNLOAD, &stats->mSizeDownload);
+        // Use the _T getinfo variants (curl >= 7.55) to avoid deprecation
+        // warnings from newer system curl (used on Linux ARM64).
+        curl_off_t size_download = 0, speed_download = 0;
+        curl_easy_getinfo(mCurlHandle, CURLINFO_SIZE_DOWNLOAD_T, &size_download);
         curl_easy_getinfo(mCurlHandle, CURLINFO_TOTAL_TIME, &stats->mTotalTime);
-        curl_easy_getinfo(mCurlHandle, CURLINFO_SPEED_DOWNLOAD, &stats->mSpeedDownload);
+        curl_easy_getinfo(mCurlHandle, CURLINFO_SPEED_DOWNLOAD_T, &speed_download);
+        stats->mSizeDownload = static_cast<F64>(size_download);
+        stats->mSpeedDownload = static_cast<F64>(speed_download);
 
         response->setTransferStats(stats);
 

@@ -245,6 +245,17 @@ if (LINUX OR DARWIN)
     add_compile_options(-Werror)
   endif ()
 
+  # Linux ARM64 links against newer distro system libraries that deprecate a
+  # number of APIs the (older) viewer source uses. Suppress -Werror there so
+  # deprecation/portability warnings do not abort the build. x86_64, macOS and
+  # Windows keep their existing -Werror behavior.
+  if (LINUX AND ARCH STREQUAL "aarch64")
+    set(GCC_DISABLE_FATAL_WARNINGS ON)
+    if (NOT CLANG_DISABLE_FATAL_WARNINGS)
+      add_compile_options(-Wno-error=deprecated-declarations)
+    endif ()
+  endif ()
+
   add_compile_options(${GCC_WARNINGS})
   if (NOT (LINUX AND ARCH STREQUAL "aarch64"))
     add_compile_options(-m${ADDRESS_SIZE})
