@@ -242,10 +242,8 @@ elseif(LINUX)
         #libdb-5.1.so
         libopenal.so
         #libopenjp2.so
-        libuuid.so.16
-        libuuid.so.16.0.22
-        #libfontconfig.so.1.10.1 # <FS:PC> fontconfig and freetype should be taken from the
-        #libfontconfig.so.1      #         user's system, and not be packaged with the viewer
+        #libuuid.so.16   <FS:TS> ARM64 uses system libuuid.so.1
+        #libuuid.so.16.0.22
         libaprutil-1.so.0
         libapr-1.so.0
        )
@@ -255,7 +253,7 @@ elseif(LINUX)
        )
     endif (NOT USESYSTEMLIBS)
 
-     if( USE_AUTOBUILD_3P )
+     if( USE_AUTOBUILD_3P AND NOT ARCH STREQUAL "aarch64" )
          list( APPEND release_files
 
 
