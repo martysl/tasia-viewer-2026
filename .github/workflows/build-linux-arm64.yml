@@ -113,11 +113,11 @@ jobs:
       - name: Load autobuild environment
         shell: bash
         run: |
-          set -euo pipefail
+          set -eo pipefail
           autobuild source_environment > .source_env
           . .source_env
-          echo "LL_BUILD=$LL_BUILD" >> "$GITHUB_ENV"
-          echo "LL_BUILD_RELEASE=$LL_BUILD_RELEASE" >> "$GITHUB_ENV"
+          echo "LL_BUILD=${LL_BUILD:-}" >> "$GITHUB_ENV"
+          echo "LL_BUILD_RELEASE=${LL_BUILD_RELEASE:-}" >> "$GITHUB_ENV"
 
       - name: Set Tasia build metadata
         shell: bash
