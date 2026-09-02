@@ -83,7 +83,7 @@ install -m 0755 "${ffmpeg_bin}" "${packages_dir}/ffmpeg/tasia-ffmpeg"
 
 # Build colladadom 2.3 from source (no ARM autobuild pkg exists).
 # The distro libcollada-dom is v2.5 and has an incompatible API.
-# 3p-colladadom needs: COLLADA_DOM_INCLUDE_INSTALL_DIR + OPT_COLLADA14
+# Needs: libminizip-dev (for unzip.h), libxml2-dev, libboost-dev, zlib
 git clone --depth 1 --branch v2.3-r10 \
     https://github.com/secondlife/3p-colladadom.git "${work_dir}/colladadom"
 cmake -S "${work_dir}/colladadom" -B "${work_dir}/colladadom-build" -G Ninja \
@@ -99,23 +99,10 @@ find "${work_dir}/colladadom-stage" "${work_dir}/colladadom-build/src/1.4" \
     -name 'libcollada14dom*.so*' -o -name 'libcollada14dom*.a' 2>/dev/null | \
     xargs -r -I{} cp -a {} "${packages_dir}/lib/release/"
 
-# Build minizip-ng from source (architecture-neutral).
-git clone --depth 1 --branch v4.0.7-r3 \
-    https://github.com/secondlife/3p-minizip-ng.git "${work_dir}/minizip-ng"
-cmake -S "${work_dir}/minizip-ng" -B "${work_dir}/minizip-ng-build" -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX="${work_dir}/minizip-ng-stage"
-cmake --build "${work_dir}/minizip-ng-build" --parallel "$(nproc)"
-cmake --install "${work_dir}/minizip-ng-build"
-cp -a "${work_dir}/minizip-ng-stage/include/minizip/." \
-    "${packages_dir}/include/minizip/" 2>/dev/null || \
-  cp -a "${work_dir}/minizip-ng-stage/include/." "${packages_dir}/include/"
-find "${work_dir}/minizip-ng-stage/lib" -name 'libminizip*.a' -o -name 'libminizip*.so*' | \
-    xargs -r -I{} cp -a {} "${packages_dir}/lib/release/"
+# minizip: colladadom uses the old unzip.h/zip.h API (from zlib contrib).
+# System libminizip-dev provides both the headers and libminizip.so (old ABI).
+# LLPrimitive.cmake ARM64 path links against libminizip (old API), not minizip-ng.
 
-# PCRE is NOT built here; the distro libpcre3-dev provides pcrecpp/pcre and
-# is installed by the workflow.
-:
 
 # Stage the non-core distribution libraries linked by the ARM build. Keeping
 # these in packages/lib/release lets the existing manifest produce a portable
