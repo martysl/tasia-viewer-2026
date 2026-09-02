@@ -22,6 +22,7 @@ env:
   AUTOBUILD_VARIABLES_FILE: ${{ github.workspace }}/.build-variables/variables
   AUTOBUILD_VCS_INFO: "true"
   LL_SKIP_REQUIRE_SYSROOT: 1
+  MACOS_BUILD_DIR: build-darwin-universal
   XZ_DEFAULTS: -T0
 
 jobs:
@@ -192,15 +193,15 @@ jobs:
         shell: bash
         run: |
           echo "=== Build output listing ==="
-          find build-darwin-x86_64/newview -type f 2>/dev/null | head -50 || echo "(no files found)"
+          find "${MACOS_BUILD_DIR}/newview" -type f 2>/dev/null | head -50 || echo "(no files found)"
           echo "=== Also checking build dir ==="
-          find build-darwin-x86_64 -maxdepth 4 -name "*.dmg" -o -name "*.bz2" -o -name "*.tar.*" 2>/dev/null | head -20 || echo "(no packages found)"
+          find "$MACOS_BUILD_DIR" -maxdepth 4 \( -name "*.dmg" -o -name "*.bz2" -o -name "*.tar.*" \) 2>/dev/null | head -20 || echo "(no packages found)"
 
       - name: Verify macOS DMG
         shell: bash
         run: |
           set -euo pipefail
-          PACKAGE="$(find build-darwin-x86_64/newview -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+          PACKAGE="$(find "${MACOS_BUILD_DIR}/newview" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
           if [ -z "$PACKAGE" ]; then
             echo "::error::Build completed without producing a macOS DMG."
             exit 1
@@ -213,7 +214,7 @@ jobs:
         with:
           name: Tasia-Viewer-macOS-${{ matrix.arch }}-FMOD
           if-no-files-found: error
-          path: build-darwin-x86_64/newview/*.dmg
+          path: ${{ env.MACOS_BUILD_DIR }}/newview/*.dmg
 
       - name: Publish GitHub pre-release - macOS ${{ matrix.arch }}
         if: inputs.publish_release == 'true'
@@ -227,7 +228,7 @@ jobs:
           TAG="v8.0.1-${GITHUB_RUN_NUMBER}"
           TITLE="Tasia Viewer 8.0.1.${GITHUB_RUN_NUMBER} macOS ${ARCH_LABEL} Beta"
 
-          PACKAGE="$(find build-darwin-x86_64/newview -type f -name '*.dmg' -print -quit)"
+          PACKAGE="$(find "${MACOS_BUILD_DIR}/newview" -type f -name '*.dmg' -print -quit)"
 
           if [ -z "$PACKAGE" ]; then
             echo "ERROR: No macOS viewer package found."

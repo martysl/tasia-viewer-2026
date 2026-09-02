@@ -1478,7 +1478,9 @@ class Darwin_x86_64_Manifest(ViewerManifest):
         # copy over the build result (this is a no-op if run within the xcode
         # script)
         #self.path(os.path.join(self.args['configuration'], self.channel() + ".app"), dst="")
-        self.path(os.path.join(self.args['configuration'], CHANNEL_VENDOR_BASE + ".app"), dst="")
+        # Tasia's macOS CMake target uses OUTPUT_NAME "Tasia".  The inherited
+        # Firestorm vendor constant does not describe the generated bundle.
+        self.path(os.path.join(self.args['configuration'], "Tasia.app"), dst="")
 
         pkgdir = os.path.join(self.args['build'], os.pardir, 'packages')
         relpkgdir = os.path.join(pkgdir, "lib", "release")

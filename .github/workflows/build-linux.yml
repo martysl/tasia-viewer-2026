@@ -156,6 +156,33 @@ jobs:
           echo "TASIA_DISPLAY_VERSION=8.0.1.${{ github.run_number }}" >> "$GITHUB_ENV"
           echo "TASIA_BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
 
+      - name: Download static FFmpeg converter
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FFMPEG_URL="https://johnvansickle.com/ffmpeg/releases/ffmpeg-7.0.2-amd64-static.tar.xz"
+          FFMPEG_SHA256="abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67"
+          DEST_DIR="${{ github.workspace }}/build-linux-x86_64/packages/ffmpeg"
+          FFMPEG_EXTRACT="${RUNNER_TEMP}/tasia-ffmpeg-static"
+          FFMPEG_ARCHIVE="${RUNNER_TEMP}/tasia-ffmpeg.tar.xz"
+
+          mkdir -p "$DEST_DIR" "$FFMPEG_EXTRACT"
+          curl --fail --silent --show-error --location \
+            --output "$FFMPEG_ARCHIVE" "$FFMPEG_URL"
+          echo "$FFMPEG_SHA256  $FFMPEG_ARCHIVE" | sha256sum --check --strict
+          tar -xJf "$FFMPEG_ARCHIVE" -C "$FFMPEG_EXTRACT"
+
+          FFMPEG_BIN="$(find "$FFMPEG_EXTRACT" -maxdepth 2 -type f -name ffmpeg -print -quit)"
+          if [ -z "$FFMPEG_BIN" ]; then
+            echo "::error::FFmpeg binary not found after extraction."
+            exit 1
+          fi
+
+          install -m 0755 "$FFMPEG_BIN" "$DEST_DIR/tasia-ffmpeg"
+          "$DEST_DIR/tasia-ffmpeg" -version
+          test -x "$DEST_DIR/tasia-ffmpeg"
+
       - name: Configure with FMOD
         shell: bash
         env:
