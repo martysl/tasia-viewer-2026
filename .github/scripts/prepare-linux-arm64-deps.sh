@@ -149,6 +149,18 @@ cat > "${packages_dir}/include/jpeglib/jerror.h" <<'JERRH'
 #endif
 JERRH
 
+# libmeshoptimizer-dev installs meshoptimizer.h flat in /usr/include.
+# Some viewer sources include "meshoptimizer/meshoptimizer.h" (subdirectory).
+# Provide a compat shim that delegates to the system header.
+mkdir -p "${packages_dir}/include/meshoptimizer"
+cat > "${packages_dir}/include/meshoptimizer/meshoptimizer.h" <<'MESHOPTSHIM'
+#ifndef MESHOPTIMIZER_COMPAT_SHIM
+#define MESHOPTIMIZER_COMPAT_SHIM
+/* Delegate to system meshoptimizer.h (libmeshoptimizer-dev). */
+#include_next <meshoptimizer.h>
+#endif
+MESHOPTSHIM
+
 # Stage the non-core distribution libraries linked by the ARM build. Keeping
 # these in packages/lib/release lets the existing manifest produce a portable
 # tree without changing the x86_64 dependency policy.
@@ -166,7 +178,7 @@ runtime_patterns=(
     libnghttp2.so* libz.so* libexpat.so* libfreetype.so* libpng16.so*
     libjpeg.so* libhunspell-1.7.so* libuuid.so* libSDL2.so* libalut.so*
     libopenal.so* libopenjp2.so* libvorbis.so* libvorbisenc.so* libogg.so*
-    libxml2.so* libxxhash.so*
+    libxml2.so* libxxhash.so* libmeshoptimizer.so*
 )
 shopt -s nullglob
 for pattern in "${runtime_patterns[@]}"; do
