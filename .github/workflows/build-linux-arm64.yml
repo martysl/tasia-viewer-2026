@@ -68,7 +68,8 @@ jobs:
             libopenjp2-7-dev libpng-dev libsdl1.2-dev libsdl2-dev \
             libvlc-dev libvorbis-dev libxml2-dev libxxhash-dev libglm-dev \
             libpipewire-0.3-dev libunwind-dev libjemalloc-dev libjsoncpp-dev \
-            libpcre3-dev zlib1g-dev
+            libpcre3-dev zlib1g-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base
           sudo apt-get clean
 
       - name: Install autobuild and Python dependencies
