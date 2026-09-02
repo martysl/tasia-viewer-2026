@@ -81,21 +81,22 @@ ffmpeg_bin="$(find "${FFMPEG_EXTRACT}" -maxdepth 2 -type f -name ffmpeg -print -
 test -n "${ffmpeg_bin}"
 install -m 0755 "${ffmpeg_bin}" "${packages_dir}/ffmpeg/tasia-ffmpeg"
 
-# Build colladadom 2.3 from source (architecture-neutral; no ARM autobuild pkg).
-# The distro libcollada-dom is v2.5 and has an incompatible API, so we build
-# the exact version Tasia/Firestorm links against.
+# Build colladadom 2.3 from source (no ARM autobuild pkg exists).
+# The distro libcollada-dom is v2.5 and has an incompatible API.
+# 3p-colladadom needs: COLLADA_DOM_INCLUDE_INSTALL_DIR + OPT_COLLADA14
 git clone --depth 1 --branch v2.3-r10 \
     https://github.com/secondlife/3p-colladadom.git "${work_dir}/colladadom"
 cmake -S "${work_dir}/colladadom" -B "${work_dir}/colladadom-build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${work_dir}/colladadom-stage" \
-    -DLLADDONS=OFF -DUSE_OPENGL=OFF
+    -DCOLLADA_DOM_INCLUDE_INSTALL_DIR=include \
+    -DOPT_COLLADA14=ON -DOPT_COLLADA15=OFF
 cmake --build "${work_dir}/colladadom-build" --parallel "$(nproc)"
-cmake --install "${work_dir}/colladadom-build"
+cmake --install "${work_dir}/colladadom-build" 2>/dev/null || true
 mkdir -p "${packages_dir}/include/collada" "${packages_dir}/include/collada/1.4"
-cp -a "${work_dir}/colladadom-stage/include/collada/." "${packages_dir}/include/collada/"
-cp -a "${work_dir}/colladadom-stage/include/collada-dom/." "${packages_dir}/include/collada/" 2>/dev/null || true
-find "${work_dir}/colladadom-stage/lib" -name 'libcollada14dom*.a' -o -name 'libcollada*dom*.so*' | \
+cp -a "${work_dir}/colladadom-stage/include/." "${packages_dir}/include/"
+find "${work_dir}/colladadom-stage" "${work_dir}/colladadom-build/src/1.4" \
+    -name 'libcollada14dom*.so*' -o -name 'libcollada14dom*.a' 2>/dev/null | \
     xargs -r -I{} cp -a {} "${packages_dir}/lib/release/"
 
 # Build minizip-ng from source (architecture-neutral).
