@@ -40,7 +40,7 @@ jobs:
         include:
           - arch: x86_64
             runner: macos-15-intel
-            cmake_arch_flag: ""
+            cmake_arch_flag: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
 
     runs-on: ${{ matrix.runner }}
 

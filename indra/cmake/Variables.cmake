@@ -171,7 +171,11 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "")
   set(CMAKE_XCODE_ATTRIBUTE_DISABLE_MANUAL_TARGET_ORDER_BUILD_WARNING YES)
   set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_64_TO_32_BIT_CONVERSION NO)
-  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS Build Arch" FORCE)
+  # Keep universal as the local default, but honor an architecture selected
+  # explicitly by CI (for example the Intel-only portable build).
+  if (NOT CMAKE_OSX_ARCHITECTURES)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS Build Arch" FORCE)
+  endif ()
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 # Default deploy grid
