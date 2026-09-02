@@ -44,7 +44,7 @@ cmake --install "${work_dir}/dullahan-build"
 
 mkdir -p "${work_dir}/dullahan-stage/include/cef" \
     "${work_dir}/dullahan-stage/LICENSES"
-cp "${work_dir}/dullahan/dullahan.h" \
+cp "${work_dir}/dullahan/src/dullahan.h" \
    "${work_dir}/dullahan/src/dullahan_version.h" \
    "${work_dir}/dullahan-stage/include/cef/"
 cp "${work_dir}/dullahan/CEF_LICENSE.txt" \
