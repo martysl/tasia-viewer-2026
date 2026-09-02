@@ -13,7 +13,10 @@ else ()
 endif ()
 
 if (LL_LINUX_ARM64)
-    find_library(WEBRTC_LIBRARY NAMES webrtc REQUIRED)
+    find_library(WEBRTC_LIBRARY
+        NAMES webrtc
+        PATHS "${LIBS_PREBUILT_DIR}/lib/release"
+        NO_DEFAULT_PATH REQUIRED)
 else ()
     find_library(WEBRTC_LIBRARY
         NAMES

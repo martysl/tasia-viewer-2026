@@ -313,11 +313,15 @@ if( slvoice_src_dir )
     list(APPEND third_party_targets ${out_targets})
 endif()
 
+# On aarch64 the legacy x86 Vivox runtime is not staged, so guard the
+# macros that would otherwise receive empty argument lists.
+if (NOT ARCH STREQUAL "aarch64")
 to_staging_dirs(
     ${vivox_lib_dir}
     third_party_targets
     ${vivox_libs}
     )
+endif ()
 
 to_staging_dirs(
     ${release_src_dir}
