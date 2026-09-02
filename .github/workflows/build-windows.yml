@@ -144,8 +144,6 @@ jobs:
       - name: Install Windows build prerequisites
         shell: bash
         run: |
-          choco install ninja --no-progress -y || true
-          ninja --version
           cmake --version
           where cl
 
@@ -188,7 +186,6 @@ jobs:
             -- \
             --fmodstudio \
             --no-package \
-            --ninja \
             --jobs 2 \
             "-DLOCAL_DIST_DIR:PATH=$LOCAL_DIST_DIR"
 
@@ -223,7 +220,6 @@ jobs:
             -- \
             --fmodstudio \
             --no-package \
-            --ninja \
             --jobs 2
 
       - name: Copy Microsoft-signed msquic.dll to output
