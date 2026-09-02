@@ -108,7 +108,8 @@ for pattern in "${runtime_patterns[@]}"; do
     fi
 done
 shopt -u nullglob
-install -m 0644 /etc/ssl/certs/ca-certificates.crt "${packages_dir}/ca-bundle.crt"
+# NOTE: ca-bundle.crt is intentionally NOT staged here - the architecture-neutral
+# 'llca' autobuild prebuilt installs it and would otherwise conflict.
 
 for required in \
     "${packages_dir}/lib/release/libcef.so" \
