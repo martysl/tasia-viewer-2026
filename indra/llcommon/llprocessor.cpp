@@ -850,7 +850,7 @@ private:
         }
 
         // ARM64 fallback: /proc/cpuinfo often lacks "cpu mhz"; read from sysfs
-        if (eFrequency < 200.0 || eFrequency > 10000.0)
+        if ((F64)eFrequency < 200.0 || (F64)eFrequency > 10000.0)
         {
             std::ifstream cpufreq("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq");
             unsigned long khz = 0;
@@ -862,14 +862,22 @@ private:
 
         LLPI_SET_INFO_STRING(eBrandName, "model name");
         if (!cpuinfo["model name"].empty())
+        {
             LLPI_SET_INFO_STRING(eBrandName, "model name");
+        }
         else
+        {
             LLPI_SET_INFO_STRING(eBrandName, "processor");
+        }
 
         if (!cpuinfo["vendor_id"].empty())
+        {
             LLPI_SET_INFO_STRING(eVendor, "vendor_id");
+        }
         else
+        {
             LLPI_SET_INFO_STRING(eVendor, "cpu implementer");
+        }
 
         LLPI_SET_INFO_INT(eStepping, "stepping");
         LLPI_SET_INFO_INT(eModel, "model");
