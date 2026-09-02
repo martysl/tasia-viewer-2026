@@ -21,20 +21,27 @@ endif()
 use_system_binary( colladadom )
 
 if (LL_LINUX_ARM64)
-  find_library(MINIZIPNG_LIBRARY NAMES minizip REQUIRED)
+  find_library(MINIZIPNG_LIBRARY NAMES minizip
+    PATHS "${LIBS_PREBUILT_DIR}/lib/release" NO_DEFAULT_PATH REQUIRED)
   target_link_libraries(ll::minizip-ng INTERFACE ${MINIZIPNG_LIBRARY})
-  find_path(MINIZIP_INCLUDE_DIR minizip/minizip.h REQUIRED)
-  target_include_directories(ll::minizip-ng SYSTEM INTERFACE ${MINIZIP_INCLUDE_DIR})
+  target_include_directories(ll::minizip-ng SYSTEM INTERFACE
+    ${LIBS_PREBUILT_DIR}/include ${LIBS_PREBUILT_DIR}/include/minizip)
 
   find_library(LIBXML2_LIBRARY NAMES xml2 REQUIRED)
   target_link_libraries(ll::libxml INTERFACE ${LIBXML2_LIBRARY})
 
-  find_library(COLLADADOM_LIBRARY NAMES collada14dom REQUIRED)
+  find_library(COLLADADOM_LIBRARY NAMES
+    libcollada14dom23 libcollada14dom collada14dom
+    PATHS "${LIBS_PREBUILT_DIR}/lib/release" NO_DEFAULT_PATH REQUIRED)
   target_link_libraries(ll::colladadom INTERFACE ${COLLADADOM_LIBRARY} ll::boost ll::libxml ll::minizip-ng)
+  target_include_directories(ll::colladadom SYSTEM INTERFACE
+    ${LIBS_PREBUILT_DIR}/include/collada
+    ${LIBS_PREBUILT_DIR}/include/collada/1.4)
 
   if (LINUX)
     add_library( ll::pcre INTERFACE IMPORTED )
-    find_library(PCRE_LIBRARY NAMES pcrecpp pcre REQUIRED)
+    find_library(PCRE_LIBRARY NAMES pcrecpp pcre
+      PATHS "${LIBS_PREBUILT_DIR}/lib/release" NO_DEFAULT_PATH REQUIRED)
     target_link_libraries( ll::pcre INTERFACE ${PCRE_LIBRARY} )
   endif ()
   return()

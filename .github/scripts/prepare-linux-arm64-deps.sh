@@ -81,6 +81,41 @@ ffmpeg_bin="$(find "${FFMPEG_EXTRACT}" -maxdepth 2 -type f -name ffmpeg -print -
 test -n "${ffmpeg_bin}"
 install -m 0755 "${ffmpeg_bin}" "${packages_dir}/ffmpeg/tasia-ffmpeg"
 
+# Build colladadom 2.3 from source (architecture-neutral; no ARM autobuild pkg).
+# The distro libcollada-dom is v2.5 and has an incompatible API, so we build
+# the exact version Tasia/Firestorm links against.
+git clone --depth 1 --branch v2.3-r10 \
+    https://github.com/secondlife/3p-colladadom.git "${work_dir}/colladadom"
+cmake -S "${work_dir}/colladadom" -B "${work_dir}/colladadom-build" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="${work_dir}/colladadom-stage" \
+    -DLLADDONS=OFF -DUSE_OPENGL=OFF
+cmake --build "${work_dir}/colladadom-build" --parallel "$(nproc)"
+cmake --install "${work_dir}/colladadom-build"
+mkdir -p "${packages_dir}/include/collada" "${packages_dir}/include/collada/1.4"
+cp -a "${work_dir}/colladadom-stage/include/collada/." "${packages_dir}/include/collada/"
+cp -a "${work_dir}/colladadom-stage/include/collada-dom/." "${packages_dir}/include/collada/" 2>/dev/null || true
+find "${work_dir}/colladadom-stage/lib" -name 'libcollada14dom*.a' -o -name 'libcollada*dom*.so*' | \
+    xargs -r -I{} cp -a {} "${packages_dir}/lib/release/"
+
+# Build minizip-ng from source (architecture-neutral).
+git clone --depth 1 --branch v4.0.7-r3 \
+    https://github.com/secondlife/3p-minizip-ng.git "${work_dir}/minizip-ng"
+cmake -S "${work_dir}/minizip-ng" -B "${work_dir}/minizip-ng-build" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="${work_dir}/minizip-ng-stage"
+cmake --build "${work_dir}/minizip-ng-build" --parallel "$(nproc)"
+cmake --install "${work_dir}/minizip-ng-build"
+cp -a "${work_dir}/minizip-ng-stage/include/minizip/." \
+    "${packages_dir}/include/minizip/" 2>/dev/null || \
+  cp -a "${work_dir}/minizip-ng-stage/include/." "${packages_dir}/include/"
+find "${work_dir}/minizip-ng-stage/lib" -name 'libminizip*.a' -o -name 'libminizip*.so*' | \
+    xargs -r -I{} cp -a {} "${packages_dir}/lib/release/"
+
+# PCRE is NOT built here; the distro libpcre3-dev provides pcrecpp/pcre and
+# is installed by the workflow.
+:
+
 # Stage the non-core distribution libraries linked by the ARM build. Keeping
 # these in packages/lib/release lets the existing manifest produce a portable
 # tree without changing the x86_64 dependency policy.
@@ -98,7 +133,7 @@ runtime_patterns=(
     libnghttp2.so* libz.so* libexpat.so* libfreetype.so* libpng16.so*
     libjpeg.so* libhunspell-1.7.so* libuuid.so* libSDL2.so* libalut.so*
     libopenal.so* libopenjp2.so* libvorbis.so* libvorbisenc.so* libogg.so*
-    libxml2.so* libminizip.so* libxxhash.so*
+    libxml2.so* libxxhash.so*
 )
 shopt -s nullglob
 for pattern in "${runtime_patterns[@]}"; do

@@ -67,7 +67,8 @@ jobs:
             libjpeg-dev libmeshoptimizer-dev libminizip-dev libnghttp2-dev \
             libopenjp2-7-dev libpng-dev libsdl1.2-dev libsdl2-dev \
             libvlc-dev libvorbis-dev libxml2-dev libxxhash-dev libglm-dev \
-            libpipewire-0.3-dev libunwind-dev libjemalloc-dev libjsoncpp-dev
+            libpipewire-0.3-dev libunwind-dev libjemalloc-dev libjsoncpp-dev \
+            libpcre3-dev zlib1g-dev
           sudo apt-get clean
 
       - name: Install autobuild and Python dependencies
