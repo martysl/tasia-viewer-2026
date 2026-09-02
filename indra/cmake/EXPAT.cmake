@@ -5,6 +5,12 @@ include_guard()
 add_library(ll::expat INTERFACE IMPORTED)
 
 use_system_binary(expat)
+if (LL_LINUX_ARM64)
+    find_package(EXPAT REQUIRED)
+    target_link_libraries(ll::expat INTERFACE EXPAT::EXPAT)
+    return()
+endif ()
+
 use_prebuilt_binary(expat)
 
 if (WINDOWS)

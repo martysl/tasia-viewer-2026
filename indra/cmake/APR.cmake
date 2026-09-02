@@ -6,6 +6,15 @@ include_guard()
 add_library( ll::apr INTERFACE IMPORTED )
 
 use_system_binary( apr apr-util )
+if (LL_LINUX_ARM64)
+  find_path(APR_INCLUDE_DIR apr.h PATH_SUFFIXES apr-1 apr-1.0 REQUIRED)
+  find_library(APR_LIBRARY NAMES apr-1 REQUIRED)
+  find_library(APRUTIL_LIBRARY NAMES aprutil-1 REQUIRED)
+  target_link_libraries(ll::apr INTERFACE ${APR_LIBRARY} ${APRUTIL_LIBRARY})
+  target_include_directories(ll::apr SYSTEM INTERFACE ${APR_INCLUDE_DIR})
+  return()
+endif ()
+
 use_prebuilt_binary(apr_suite)
 
 if (WINDOWS)

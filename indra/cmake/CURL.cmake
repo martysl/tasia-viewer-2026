@@ -6,6 +6,12 @@ include_guard()
 add_library( ll::libcurl INTERFACE IMPORTED )
 
 use_system_binary(libcurl)
+if (LL_LINUX_ARM64)
+  find_package(CURL REQUIRED)
+  target_link_libraries(ll::libcurl INTERFACE CURL::libcurl ll::openssl ll::nghttp2 ll::zlib-ng)
+  return()
+endif ()
+
 use_prebuilt_binary(curl)
 
 find_library(CURL_LIBRARY

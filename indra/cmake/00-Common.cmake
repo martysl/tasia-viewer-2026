@@ -32,9 +32,12 @@ add_compile_definitions( ADDRESS_SIZE=${ADDRESS_SIZE})
 # -- which we do. Without one or the other, we get a ton of Boost warnings.
 add_compile_definitions(BOOST_BIND_GLOBAL_PLACEHOLDERS)
 
-# Force enable SSE2 instructions in GLM per the manual
-# https://github.com/g-truc/glm/blob/master/manual.md#section2_10
-add_compile_definitions(GLM_FORCE_DEFAULT_ALIGNED_GENTYPES=1 GLM_ENABLE_EXPERIMENTAL=1)
+if (ARCH STREQUAL "aarch64")
+  add_compile_definitions(GLM_FORCE_DEFAULT_ALIGNED_GENTYPES=1 GLM_FORCE_NEON=1 GLM_ENABLE_EXPERIMENTAL=1)
+else ()
+  # Force enable SIMD instructions in GLM on the existing x86 targets.
+  add_compile_definitions(GLM_FORCE_DEFAULT_ALIGNED_GENTYPES=1 GLM_ENABLE_EXPERIMENTAL=1)
+endif ()
 
 # SSE2NEON throws a pointless warning when compiler optimizations are enabled
 add_compile_definitions(SSE2NEON_SUPPRESS_WARNINGS=1)
@@ -171,10 +174,15 @@ if (LINUX)
       -fno-math-errno
       -fno-strict-aliasing
       -fsigned-char
-      -msse2
-      -mfpmath=sse
       -pthread
       )
+
+  if (NOT ARCH STREQUAL "aarch64")
+    add_compile_options(
+        -msse2
+        -mfpmath=sse
+        )
+  endif ()
 
   # force this platform to accept TOS via external browser <FS:ND> No, do not.
   # add_definitions(-DEXTERNAL_TOS)
@@ -238,6 +246,8 @@ if (LINUX OR DARWIN)
   endif ()
 
   add_compile_options(${GCC_WARNINGS})
-  add_compile_options(-m${ADDRESS_SIZE})
+  if (NOT (LINUX AND ARCH STREQUAL "aarch64"))
+    add_compile_options(-m${ADDRESS_SIZE})
+  endif ()
 endif (LINUX OR DARWIN)
 

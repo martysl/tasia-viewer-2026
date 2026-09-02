@@ -13,6 +13,12 @@ include_guard()
 add_library( ll::libpng INTERFACE IMPORTED )
 
 use_system_binary(libpng)
+if (LL_LINUX_ARM64)
+  find_package(PNG REQUIRED)
+  target_link_libraries(ll::libpng INTERFACE PNG::PNG)
+  return()
+endif ()
+
 use_prebuilt_binary(libpng)
 
 find_library(LIBPNG_LIBRARY

@@ -6,6 +6,12 @@ include_guard()
 add_library( ll::openssl INTERFACE IMPORTED )
 
 use_system_binary(openssl)
+if (LL_LINUX_ARM64)
+  find_package(OpenSSL REQUIRED)
+  target_link_libraries(ll::openssl INTERFACE OpenSSL::SSL OpenSSL::Crypto)
+  return()
+endif ()
+
 use_prebuilt_binary(openssl)
 
 find_library(SSL_LIBRARY

@@ -10,6 +10,16 @@ if( USE_CONAN )
   return()
 endif()
 
+if (LL_LINUX_ARM64)
+  find_package(Boost 1.83 REQUIRED COMPONENTS
+    context fiber filesystem program_options regex system thread url wave)
+  target_link_libraries(ll::boost INTERFACE
+    Boost::context Boost::fiber Boost::filesystem Boost::program_options
+    Boost::regex Boost::system Boost::thread Boost::url Boost::wave rt)
+  target_include_directories(ll::boost SYSTEM INTERFACE ${Boost_INCLUDE_DIRS})
+  return()
+endif ()
+
 use_prebuilt_binary(boost)
 
 # As of sometime between Boost 1.67 and 1.72, Boost libraries are suffixed

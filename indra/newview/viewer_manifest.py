@@ -2302,19 +2302,20 @@ class LinuxManifest(ViewerManifest):
             ):
                 self.path(libfile)
 
-            # Vivox runtimes
-            # Currentelly, the 32-bit ones will work with a 64-bit client.
-        with self.prefix(src=os.path.join(pkgdir, 'bin32' ), dst="bin"):
+        self.package_vivox_runtime(pkgdir)
+
+    def package_vivox_runtime(self, pkgdir):
+        # The legacy Linux Vivox helper is 32-bit x86 and has no ARM build.
+        with self.prefix(src=os.path.join(pkgdir, 'bin32'), dst="bin"):
             self.path("SLVoice")
-        with self.prefix(src=os.path.join(pkgdir ), dst="bin"):
+        with self.prefix(src=pkgdir, dst="bin"):
             self.path("win32")
             self.path("win64")
 
-        with self.prefix(src=os.path.join(pkgdir, 'lib32' ), dst="lib32"):
+        with self.prefix(src=os.path.join(pkgdir, 'lib32'), dst="lib32"):
             self.path("libvivox*")
             self.path("libortp*")
             self.path("libsndfile*")
-            # SLVoice requires these legacy ABI names at runtime.
             self.path("libidn.so.11*")
             self.path("libuuid.so.1*")
             self.path("*.crt")
@@ -2487,6 +2488,27 @@ class Linux_x86_64_Manifest(LinuxManifest):
             self.path2basename("../llplugin/slplugin", "SLPlugin")
 
         self.path("secondlife-i686.supp")
+
+
+class Linux_aarch64_Manifest(Linux_x86_64_Manifest):
+    """Portable 64-bit Linux manifest for native ARM systems."""
+
+    address_size = 64
+
+    def construct(self):
+        super(Linux_aarch64_Manifest, self).construct()
+        pkgdir = os.path.join(self.args['build'], os.pardir, 'packages')
+        with self.prefix(src=os.path.join(pkgdir, 'lib', 'release'), dst="lib"):
+            for pattern in (
+                    "libboost*.so*", "libcurl.so*", "libssl.so*", "libcrypto.so*",
+                    "libnghttp2.so*", "libz.so*", "libexpat.so*", "libfreetype.so*",
+                    "libpng16.so*", "libjpeg.so*", "libhunspell*.so*",
+                    "libopenjp2.so*", "libvorbis*.so*", "libogg.so*",
+                    "libxml2.so*", "libminizip.so*", "libxxhash.so*"):
+                self.path_optional(pattern)
+
+    def package_vivox_runtime(self, pkgdir):
+        print("Skipping x86-only Vivox/SLVoice runtime on Linux ARM64")
 
 ################################################################
 # <FS:Ansariel> Added back for Mac compatibility reason

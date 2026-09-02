@@ -10,10 +10,11 @@ include_guard()
 
 set(USE_OPENAL ON CACHE BOOL "Enable OpenAL")
 
-# <FS:Zi> Always download the libopenal.so library on Linux for SLVoice
-if (LINUX)
+# <FS:Zi> Always download the packaged OpenAL runtime for the legacy x86
+# SLVoice helper. Native ARM builds use the distribution OpenAL/ALUT libraries.
+if (LINUX AND NOT LL_LINUX_ARM64)
   use_prebuilt_binary(openal)
-endif (LINUX)
+endif ()
 
 # ND: To streamline arguments passed, switch from OPENAL to USE_OPENAL
 # To not break all old build scripts convert old arguments but warn about it
@@ -24,9 +25,14 @@ endif()
 
 if (USE_OPENAL)
   add_library( ll::openal INTERFACE IMPORTED )
-  target_include_directories( ll::openal SYSTEM INTERFACE "${LIBS_PREBUILT_DIR}/include/AL")
+  if (LL_LINUX_ARM64)
+    find_path(OPENAL_INCLUDE_DIR AL/al.h REQUIRED)
+    target_include_directories(ll::openal SYSTEM INTERFACE "${OPENAL_INCLUDE_DIR}")
+  else ()
+    target_include_directories(ll::openal SYSTEM INTERFACE "${LIBS_PREBUILT_DIR}/include/AL")
+    use_prebuilt_binary(openal)
+  endif ()
   target_compile_definitions( ll::openal INTERFACE LL_OPENAL=1)
-  use_prebuilt_binary(openal)
 
   find_library(OPENAL_LIBRARY
       NAMES
@@ -34,14 +40,14 @@ if (USE_OPENAL)
       openal
       libopenal.dylib
       libopenal.so
-      PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED NO_DEFAULT_PATH)
+      PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED)
 
   find_library(ALUT_LIBRARY
       NAMES
       alut
       libalut.dylib
       libalut.so
-      PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED NO_DEFAULT_PATH)
+      PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED)
 
   target_link_libraries(ll::openal INTERFACE ${OPENAL_LIBRARY} ${ALUT_LIBRARY})
 

@@ -6,6 +6,12 @@ include_guard()
 add_library( ll::freetype INTERFACE IMPORTED )
 
 use_system_binary(freetype)
+if (LL_LINUX_ARM64)
+  find_package(Freetype REQUIRED)
+  target_link_libraries(ll::freetype INTERFACE Freetype::Freetype)
+  return()
+endif ()
+
 use_prebuilt_binary(freetype)
 target_include_directories( ll::freetype SYSTEM INTERFACE  ${LIBS_PREBUILT_DIR}/include/freetype2/)
 

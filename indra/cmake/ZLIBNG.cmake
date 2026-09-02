@@ -10,6 +10,12 @@ if(USE_CONAN )
   return()
 endif()
 
+if (LL_LINUX_ARM64)
+  find_package(ZLIB REQUIRED)
+  target_link_libraries(ll::zlib-ng INTERFACE ZLIB::ZLIB)
+  return()
+endif ()
+
 use_prebuilt_binary(zlib-ng)
 
 find_library(ZLIBNG_LIBRARY

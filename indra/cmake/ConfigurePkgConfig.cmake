@@ -14,14 +14,19 @@ IF("$ENV{PKG_CONFIG_LIBDIR}" STREQUAL "")
   else (ADDRESS_SIZE EQUAL 32)
     SET(PKG_CONFIG_NO_MULTI_GUESS /usr/lib64 /usr/lib)
     SET(PKG_CONFIG_NO_MULTI_LOCAL_GUESS /usr/local/lib64 /usr/local/lib)
-    SET(PKG_CONFIG_MULTI_GUESS /usr/lib/x86_64-linux-gnu)
-    SET(PKG_CONFIG_MULTI_LOCAL_GUESS /usr/local/lib/x86_64-linux-gnu)
+    if (ARCH STREQUAL "aarch64")
+      SET(PKG_CONFIG_MULTI_GUESS /usr/lib/aarch64-linux-gnu)
+      SET(PKG_CONFIG_MULTI_LOCAL_GUESS /usr/local/lib/aarch64-linux-gnu)
+    else ()
+      SET(PKG_CONFIG_MULTI_GUESS /usr/lib/x86_64-linux-gnu)
+      SET(PKG_CONFIG_MULTI_LOCAL_GUESS /usr/local/lib/x86_64-linux-gnu)
+    endif ()
   endif (ADDRESS_SIZE EQUAL 32)
   
   # Use DPKG architecture, if available.
   IF (${DPKG_ARCH})
     SET(PKG_CONFIG_MULTI_GUESS /usr/lib/${DPKG_ARCH})
-    SET(PKG_CONFIG_MULTI_LOCAL_GUESS /usrlocal/lib/${DPKG_ARCH})
+    SET(PKG_CONFIG_MULTI_LOCAL_GUESS /usr/local/lib/${DPKG_ARCH})
   ENDIF (${DPKG_ARCH})
   
   # Explicitly include anything listed in PKG_CONFIG_PATH

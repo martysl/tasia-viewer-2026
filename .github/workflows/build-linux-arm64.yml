@@ -1,0 +1,218 @@
+name: Build Tasia Viewer - Linux ARM64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AUTOBUILD_ADDRSIZE: 64
+  AUTOBUILD_ARCH: aarch64
+  AUTOBUILD_BUILD_ID: ${{ github.run_id }}
+  AUTOBUILD_INSTALLABLE_CACHE: ${{ github.workspace }}/.autobuild-installables-arm64
+  AUTOBUILD_VARIABLES_FILE: ${{ github.workspace }}/.build-variables/variables
+  AUTOBUILD_VCS_INFO: "true"
+  LL_SKIP_REQUIRE_SYSROOT: 1
+  XZ_DEFAULTS: -T0
+
+jobs:
+  build:
+    name: Build Tasia Viewer - Linux ARM64 - FMOD
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout viewer source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Assert native ARM64 runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "aarch64"
+          uname -a
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Restore ARM autobuild cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
+          key: autobuild-linux-arm64-${{ hashFiles('autobuild.xml') }}
+
+      - name: Install build tools and ARM system dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git curl ca-certificates \
+            python3-dev zstd xz-utils file patchelf pax-utils xvfb mesa-utils \
+            libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxinerama-dev \
+            libxrandr-dev libxft-dev libpulse-dev libfreetype6-dev \
+            libfontconfig1-dev libdbus-1-dev libalut-dev libopenal-dev \
+            libapr1-dev libaprutil1-dev libboost-all-dev libboost-url1.83-dev \
+            libcurl4-openssl-dev libssl-dev libexpat1-dev libhunspell-dev \
+            libjpeg-dev libmeshoptimizer-dev libminizip-dev libnghttp2-dev \
+            libopenjp2-7-dev libpng-dev libsdl1.2-dev libsdl2-dev \
+            libvlc-dev libvorbis-dev libxml2-dev libxxhash-dev libglm-dev \
+            libpipewire-0.3-dev libunwind-dev libjemalloc-dev libjsoncpp-dev
+          sudo apt-get clean
+
+      - name: Install autobuild and Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Checkout build variables
+        uses: actions/checkout@v4
+        with:
+          repository: FirestormViewer/fs-build-variables
+          path: .build-variables
+
+      - name: Remove KDU
+        shell: bash
+        run: autobuild installables remove kdu || true
+
+      - name: Download private ARM64 FMOD package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.FMOD_DEPS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${GH_TOKEN:-}" || { echo "::error::FMOD_DEPS_TOKEN is missing"; exit 1; }
+          mkdir -p private-deps
+          gh release download fmod-20307 \
+            --repo martysl/tasia-private-deps \
+            --pattern '*linuxarm64*.tar.bz2' \
+            --dir private-deps
+          FMOD_PACKAGE="$(find private-deps -type f -name '*linuxarm64*.tar.bz2' -print -quit)"
+          test -n "$FMOD_PACKAGE"
+          echo 'bc960f947a2a10bec88dbfec6ded609fd45177a15d434fb03756999af4ba13ea  '"$FMOD_PACKAGE" | sha256sum --check --strict
+          FMOD_HASH="$(md5sum "$FMOD_PACKAGE" | cut -d' ' -f1)"
+          FMOD_FILE_URL="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$FMOD_PACKAGE")"
+          echo "FMOD_HASH=$FMOD_HASH" >> "$GITHUB_ENV"
+          echo "FMOD_FILE_URL=$FMOD_FILE_URL" >> "$GITHUB_ENV"
+
+      - name: Point autobuild to ARM64 FMOD package
+        shell: bash
+        run: |
+          set -euo pipefail
+          autobuild installables edit fmodstudio \
+            platform=linux64 hash="$FMOD_HASH" url="$FMOD_FILE_URL"
+
+      - name: Load autobuild environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          autobuild source_environment > .source_env
+          . .source_env
+          echo "LL_BUILD=$LL_BUILD" >> "$GITHUB_ENV"
+          echo "LL_BUILD_RELEASE=$LL_BUILD_RELEASE" >> "$GITHUB_ENV"
+
+      - name: Set Tasia build metadata
+        shell: bash
+        run: |
+          echo "revision=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "VIEWER_VERSION_GITHASH=${{ github.sha }}" >> "$GITHUB_ENV"
+          echo "TASIA_SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "TASIA_DISPLAY_VERSION=8.0.1.${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "TASIA_BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Prepare native ARM64 dependencies
+        shell: bash
+        run: bash .github/scripts/prepare-linux-arm64-deps.sh
+
+      - name: Configure Linux ARM64 with FMOD
+        shell: bash
+        env:
+          TASIA_GIPHY_API_KEY: ${{ secrets.TASIA_GIPHY_API_KEY }}
+          TASIA_KLIPY_API_KEY: ${{ secrets.TASIA_KLIPY_API_KEY }}
+        run: |
+          set -euo pipefail
+          autobuild configure \
+            -c ReleaseFS_open \
+            -A "$AUTOBUILD_ADDRSIZE" \
+            -- \
+            --fmodstudio \
+            --package \
+            --ninja
+
+      - name: Build and package Linux ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          autobuild build \
+            -c ReleaseFS_open \
+            -A "$AUTOBUILD_ADDRSIZE" \
+            --no-configure \
+            -- \
+            --fmodstudio \
+            --package \
+            --ninja
+
+      - name: Verify ARM64 portable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(find build-linux-aarch64/newview -maxdepth 1 -type f -name '*.tar.xz' -print -quit)"
+          test -n "$package"
+          verify_dir="${RUNNER_TEMP}/tasia-arm64-package"
+          mkdir -p "$verify_dir"
+          tar -xJf "$package" -C "$verify_dir"
+
+          mapfile -t elf_files < <(find "$verify_dir" -type f -exec file {} + | awk -F: '/ELF/ {print $1}')
+          test "${#elf_files[@]}" -gt 0
+          file "${elf_files[@]}" | tee "${RUNNER_TEMP}/tasia-arm64-file-report.txt"
+          if grep -Eq 'x86-64|Intel 80386' "${RUNNER_TEMP}/tasia-arm64-file-report.txt"; then
+            echo "::error::x86 binary found in Linux ARM64 artifact"
+            exit 1
+          fi
+          if grep -vE 'ARM aarch64|ARM64' "${RUNNER_TEMP}/tasia-arm64-file-report.txt" | grep -q 'ELF'; then
+            echo "::error::non-ARM64 ELF found in Linux ARM64 artifact"
+            exit 1
+          fi
+
+          viewer_bin="$(find "$verify_dir" -type f -name do-not-directly-run-firestorm-bin -print -quit)"
+          test -n "$viewer_bin"
+          package_root="$(dirname "$(dirname "$viewer_bin")")"
+          LD_LIBRARY_PATH="$package_root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            ldd "$viewer_bin" | tee "${RUNNER_TEMP}/tasia-arm64-ldd.txt"
+          if grep -q 'not found' "${RUNNER_TEMP}/tasia-arm64-ldd.txt"; then
+            echo "::error::unresolved runtime dependency in ARM64 package"
+            exit 1
+          fi
+
+          echo "PACKAGE_PATH=$package" >> "$GITHUB_ENV"
+          sha256sum "$package"
+
+      - name: Upload Linux ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tasia-Viewer-Linux-ARM64-FMOD
+          if-no-files-found: error
+          path: ${{ env.PACKAGE_PATH }}
+          retention-days: 7
+
+      - name: Upload diagnostic logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tasia-Linux-ARM64-diagnostics
+          if-no-files-found: ignore
+          retention-days: 3
+          path: |
+            build-linux-aarch64/**/*.log
+            build-linux-aarch64/CMakeCache.txt
+            build-linux-aarch64/**/CMakeError.log
+            build-linux-aarch64/**/CMakeOutput.log
+            ${{ runner.temp }}/tasia-arm64-*.txt
