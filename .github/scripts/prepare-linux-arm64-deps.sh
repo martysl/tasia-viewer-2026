@@ -166,7 +166,8 @@ cmake -S "${work_dir}/discordrpc/discord-rpc-3.4.0" \
       -B "${work_dir}/discordrpc-build" \
       -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
       -DBUILD_EXAMPLES=OFF \
-      -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCLANG_FORMAT_CMD=
 rj_header="${thirdparty_dir}/rapidjson-1.1.0/include/rapidjson/document.h"
 test -f "${rj_header}" || {
     echo "rapidjson header not staged by configure" >&2
