@@ -91,6 +91,8 @@ cmake -S "${work_dir}/colladadom" -B "${work_dir}/colladadom-build" -G Ninja \
     -DCMAKE_INSTALL_PREFIX="${work_dir}/colladadom-stage" \
     -DCOLLADA_DOM_INCLUDE_INSTALL_DIR=include \
     -DOPT_COLLADA14=ON -DOPT_COLLADA15=OFF \
+    -DCOLLADA_DOM_VERSION=2.3.0 \
+    -DCOLLADA_DOM_SOVERSION=2 \
     -DCMAKE_C_FLAGS="-I/usr/include/minizip -I/usr/include/libxml2" \
     -DCMAKE_CXX_FLAGS="-I/usr/include/minizip -I/usr/include/libxml2" \
     -DCMAKE_SHARED_LINKER_FLAGS="-lminizip -lz -lboost_filesystem -lboost_system -lxml2"
