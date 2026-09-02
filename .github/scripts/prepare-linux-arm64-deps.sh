@@ -90,11 +90,14 @@ cmake -S "${work_dir}/colladadom" -B "${work_dir}/colladadom-build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${work_dir}/colladadom-stage" \
     -DCOLLADA_DOM_INCLUDE_INSTALL_DIR=include \
-    -DOPT_COLLADA14=ON -DOPT_COLLADA15=OFF
+    -DOPT_COLLADA14=ON -DOPT_COLLADA15=OFF \
+    -DCMAKE_C_FLAGS="-I/usr/include/minizip -I/usr/include/libxml2" \
+    -DCMAKE_CXX_FLAGS="-I/usr/include/minizip -I/usr/include/libxml2" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-lminizip -lz -lboost_filesystem -lboost_system -lxml2"
 cmake --build "${work_dir}/colladadom-build" --parallel "$(nproc)"
 cmake --install "${work_dir}/colladadom-build" 2>/dev/null || true
 mkdir -p "${packages_dir}/include/collada" "${packages_dir}/include/collada/1.4"
-cp -a "${work_dir}/colladadom-stage/include/." "${packages_dir}/include/"
+cp -a "${work_dir}/colladadom-stage/include/." "${packages_dir}/include/collada/"
 find "${work_dir}/colladadom-stage" "${work_dir}/colladadom-build/src/1.4" \
     -name 'libcollada14dom*.so*' -o -name 'libcollada14dom*.a' 2>/dev/null | \
     xargs -r -I{} cp -a {} "${packages_dir}/lib/release/"
