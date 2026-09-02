@@ -13,6 +13,8 @@ endif()
 if (LL_LINUX_ARM64)
   find_package(ZLIB REQUIRED)
   target_link_libraries(ll::zlib-ng INTERFACE ZLIB::ZLIB)
+  # The source includes "zlib-ng/zlib.h"; provide the staged compat shim.
+  target_include_directories(ll::zlib-ng SYSTEM INTERFACE ${LIBS_PREBUILT_DIR}/include)
   return()
 endif ()
 

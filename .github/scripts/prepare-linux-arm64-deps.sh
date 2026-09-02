@@ -106,6 +106,19 @@ find "${work_dir}/colladadom-stage" "${work_dir}/colladadom-build/src/1.4" \
 # System libminizip-dev provides both the headers and libminizip.so (old ABI).
 # LLPrimitive.cmake ARM64 path links against libminizip (old API), not minizip-ng.
 
+# The viewer's llsdserialize.cpp includes "zlib-ng/zlib.h" (not <zlib.h>)
+# whenever LL_USESYSTEMLIBS is unset, which it is on this non-conan build.
+# We link against system zlib, so provide a zlib-ng compatibility shim that
+# simply pulls in the system zlib.h. This mirrors the header the zlib-ng
+# autobuild prebuilt ships, without needing an ARM zlib-ng package.
+mkdir -p "${packages_dir}/include/zlib-ng"
+cat > "${packages_dir}/include/zlib-ng/zlib.h" <<'ZLIBH'
+#ifndef ZLIB_NG_COMPAT_SHIM
+#define ZLIB_NG_COMPAT_SHIM
+/* zlib-ng's zlib.h is API/ABI compatible with zlib; delegate to system zlib. */
+#include_next <zlib.h>
+#endif
+ZLIBH
 
 # Stage the non-core distribution libraries linked by the ARM build. Keeping
 # these in packages/lib/release lets the existing manifest produce a portable
