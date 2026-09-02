@@ -7,6 +7,12 @@ include(Linking)
 add_library( ll::openjpeg INTERFACE IMPORTED )
 
 use_system_binary(openjpeg)
+if (LL_LINUX_ARM64)
+  find_package(OpenJPEG REQUIRED)
+  target_link_libraries(ll::openjpeg INTERFACE OpenJPEG::OpenJPEG)
+  return()
+endif ()
+
 use_prebuilt_binary(openjpeg)
 
 find_library(OPENJPEG_LIBRARY

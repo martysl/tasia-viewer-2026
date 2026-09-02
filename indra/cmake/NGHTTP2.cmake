@@ -5,6 +5,11 @@ include_guard()
 add_library( ll::nghttp2 INTERFACE IMPORTED )
 
 use_system_binary(nghttp2)
+if (LL_LINUX_ARM64)
+  find_library(NGHTTP2_LIBRARY NAMES nghttp2 REQUIRED)
+  target_link_libraries(ll::nghttp2 INTERFACE ${NGHTTP2_LIBRARY})
+  return()
+endif ()
 use_prebuilt_binary(nghttp2)
 
 find_library(NGHTTP2_LIBRARY

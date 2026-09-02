@@ -30,7 +30,9 @@ if (LINUX)
     target_compile_definitions( ll::SDL INTERFACE LL_SDL2=1 LL_SDL=1 )
 
     use_system_binary(SDL2)
-    use_prebuilt_binary(SDL2)
+    if (NOT LL_LINUX_ARM64)
+      use_prebuilt_binary(SDL2)
+    endif ()
     set (SDL2_FOUND TRUE)
 
     target_link_libraries( ll::SDL INTERFACE SDL2 X11 )

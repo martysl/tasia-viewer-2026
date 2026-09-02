@@ -6,6 +6,15 @@ include_guard()
 add_library( ll::vorbis INTERFACE IMPORTED )
 
 use_system_binary(vorbis)
+if (LL_LINUX_ARM64)
+  find_library(OGG_LIBRARY NAMES ogg REQUIRED)
+  find_library(VORBIS_LIBRARY NAMES vorbis REQUIRED)
+  find_library(VORBISENC_LIBRARY NAMES vorbisenc REQUIRED)
+  find_library(VORBISFILE_LIBRARY NAMES vorbisfile REQUIRED)
+  target_link_libraries(ll::vorbis INTERFACE ${VORBISENC_LIBRARY} ${VORBISFILE_LIBRARY} ${VORBIS_LIBRARY} ${OGG_LIBRARY} )
+  return()
+endif ()
+
 use_prebuilt_binary(ogg_vorbis)
 target_include_directories( ll::vorbis SYSTEM INTERFACE ${LIBS_PREBUILT_DIR}/include )
 

@@ -10,6 +10,12 @@ if(USE_CONAN )
   return()
 endif()
 
+if (LL_LINUX_ARM64)
+  find_library(OPENXR_LIBRARY NAMES openxr_loader REQUIRED)
+  target_link_libraries( ll::openxr INTERFACE ${OPENXR_LIBRARY} )
+  return()
+endif ()
+
 use_prebuilt_binary(openxr)
 if (WINDOWS)
   target_link_libraries( ll::openxr INTERFACE ${ARCH_PREBUILT_DIRS_RELEASE}/openxr_loader.lib )

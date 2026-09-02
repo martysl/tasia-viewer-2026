@@ -20,6 +20,26 @@ endif()
 
 use_system_binary( colladadom )
 
+if (LL_LINUX_ARM64)
+  find_library(MINIZIPNG_LIBRARY NAMES minizip REQUIRED)
+  target_link_libraries(ll::minizip-ng INTERFACE ${MINIZIPNG_LIBRARY})
+  find_path(MINIZIP_INCLUDE_DIR minizip/minizip.h REQUIRED)
+  target_include_directories(ll::minizip-ng SYSTEM INTERFACE ${MINIZIP_INCLUDE_DIR})
+
+  find_library(LIBXML2_LIBRARY NAMES xml2 REQUIRED)
+  target_link_libraries(ll::libxml INTERFACE ${LIBXML2_LIBRARY})
+
+  find_library(COLLADADOM_LIBRARY NAMES collada14dom REQUIRED)
+  target_link_libraries(ll::colladadom INTERFACE ${COLLADADOM_LIBRARY} ll::boost ll::libxml ll::minizip-ng)
+
+  if (LINUX)
+    add_library( ll::pcre INTERFACE IMPORTED )
+    find_library(PCRE_LIBRARY NAMES pcrecpp pcre REQUIRED)
+    target_link_libraries( ll::pcre INTERFACE ${PCRE_LIBRARY} )
+  endif ()
+  return()
+endif ()
+
 use_prebuilt_binary(colladadom)
 use_prebuilt_binary(minizip-ng) # needed for colladadom
 use_prebuilt_binary(libxml2)
