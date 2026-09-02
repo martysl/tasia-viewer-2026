@@ -102,6 +102,27 @@ find "${work_dir}/colladadom-stage" "${work_dir}/colladadom-build/src/1.4" \
     -name 'libcollada14dom*.so*' -o -name 'libcollada14dom*.a' 2>/dev/null | \
     xargs -r -I{} cp -a {} "${packages_dir}/lib/release/"
 
+# Build GLOD (+ VDS, + libply) from source: no ARM autobuild pkg exists and the
+# x86_64 prebuilts (libGLOD.a, libvds.a, libply.a) are EM: 62 and can't link.
+# GLOD is used unconditionally by llmodelpreview, so we must build it natively.
+# Plain autobuild-style Makefile. IMPORTANT: do NOT override CFLAGS on the
+# command line - that would strip the Makefile's -I include paths (the
+# release target already sets -O3).
+git clone --depth 1 \
+    https://github.com/FirestormViewer/3p-glod.git "${work_dir}/glod" 2>/dev/null || true
+make -C "${work_dir}/glod/src" clean >/dev/null 2>&1 || true
+mkdir -p "${work_dir}/glod/lib"
+make -C "${work_dir}/glod/src" release >"${work_dir}/glod-build.log" 2>&1
+for lib in lib/libGLOD.a lib/libply.a src/vds/libvds.a; do
+    test -f "${work_dir}/glod/${lib}" || {
+        echo "GLOD build missing ${lib}; see ${work_dir}/glod-build.log" >&2
+        exit 1
+    }
+    cp -a "${work_dir}/glod/${lib}" "${packages_dir}/lib/release/"
+done
+mkdir -p "${packages_dir}/include/glod"
+cp -a "${work_dir}/glod/include/glod.h" "${packages_dir}/include/glod/"
+
 # minizip: colladadom uses the old unzip.h/zip.h API (from zlib contrib).
 # System libminizip-dev provides both the headers and libminizip.so (old ABI).
 # LLPrimitive.cmake ARM64 path links against libminizip (old API), not minizip-ng.

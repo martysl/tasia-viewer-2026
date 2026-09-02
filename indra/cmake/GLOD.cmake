@@ -4,8 +4,11 @@ include_guard()
 add_library( fs::glod INTERFACE IMPORTED )
 
 include(Prebuilt)
-use_prebuilt_binary(glod)
 
+# On ARM64 GLOD/VDS/libply are built from source by
+# prepare-linux-arm64-deps.sh (no ARM autobuild package exists; the x86_64
+# prebuilts are EM: 62). So the generic find_library path below works against
+# the staged packages/lib/release.
 find_library(GLOD_LIBRARY
   NAMES
   GLOD.lib
