@@ -20,7 +20,23 @@ set(llwebrtc_HEADER_FILES
     llwebrtc_impl.h
     )
 
-list(APPEND llwebrtc_SOURCE_FILES ${llwebrtc_HEADER_FILES})
+# On Linux ARM64 the staged WebRTC library (crow-misia chromimum 139,
+# identical to what Megapahit uses) exposes the m139 audio API. The default
+# llwebrtc sources are written against the older m137 API and will not
+# compile. Megapahit adapted llwebrtc to compile against the m139 API by
+# selecting alternate code with a CM_WEBRTC=1 macro. We pull those adapted
+# sources in for the ARM64 build only; all other platforms keep the m137 code.
+if (LL_LINUX_ARM64)
+    if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/arm64/llwebrtc.cpp")
+        message(FATAL_ERROR "ARM64 llwebrtc sources missing; check the indra/llwebrtc/arm64 directory")
+    endif ()
+    set(llwebrtc_SOURCE_FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/arm64/llwebrtc.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/arm64/llwebrtc.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/arm64/llwebrtc_impl.h
+        )
+    add_compile_definitions(CM_WEBRTC=1)
+endif ()
 
 add_library (llwebrtc SHARED ${llwebrtc_SOURCE_FILES})
 
