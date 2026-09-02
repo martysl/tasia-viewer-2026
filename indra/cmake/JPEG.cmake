@@ -10,6 +10,8 @@ use_system_binary(libjpeg)
 if (LL_LINUX_ARM64)
   find_package(JPEG REQUIRED)
   target_link_libraries(ll::libjpeg INTERFACE JPEG::JPEG)
+  # Source includes "jpeglib/jpeglib.h"; provide staged compat shim.
+  target_include_directories(ll::libjpeg SYSTEM INTERFACE ${LIBS_PREBUILT_DIR}/include)
   return()
 endif ()
 

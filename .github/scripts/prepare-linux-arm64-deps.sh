@@ -120,6 +120,35 @@ cat > "${packages_dir}/include/zlib-ng/zlib.h" <<'ZLIBH'
 #endif
 ZLIBH
 
+# Same pattern for expat: sources include "expat/expat.h", but the system
+# libexpat1-dev installs expat.h at <expat.h>. Provide a compat shim.
+mkdir -p "${packages_dir}/include/expat"
+cat > "${packages_dir}/include/expat/expat.h" <<'EXPATH'
+#ifndef EXPAT_COMPAT_SHIM
+#define EXPAT_COMPAT_SHIM
+/* Delegate to the system expat header (libexpat1-dev). */
+#include_next <expat.h>
+#endif
+EXPATH
+
+# Same again for libjpeg: llimagejpeg.h includes "jpeglib/jpeglib.h" and
+# "jpeglib/jerror.h", while system libjpeg-dev installs them flat in /usr/include.
+mkdir -p "${packages_dir}/include/jpeglib"
+cat > "${packages_dir}/include/jpeglib/jpeglib.h" <<'JPEGH'
+#ifndef JPEGLIB_COMPAT_SHIM
+#define JPEGLIB_COMPAT_SHIM
+/* Delegate to the system jpeglib.h (libjpeg-dev). */
+#include_next <jpeglib.h>
+#endif
+JPEGH
+cat > "${packages_dir}/include/jpeglib/jerror.h" <<'JERRH'
+#ifndef JERROR_COMPAT_SHIM
+#define JERROR_COMPAT_SHIM
+/* Delegate to the system jerror.h (libjpeg-dev). */
+#include_next <jerror.h>
+#endif
+JERRH
+
 # Stage the non-core distribution libraries linked by the ARM build. Keeping
 # these in packages/lib/release lets the existing manifest produce a portable
 # tree without changing the x86_64 dependency policy.
