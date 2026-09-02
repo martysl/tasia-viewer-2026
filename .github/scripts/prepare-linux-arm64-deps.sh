@@ -133,23 +133,43 @@ cp -a "${work_dir}/glod/include/glod.h" "${packages_dir}/include/glod/"
 # the two members are 'const' but the template-instantiated copy-assignment
 # operator assigns to them. Drop const on those two members (the upstream
 # fix) so the build compiles.
-git clone --depth 1 \
-    https://github.com/FirestormViewer/3p-discord-rpc.git "${work_dir}/discordrpc" \
-    2>/dev/null || true
+for attempt in 1 2 3; do
+    git clone --depth 1 \
+        https://github.com/FirestormViewer/3p-discord-rpc.git \
+        "${work_dir}/discordrpc" 2>&1 && break
+    echo "discord-rpc clone attempt ${attempt} failed" >&2
+    rm -rf "${work_dir}/discordrpc"
+    sleep 5
+done
+test -d "${work_dir}/discordrpc/discord-rpc-3.4.0" || {
+    echo "discord-rpc source not cloned after retries" >&2
+    exit 1
+}
+# discord-rpc's CMakeLists downloads rapidjson v1.1.0 at CONFIGURE time via
+# file(DOWNLOAD). That network fetch can be flaky and, if it fails, aborts
+# configure with exit 2. Pre-seed thirdparty/ so configure finds it and never
+# hits the network for rapidjson.
+thirdparty_dir="${work_dir}/discordrpc/discord-rpc-3.4.0/thirdparty"
+mkdir -p "${thirdparty_dir}"
+if [[ ! -d "${thirdparty_dir}/rapidjson-1.1.0" ]]; then
+    curl --fail --location --retry 3 \
+        -o "${thirdparty_dir}/v1.1.0.tar.gz" \
+        https://github.com/miloyip/rapidjson/archive/v1.1.0.tar.gz
+    tar -xzf "${thirdparty_dir}/v1.1.0.tar.gz" -C "${thirdparty_dir}"
+    rm -f "${thirdparty_dir}/v1.1.0.tar.gz"
+fi
 # Its bundled rapidjson 1.1.0 is too old for modern GCC ("assignment of
-# read-only member 'GenericStringRef<...>::length'"). rapidjson is NOT
-# committed: it is downloaded into thirdparty/ by the configure step, so we
-# patch document.h AFTER cmake -S but BEFORE the build. Drop const on the two
+# read-only member 'GenericStringRef<...>::length'"). Drop const on the two
 # members (the upstream fix) so the template-instantiated copy-assignment
-# operator compiles.
+# operator compiles. Patch AFTER cmake -S but BEFORE the build.
 cmake -S "${work_dir}/discordrpc/discord-rpc-3.4.0" \
       -B "${work_dir}/discordrpc-build" \
       -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
       -DBUILD_EXAMPLES=OFF \
-      -DCMAKE_BUILD_TYPE=Release >"${work_dir}/discordrpc-config.log" 2>&1
-rj_header="${work_dir}/discordrpc/discord-rpc-3.4.0/thirdparty/rapidjson-1.1.0/include/rapidjson/document.h"
+      -DCMAKE_BUILD_TYPE=Release
+rj_header="${thirdparty_dir}/rapidjson-1.1.0/include/rapidjson/document.h"
 test -f "${rj_header}" || {
-    echo "rapidjson header not staged by configure; see ${work_dir}/discordrpc-config.log" >&2
+    echo "rapidjson header not staged by configure" >&2
     exit 1
 }
 sed -i \
@@ -159,7 +179,7 @@ sed -i \
     's/^    const SizeType length; \/\/!< length of the string (excluding the trailing NULL terminator)/    SizeType length; \/\/!< length of the string (excluding the trailing NULL terminator)/' \
     "${rj_header}"
 cmake --build "${work_dir}/discordrpc-build" \
-      --config Release --parallel "$(nproc)" >"${work_dir}/discordrpc-build.log" 2>&1
+      --config Release --parallel "$(nproc)"
 test -f "${work_dir}/discordrpc-build/src/libdiscord-rpc.a" || {
     echo "discord-rpc build missing libdiscord-rpc.a; see ${work_dir}/discordrpc-build.log" >&2
     exit 1
