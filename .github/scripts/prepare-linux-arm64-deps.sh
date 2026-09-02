@@ -25,9 +25,15 @@ printf '%s  %s\n' "${CEF_SHA256}" "${CEF_ARCHIVE}" | sha256sum --check --strict
 git clone --depth 1 --branch v1.26.0-CEF_139.0.40 \
     https://github.com/secondlife/dullahan.git "${work_dir}/dullahan"
 
+# Dullahan's CMake reads the autobuild 64-bit flags from the environment and
+# injects x86-only flags (-m64/-march=x86-64) which are invalid on aarch64.
+# Build Dullahan with architecture-neutral flags.
+unset LL_BUILD LL_BUILD_RELEASE AUTOBUILD_ADDRSIZE 2>/dev/null || true
 cmake -S "${work_dir}/dullahan" -B "${work_dir}/dullahan-build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${work_dir}/dullahan-stage" \
+    -DCMAKE_C_FLAGS="" \
+    -DCMAKE_CXX_FLAGS="" \
     -DUSE_SPOTIFY_CEF=TRUE \
     -DSPOTIFY_CEF_URL="file://${CEF_ARCHIVE}"
 cmake --build "${work_dir}/dullahan-build" --parallel "$(nproc)"
