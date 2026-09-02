@@ -29,11 +29,14 @@ git clone --depth 1 --branch v1.26.0-CEF_139.0.40 \
 # injects x86-only flags (-m64/-march=x86-64) which are invalid on aarch64.
 # Build Dullahan with architecture-neutral flags.
 unset LL_BUILD LL_BUILD_RELEASE AUTOBUILD_ADDRSIZE 2>/dev/null || true
+# CEF's cef_variables.cmake detects "arm64" only (macOS naming) and falls back
+# to x86_64 on Linux aarch64, injecting -m64/-march=x86-64. Force PROJECT_ARCH.
 cmake -S "${work_dir}/dullahan" -B "${work_dir}/dullahan-build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${work_dir}/dullahan-stage" \
     -DCMAKE_C_FLAGS="" \
     -DCMAKE_CXX_FLAGS="" \
+    -DPROJECT_ARCH=arm64 \
     -DUSE_SPOTIFY_CEF=TRUE \
     -DSPOTIFY_CEF_URL="file://${CEF_ARCHIVE}"
 cmake --build "${work_dir}/dullahan-build" --parallel "$(nproc)"
