@@ -1474,6 +1474,11 @@ class Darwin_x86_64_Manifest(ViewerManifest):
                             # self.path( "*.dylib" )
                             # self.path( "plugins.dat" )
 
+    MACOS_EXECUTABLE_NAME = "Tasia"
+
+    def app_name(self):
+        return self.MACOS_EXECUTABLE_NAME
+
     def construct(self):
         # copy over the build result (this is a no-op if run within the xcode
         # script)
@@ -1492,7 +1497,7 @@ class Darwin_x86_64_Manifest(ViewerManifest):
 
         with self.prefix(src="", dst="Contents"):  # everything goes in Contents
             with self.prefix(dst="MacOS"):
-                executable = self.dst_path_of(CHANNEL_VENDOR_BASE) # locate the executable within the bundle.
+                executable = self.dst_path_of(self.MACOS_EXECUTABLE_NAME) # locate the executable within the bundle.
 
             bugsplat_db = self.args.get('bugsplat')
             print(f"debug: bugsplat_db={bugsplat_db}")
@@ -1536,7 +1541,7 @@ class Darwin_x86_64_Manifest(ViewerManifest):
                         self.path(libfile)
 
             with self.prefix(dst="MacOS"):
-                executable = self.dst_path_of(CHANNEL_VENDOR_BASE)
+                executable = self.dst_path_of(self.MACOS_EXECUTABLE_NAME)
                 if self.args.get('bugsplat'):
                     # According to Apple Technical Note TN2206:
                     # https://developer.apple.com/library/archive/technotes/tn2206/_index.html#//apple_ref/doc/uid/DTS40007919-CH1-TNTAG207
@@ -1760,15 +1765,14 @@ class Darwin_x86_64_Manifest(ViewerManifest):
         if ("package" in self.args['actions'] or 
             "unpacked" in self.args['actions']):
             self.run_command_shell('strip -S %(viewer_binary)r' %
-                            { 'viewer_binary' : self.dst_path_of('Contents/MacOS/' + CHANNEL_VENDOR_BASE)})
+                            { 'viewer_binary' : self.dst_path_of('Contents/MacOS/' + self.MACOS_EXECUTABLE_NAME)})
 # </FS:Ansariel> construct method VMP trampoline crazy VMP launcher juggling shamelessly replaced with old version
 
     def package_finish(self):
-        global CHANNEL_VENDOR_BASE
         # MBW -- If the mounted volume name changes, it breaks the .DS_Store's background image and icon positioning.
         #  If we really need differently named volumes, we'll need to create multiple DS_Store file images, or use some other trick.
 
-        volname=CHANNEL_VENDOR_BASE+" Installer"  # DO NOT CHANGE without understanding comment above
+        volname=self.MACOS_EXECUTABLE_NAME+" Installer"  # DO NOT CHANGE without understanding comment above
 
         # <FS:ND> Make sure all our package names look similar 
         #imagename = self.installer_base_name_mac()
@@ -1797,7 +1801,7 @@ class Darwin_x86_64_Manifest(ViewerManifest):
 
             # Copy everything in to the mounted .dmg
 
-            app_name = CHANNEL_VENDOR_BASE
+            app_name = self.MACOS_EXECUTABLE_NAME
 
             # Hack:
             # Because there is no easy way to coerce the Finder into positioning
@@ -1864,7 +1868,7 @@ class Darwin_x86_64_Manifest(ViewerManifest):
             # the signature are preserved; moving the files using python will leave them behind
             # and invalidate the signatures.
             if 'signature' in self.args:
-                app_in_dmg=os.path.join(volpath, CHANNEL_VENDOR_BASE + ".app")
+                app_in_dmg=os.path.join(volpath, self.MACOS_EXECUTABLE_NAME + ".app")
                 print("Attempting to sign '%s'" % app_in_dmg)
                 identity = self.args['signature']
                 if identity == '':
