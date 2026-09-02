@@ -410,7 +410,7 @@ class LLWebRTCImpl : public LLWebRTCDeviceInterface, public webrtc::AudioDeviceO
 {
   public:
     LLWebRTCImpl(LLWebRTCLogCallback* logCallback);
-    ~LLWebRTCImpl()
+    virtual ~LLWebRTCImpl()
     {
         delete mLogSink;
 
