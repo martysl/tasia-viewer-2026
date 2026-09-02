@@ -123,6 +123,53 @@ done
 mkdir -p "${packages_dir}/include/glod"
 cp -a "${work_dir}/glod/include/glod.h" "${packages_dir}/include/glod/"
 
+# Build discord-rpc from source: no ARM autobuild pkg exists and the x86_64
+# prebuilt (libdiscord-rpc.a) is EM: 62 and can't link. fsdiscordconnect.cpp
+# calls the Discord_* API unconditionally (no LL_DISCORD guard), so we need
+# BOTH the header (discord-rpc/discord_rpc.h) and libdiscord-rpc.a.
+# The FirestormViewer/3p-discord-rpc fork vendors a discord-rpc-3.4.0 source
+# tree that builds via plain cmake. Its bundled rapidjson 1.1.0 is too old for
+# modern GCC ("assignment of read-only member 'GenericStringRef<...>::length'"):
+# the two members are 'const' but the template-instantiated copy-assignment
+# operator assigns to them. Drop const on those two members (the upstream
+# fix) so the build compiles.
+git clone --depth 1 \
+    https://github.com/FirestormViewer/3p-discord-rpc.git "${work_dir}/discordrpc" \
+    2>/dev/null || true
+# Its bundled rapidjson 1.1.0 is too old for modern GCC ("assignment of
+# read-only member 'GenericStringRef<...>::length'"). rapidjson is NOT
+# committed: it is downloaded into thirdparty/ by the configure step, so we
+# patch document.h AFTER cmake -S but BEFORE the build. Drop const on the two
+# members (the upstream fix) so the template-instantiated copy-assignment
+# operator compiles.
+cmake -S "${work_dir}/discordrpc/discord-rpc-3.4.0" \
+      -B "${work_dir}/discordrpc-build" \
+      -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -DBUILD_EXAMPLES=OFF \
+      -DCMAKE_BUILD_TYPE=Release >"${work_dir}/discordrpc-config.log" 2>&1
+rj_header="${work_dir}/discordrpc/discord-rpc-3.4.0/thirdparty/rapidjson-1.1.0/include/rapidjson/document.h"
+test -f "${rj_header}" || {
+    echo "rapidjson header not staged by configure; see ${work_dir}/discordrpc-config.log" >&2
+    exit 1
+}
+sed -i \
+    's/^    const Ch\* const s; \/\/!< plain CharType pointer/    const Ch* s; \/\/!< plain CharType pointer/' \
+    "${rj_header}"
+sed -i \
+    's/^    const SizeType length; \/\/!< length of the string (excluding the trailing NULL terminator)/    SizeType length; \/\/!< length of the string (excluding the trailing NULL terminator)/' \
+    "${rj_header}"
+cmake --build "${work_dir}/discordrpc-build" \
+      --config Release --parallel "$(nproc)" >"${work_dir}/discordrpc-build.log" 2>&1
+test -f "${work_dir}/discordrpc-build/src/libdiscord-rpc.a" || {
+    echo "discord-rpc build missing libdiscord-rpc.a; see ${work_dir}/discordrpc-build.log" >&2
+    exit 1
+}
+mkdir -p "${packages_dir}/include/discord-rpc"
+cp -a "${work_dir}/discordrpc/discord-rpc-3.4.0/include/"*.h \
+      "${packages_dir}/include/discord-rpc/"
+cp -a "${work_dir}/discordrpc-build/src/libdiscord-rpc.a" \
+      "${packages_dir}/lib/release/"
+
 # minizip: colladadom uses the old unzip.h/zip.h API (from zlib contrib).
 # System libminizip-dev provides both the headers and libminizip.so (old ABI).
 # LLPrimitive.cmake ARM64 path links against libminizip (old API), not minizip-ng.
@@ -217,6 +264,8 @@ for required in \
     "${packages_dir}/lib/release/libdullahan.a" \
     "${packages_dir}/lib/release/libcef_dll_wrapper.a" \
     "${packages_dir}/lib/release/libwebrtc.a" \
+    "${packages_dir}/lib/release/libdiscord-rpc.a" \
+    "${packages_dir}/include/discord-rpc/discord_rpc.h" \
     "${packages_dir}/bin/release/dullahan_host" \
     "${packages_dir}/ffmpeg/tasia-ffmpeg"; do
     test -e "${required}" || { echo "Missing staged ARM dependency: ${required}" >&2; exit 1; }
