@@ -34,20 +34,21 @@ if (USE_OPENAL)
   endif ()
   target_compile_definitions( ll::openal INTERFACE LL_OPENAL=1)
 
-  find_library(OPENAL_LIBRARY
-      NAMES
-      OpenAL32
-      openal
-      libopenal.dylib
-      libopenal.so
-      PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED)
-
-  find_library(ALUT_LIBRARY
-      NAMES
-      alut
-      libalut.dylib
-      libalut.so
-      PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED)
+  if (LL_LINUX_ARM64)
+    find_library(OPENAL_LIBRARY
+        NAMES OpenAL32 openal libopenal.dylib libopenal.so
+        REQUIRED)
+    find_library(ALUT_LIBRARY
+        NAMES alut libalut.dylib libalut.so
+        REQUIRED)
+  else ()
+    find_library(OPENAL_LIBRARY
+        NAMES OpenAL32 openal libopenal.dylib libopenal.so
+        PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED NO_DEFAULT_PATH)
+    find_library(ALUT_LIBRARY
+        NAMES alut libalut.dylib libalut.so
+        PATHS "${ARCH_PREBUILT_DIRS_RELEASE}" REQUIRED NO_DEFAULT_PATH)
+  endif ()
 
   target_link_libraries(ll::openal INTERFACE ${OPENAL_LIBRARY} ${ALUT_LIBRARY})
 

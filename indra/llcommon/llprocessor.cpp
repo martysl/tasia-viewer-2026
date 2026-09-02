@@ -32,6 +32,7 @@
 
 #include <iomanip>
 //#include <memory>
+#include <fstream>
 
 #if LL_WINDOWS
 #   include "llwin32headers.h"
@@ -848,8 +849,27 @@ private:
             setInfo(eFrequency,(F64)(mhz));
         }
 
+        // ARM64 fallback: /proc/cpuinfo often lacks "cpu mhz"; read from sysfs
+        if (eFrequency < 200.0 || eFrequency > 10000.0)
+        {
+            std::ifstream cpufreq("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq");
+            unsigned long khz = 0;
+            if (cpufreq >> khz && khz > 200000 && khz < 10000000)
+            {
+                setInfo(eFrequency, (F64)(khz / 1000));
+            }
+        }
+
         LLPI_SET_INFO_STRING(eBrandName, "model name");
-        LLPI_SET_INFO_STRING(eVendor, "vendor_id");
+        if (!cpuinfo["model name"].empty())
+            LLPI_SET_INFO_STRING(eBrandName, "model name");
+        else
+            LLPI_SET_INFO_STRING(eBrandName, "processor");
+
+        if (!cpuinfo["vendor_id"].empty())
+            LLPI_SET_INFO_STRING(eVendor, "vendor_id");
+        else
+            LLPI_SET_INFO_STRING(eVendor, "cpu implementer");
 
         LLPI_SET_INFO_INT(eStepping, "stepping");
         LLPI_SET_INFO_INT(eModel, "model");
