@@ -65,7 +65,7 @@ jobs:
             libapr1-dev libaprutil1-dev libboost-all-dev libboost-url1.83-dev \
             libcurl4-openssl-dev libssl-dev libexpat1-dev libhunspell-dev \
             libjpeg-dev libmeshoptimizer-dev libminizip-dev libnghttp2-dev \
-            libnuma-dev libatomic1 \
+            libnuma-dev libatomic1 libglvnd-dev libopengl-dev \
             libopenjp2-7-dev libpng-dev libsdl1.2-dev libsdl2-dev \
             libvlc-dev libvorbis-dev libxml2-dev libxxhash-dev libglm-dev \
             libpipewire-0.3-dev libunwind-dev libjemalloc-dev libjsoncpp-dev
