@@ -133,6 +133,29 @@ jobs:
         shell: bash
         run: bash .github/scripts/prepare-linux-arm64-deps.sh
 
+      - name: Download WebRTC ARM64 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/martysl/tasia-viewer-2026/actions/artifacts/9909446268/zip \
+            -o /tmp/webrtc-arm64.zip
+          mkdir -p private-deps
+          unzip -q /tmp/webrtc-arm64.zip -d private-deps
+          WEBRTC_PACKAGE="$(find private-deps -type f -name '*linux64-arm64*.tar.zst' -print -quit)"
+          test -n "$WEBRTC_PACKAGE"
+          echo "Using WebRTC package: $WEBRTC_PACKAGE"
+          WEBRTC_HASH=$(python3 -c "import hashlib,sys; print(hashlib.md5(open(sys.argv[1],'rb').read()).hexdigest())" "$WEBRTC_PACKAGE")
+          WEBRTC_FILE_URL=$(python3 -c "import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())" "$WEBRTC_PACKAGE")
+          echo "WEBRTC_HASH=$WEBRTC_HASH" >> "$GITHUB_ENV"
+          echo "WEBRTC_FILE_URL=$WEBRTC_FILE_URL" >> "$GITHUB_ENV"
+
+      - name: Point autobuild to ARM64 WebRTC package
+        shell: bash
+        run: |
+          set -euo pipefail
+          autobuild installables edit webrtc \
+            platform=linux64 hash="$WEBRTC_HASH" url="$WEBRTC_FILE_URL"
+
       - name: Configure Linux ARM64 with FMOD
         shell: bash
         env:
