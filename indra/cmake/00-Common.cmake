@@ -171,10 +171,14 @@ if (LINUX)
       -fno-math-errno
       -fno-strict-aliasing
       -fsigned-char
-      -msse2
-      -mfpmath=sse
       -pthread
       )
+  if (NOT ARCH STREQUAL "aarch64")
+    add_compile_options(
+        -msse2
+        -mfpmath=sse
+        )
+  endif()
 
   # force this platform to accept TOS via external browser <FS:ND> No, do not.
   # add_definitions(-DEXTERNAL_TOS)
@@ -238,6 +242,8 @@ if (LINUX OR DARWIN)
   endif ()
 
   add_compile_options(${GCC_WARNINGS})
-  add_compile_options(-m${ADDRESS_SIZE})
+  if (NOT ARCH STREQUAL "aarch64")
+    add_compile_options(-m${ADDRESS_SIZE})
+  endif()
 endif (LINUX OR DARWIN)
 
