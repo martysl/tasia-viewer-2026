@@ -35,13 +35,52 @@ jobs:
           docker system prune --all --force
           df -h /
 
-      - name: Checkout pinned Second Life WebRTC builder
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Autobuild
+        shell: bash
+        run: python -m pip install autobuild
+
+      - name: Checkout pinned M137 ARM64 cross-builder
         shell: bash
         run: |
           set -euo pipefail
           git clone --filter=blob:none https://github.com/secondlife/3p-webrtc-build.git thirdparty-webrtc
-          git -C thirdparty-webrtc checkout d3f62d32bac8694d3c7423c731ae30c113bf6a11
-          test "$(git -C thirdparty-webrtc rev-parse HEAD)" = "d3f62d32bac8694d3c7423c731ae30c113bf6a11"
+          git -C thirdparty-webrtc fetch origin refs/pull/13/head
+          git -C thirdparty-webrtc checkout --detach FETCH_HEAD
+          test "$(git -C thirdparty-webrtc rev-parse HEAD)" = "65e8e37a0d94357fc5fdf3ca62a774224cd4f703"
+          git -C thirdparty-webrtc merge-base --is-ancestor a6b5ccc93a0dac924c985ca93a5cb7d587620a44 HEAD
+
+          git -C thirdparty-webrtc fetch origin refs/tags/m137.7151.04.23
+          test "$(git -C thirdparty-webrtc rev-parse 'FETCH_HEAD^{commit}')" = "0e68e35459b682f131ed99e7c6494d9455ba58aa"
+          git -C thirdparty-webrtc show FETCH_HEAD:autobuild.xml > thirdparty-webrtc/autobuild.xml
+
+          grep -Fx 'WEBRTC_VERSION=137.7151.03' thirdparty-webrtc/build/VERSION
+          grep -Fx 'WEBRTC_COMMIT=8538ce3b1ac15f0a1beeb5ef7c9368b73d2c0c92' thirdparty-webrtc/build/VERSION
+          python3 - <<'PY'
+          from pathlib import Path
+          run = Path('thirdparty-webrtc/build/run.py').read_text()
+          required = [
+              'host_cpu="x64"',
+              'target_cpu="arm64"',
+              'use_custom_libcxx=false',
+              'use_custom_libcxx_for_host=false',
+              'use_thin_lto=false',
+              'clang_use_chrome_plugins=false',
+              'libyuv_use_sme=false',
+              'rtc_use_x11=false',
+              'rtc_use_pipewire=false',
+              'rtc_include_internal_audio_device=true',
+              'WEBRTC_LAST_COMMIT_DATE',
+              'ranlib',
+              'disable_crel.patch',
+          ]
+          missing = [item for item in required if item not in run]
+          assert not missing, f'Missing required M137 ARM64 fixes: {missing}'
+          PY
 
       - name: Repair legacy ARM package filename mismatch
         shell: bash
@@ -59,59 +98,132 @@ jobs:
               path.write_text(text.replace('webrtc.tar.gz', 'webrtc.tar.bz2'))
           PY
 
-      - name: Cross-build WebRTC m137 for Linux ARM64
+      - name: Cross-build pinned WebRTC M137 for Linux ARM64
         shell: bash
         run: |
           set -euo pipefail
           cd thirdparty-webrtc/build
-          ./build.ubuntu-20.04_armv8.sh m137_release
+          ./build.ubuntu-20.04_armv8.sh 8538ce3b1ac15f0a1beeb5ef7c9368b73d2c0c92
 
-      - name: Create ARM64 autobuild package
-        id: package
+      - name: Prepare Autobuild stage
         shell: bash
         run: |
           set -euo pipefail
           raw_archive="thirdparty-webrtc/build/_package/ubuntu-20.04_armv8/webrtc.tar.bz2"
           test -s "$raw_archive"
 
-          rm -rf webrtc-raw webrtc-stage webrtc-verify
-          mkdir -p webrtc-raw webrtc-stage/include/webrtc webrtc-stage/lib/release webrtc-stage/LICENSES
-          tar -xjf "$raw_archive" -C webrtc-raw
-          test -d webrtc-raw/webrtc/include
-          test -f webrtc-raw/webrtc/lib/libwebrtc.a
-          test -f webrtc-raw/webrtc/NOTICE
+          rm -rf thirdparty-webrtc/stage
+          mkdir -p thirdparty-webrtc/stage
+          tar -xjf "$raw_archive" -C thirdparty-webrtc/stage --strip-components=1
+          test -d thirdparty-webrtc/stage/include
+          test -f thirdparty-webrtc/stage/lib/libwebrtc.a
+          test -f thirdparty-webrtc/stage/NOTICE
 
-          cp -a webrtc-raw/webrtc/include/. webrtc-stage/include/webrtc/
-          install -m 0644 webrtc-raw/webrtc/lib/libwebrtc.a webrtc-stage/lib/release/libwebrtc.a
-          install -m 0644 webrtc-raw/webrtc/NOTICE webrtc-stage/LICENSES/webrtc-license.txt
-          if test -f webrtc-raw/webrtc/VERSIONS; then
-            install -m 0644 webrtc-raw/webrtc/VERSIONS webrtc-stage/VERSIONS.txt
-          fi
-          printf '%s\n' 'm137.7151.04.23-linux-arm64' > webrtc-stage/VERSION.txt
+          mv thirdparty-webrtc/stage/include thirdparty-webrtc/stage/webrtc
+          mkdir thirdparty-webrtc/stage/include
+          mv thirdparty-webrtc/stage/webrtc thirdparty-webrtc/stage/include/webrtc
+          mv thirdparty-webrtc/stage/lib thirdparty-webrtc/stage/release
+          mkdir thirdparty-webrtc/stage/lib
+          mv thirdparty-webrtc/stage/release thirdparty-webrtc/stage/lib/release
+          mkdir thirdparty-webrtc/stage/LICENSES
+          mv thirdparty-webrtc/stage/NOTICE thirdparty-webrtc/stage/LICENSES/webrtc-license.txt
+          printf '%s\n' '137.7151.03.0' > thirdparty-webrtc/stage/VERSION.txt
 
-          package="webrtc-m137.7151.04.23-linuxarm64-${GITHUB_RUN_ID}.tar.zst"
-          tar --zstd -cf "$package" -C webrtc-stage .
-          test -s "$package"
+          test -f thirdparty-webrtc/stage/include/webrtc/api/peer_connection_interface.h
+          test -f thirdparty-webrtc/stage/include/webrtc/third_party/abseil-cpp/absl/base/config.h
+          test -f thirdparty-webrtc/stage/lib/release/libwebrtc.a
 
-          mkdir -p webrtc-verify
-          tar --zstd -xf "$package" -C webrtc-verify
-          test -f webrtc-verify/include/webrtc/api/peer_connection_interface.h
-          test -f webrtc-verify/lib/release/libwebrtc.a
-          mapfile -t members < <(ar t webrtc-verify/lib/release/libwebrtc.a)
-          test "${#members[@]}" -gt 0
-          member="${members[0]}"
-          ar p webrtc-verify/lib/release/libwebrtc.a "$member" > webrtc-first-object.o
-          file webrtc-first-object.o | tee webrtc-architecture.txt
-          grep -Eq 'ARM aarch64|ARM64' webrtc-architecture.txt
-          if grep -Eq 'x86-64|Intel 80386' webrtc-architecture.txt; then
-            echo "::error::x86 object found in WebRTC ARM64 archive"
-            exit 1
-          fi
+          docker system prune --all --force
+          df -h /
 
-          sha256sum "$package" | tee "$package.sha256"
-          sha1sum "$package" | tee "$package.sha1"
-          md5sum "$package" | tee "$package.md5"
-          echo "package=$package" >> "$GITHUB_OUTPUT"
+      - name: Audit complete WebRTC archive architecture and index
+        shell: bash
+        run: |
+          set -euo pipefail
+          library="thirdparty-webrtc/stage/lib/release/libwebrtc.a"
+          member_count="$(ar t "$library" | wc -l)"
+          test "$member_count" -gt 0
+
+          readelf --file-header "$library" > webrtc-elf-headers.txt
+          nm -s --defined-only "$library" > webrtc-archive-symbols.txt
+          grep -q '^Archive index:' webrtc-archive-symbols.txt
+
+          MEMBER_COUNT="$member_count" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          text = Path('webrtc-elf-headers.txt').read_text(errors='replace')
+          machines = [line.split(':', 1)[1].strip() for line in text.splitlines()
+                      if line.strip().startswith('Machine:')]
+          expected = int(os.environ['MEMBER_COUNT'])
+          assert len(machines) == expected, (len(machines), expected)
+          unexpected = sorted(set(machines) - {'AArch64'})
+          assert not unexpected, f'Non-AArch64 objects found: {unexpected}'
+          Path('webrtc-architecture.txt').write_text(
+              f'archive_members={expected}\nverified_elf_headers={len(machines)}\nmachines=AArch64\n'
+          )
+          PY
+          ranlib -t "$library"
+          cat webrtc-architecture.txt
+
+      - name: Create Linux64 Autobuild package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd thirdparty-webrtc
+          base="webrtc-137.7151.03.0-linux64-arm64-${GITHUB_RUN_ID}"
+          output="${GITHUB_WORKSPACE}/${base}.tar.zst"
+
+          autobuild build \
+            --config-file autobuild.xml \
+            --platform linux64 \
+            --address-size 64 \
+            --id "${GITHUB_RUN_ID}"
+          autobuild package \
+            --config-file autobuild.xml \
+            --platform linux64 \
+            --address-size 64 \
+            --archive-format tzst \
+            --archive-name "${GITHUB_WORKSPACE}/${base}"
+
+          test -s "$output"
+          echo "package=$output" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Autobuild metadata and packaged payload
+        shell: bash
+        env:
+          PACKAGE: ${{ steps.package.outputs.package }}
+        run: |
+          set -euo pipefail
+          rm -rf webrtc-package-verify
+          mkdir webrtc-package-verify
+          tar --zstd -xf "$PACKAGE" -C webrtc-package-verify
+
+          test -f webrtc-package-verify/autobuild-package.xml
+          test -f webrtc-package-verify/include/webrtc/api/peer_connection_interface.h
+          test -f webrtc-package-verify/include/webrtc/third_party/abseil-cpp/absl/base/config.h
+          test -f webrtc-package-verify/lib/release/libwebrtc.a
+          test -f webrtc-package-verify/LICENSES/webrtc-license.txt
+
+          python3 - <<'PY'
+          import llsd
+          data = llsd.parse(open('webrtc-package-verify/autobuild-package.xml', 'rb').read())
+          package = data['package_description']
+          assert data['type'] == 'metadata', data
+          assert data['platform'] == 'linux64', data['platform']
+          assert package['name'] == 'webrtc', package['name']
+          assert package['version'] == '137.7151.03.0', package['version']
+          manifest = set(data['manifest'])
+          assert 'include/webrtc' in manifest, manifest
+          assert 'lib/release' in manifest, manifest
+          assert 'LICENSES/webrtc-license.txt' in manifest, manifest
+          PY
+
+          cmp thirdparty-webrtc/stage/lib/release/libwebrtc.a \
+              webrtc-package-verify/lib/release/libwebrtc.a
+          sha256sum "$PACKAGE" | tee "${PACKAGE}.sha256"
+          sha1sum "$PACKAGE" | tee "${PACKAGE}.sha1"
+          md5sum "$PACKAGE" | tee "${PACKAGE}.md5"
 
       - name: Upload WebRTC Linux ARM64 artifact
         uses: actions/upload-artifact@v4
@@ -126,3 +238,4 @@ jobs:
             ${{ steps.package.outputs.package }}.sha1
             ${{ steps.package.outputs.package }}.md5
             webrtc-architecture.txt
+            webrtc-package-verify/autobuild-package.xml
