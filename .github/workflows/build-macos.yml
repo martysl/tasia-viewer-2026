@@ -37,6 +37,9 @@ jobs:
           - arch: x86_64
             runner: macos-15-intel
             cmake_arch_flag: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+          - arch: arm64
+            runner: macos-14
+            cmake_arch_flag: "-DCMAKE_OSX_ARCHITECTURES=arm64"
 
     runs-on: ${{ matrix.runner }}
 
@@ -261,31 +264,34 @@ jobs:
           fi
 
       - name: Post to Discord
-        if: inputs.publish_release == 'true' && matrix.arch == 'x86_64'
+        if: inputs.publish_release == 'true'
         shell: bash
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           set -euo pipefail
-          python3 - "${{ github.repository }}" "${{ github.sha }}" "${{ github.run_number }}" <<'PYEOF'
+          python3 - "${{ github.repository }}" "${{ github.sha }}" "${{ github.run_number }}" "${{ matrix.arch }}" <<'PYEOF'
           import json, os, sys, urllib.request
 
           repo = sys.argv[1]
           sha = sys.argv[2][:7]
           run = sys.argv[3]
+          arch = sys.argv[4]
           version = f"8.0.1.{run}"
           tag = f"v8.0.1-{run}"
           release_url = f"https://github.com/{repo}/releases/tag/{tag}"
 
+          arch_label = "Intel" if arch == "x86_64" else "Apple Silicon"
+
           payload = {
               "embeds": [{
-                  "title": f"Tasia Viewer {version} — macOS Beta",
+                  "title": f"Tasia Viewer {version} — macOS {arch_label}",
                   "description": "macOS build ready!",
                   "url": release_url,
                   "color": 15277667,
                   "fields": [
                       {"name": "Version", "value": version, "inline": True},
-                      {"name": "Platform", "value": "macOS Intel (x86_64)", "inline": True},
+                      {"name": "Platform", "value": f"macOS {arch_label} ({arch})", "inline": True},
                       {"name": "Commit", "value": sha, "inline": True},
                   ],
                   "footer": {"text": "💚 Tasia Release"}
