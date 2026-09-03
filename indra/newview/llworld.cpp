@@ -1677,7 +1677,8 @@ void process_enable_simulator(LLMessageSystem *msg, void **user_data)
     if (quic_port > 0 && !quic_host.empty())
     {
         std::string quic_err;
-        if (!msg->enableQuicCircuit(sim, quic_host, quic_port, true, &quic_err))
+        static LLCachedControl<S32> quic_retries(gSavedSettings, "TasiaQuicConnectionRetries");
+        if (!msg->enableQuicCircuit(sim, quic_host, quic_port, true, &quic_err, quic_retries))
         {
             LL_WARNS("Messaging") << "EnableSimulator: QUIC enable failed for " << sim
                                   << " (host=" << quic_host << " port=" << quic_port

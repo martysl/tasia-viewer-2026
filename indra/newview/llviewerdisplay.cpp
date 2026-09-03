@@ -310,7 +310,9 @@ static void update_tp_display(bool minimized)
     {
         attach_count = gAgentAvatarp->getAttachmentCount();
     }
-    F32 teleport_save_time = TELEPORT_EXPIRY + TELEPORT_EXPIRY_PER_ATTACHMENT * attach_count;
+    // <Tasia> Allow the base teleport timeout to be configured in Preferences → Tasia.
+    static LLCachedControl<F32> tasia_teleport_timeout(gSavedSettings, "TasiaTeleportTimeout", TELEPORT_EXPIRY);
+    F32 teleport_save_time = tasia_teleport_timeout + TELEPORT_EXPIRY_PER_ATTACHMENT * attach_count;
     F32 teleport_elapsed = gTeleportDisplayTimer.getElapsedTimeF32();
     F32 teleport_percent = teleport_elapsed * (100.f / teleport_save_time);
     if (gAgent.getTeleportState() != LLAgent::TELEPORT_START && teleport_percent > 100.f)

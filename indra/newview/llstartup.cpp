@@ -4914,7 +4914,8 @@ bool process_login_success_response(U32 &first_sim_size_x, U32 &first_sim_size_y
             if (sim_quic_port > 0 && !sim_quic_host.empty())
             {
                 std::string quic_err;
-                if (!gMessageSystem->enableQuicCircuit(gFirstSim, sim_quic_host, sim_quic_port, true, &quic_err))
+                static LLCachedControl<S32> quic_retries(gSavedSettings, "TasiaQuicConnectionRetries");
+                if (!gMessageSystem->enableQuicCircuit(gFirstSim, sim_quic_host, sim_quic_port, true, &quic_err, quic_retries))
                 {
                     LL_WARNS("AppInit") << "Login response advertised QUIC ("
                                         << sim_quic_host << ":" << sim_quic_port

@@ -1595,7 +1595,7 @@ void LLMessageSystem::enableCircuit(const LLHost &host, bool trusted)
 }
 
 bool LLMessageSystem::enableQuicCircuit(const LLHost &host, const std::string &quic_host, U16 quic_port, bool trusted,
-                                        std::string *error_out)
+                                        std::string *error_out, S32 retries)
 {
     auto set_err = [&](const std::string &m)
     {
@@ -1648,10 +1648,36 @@ bool LLMessageSystem::enableQuicCircuit(const LLHost &host, const std::string &q
         }
     }
 
-    auto conn = std::make_shared<LLQuicConnection>(config);
-    if (!conn->connect(quic_host, quic_port))
+    // <Tasia> Configurable connection retries for robustness.
+    // connect() is synchronous: it either returns true (queued the async
+    // ConnectionStart, still CONNECTING) or leaves the connection FAILED.
+    // On a failed attempt we discard that connection object and try a fresh
+    // one, since a FAILED LLQuicConnection cannot be reused.
+    const S32 attempts = llmax(1, retries);
+    std::shared_ptr<LLQuicConnection> conn;
+    std::string last_err;
+    for (S32 attempt = 1; attempt <= attempts; ++attempt)
     {
-        std::string m = conn->describeFailure();
+        auto candidate = std::make_shared<LLQuicConnection>(config);
+        if (candidate->connect(quic_host, quic_port))
+        {
+            conn = std::move(candidate);
+            last_err.clear();
+            break;
+        }
+
+        last_err = candidate->describeFailure();
+        LL_WARNS("Messaging") << "enableQuicCircuit(" << host << "): QUIC attempt "
+                              << attempt << "/" << attempts << " to "
+                              << quic_host << ":" << quic_port << " failed: "
+                              << last_err << LL_ENDL;
+    }
+
+    if (!conn)
+    {
+        std::string m = last_err.empty()
+            ? "Could not establish QUIC connection to the simulator"
+            : last_err;
         LL_WARNS("Messaging") << "enableQuicCircuit(" << host << "): " << m << LL_ENDL;
         set_err(m);
         return false;

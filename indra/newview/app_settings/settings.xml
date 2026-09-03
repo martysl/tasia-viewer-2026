@@ -158,6 +158,45 @@
     <key>Backup</key>
     <integer>0</integer>
   </map>
+  <key>TasiaQuicConnectionRetries</key>
+  <map>
+    <key>Comment</key>
+    <string>Number of QUIC connection attempts (retries) when contacting a simulator, before giving up. Default 1 = current behaviour (single attempt).</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>S32</string>
+    <key>Value</key>
+    <integer>1</integer>
+    <key>Backup</key>
+    <integer>0</integer>
+  </map>
+  <key>TasiaQuicFallbackLLUDP</key>
+  <map>
+    <key>Comment</key>
+    <string>If QUIC fails to connect to a teleport destination simulator, fall back to LLUDP instead of showing a CouldNotTeleportReason error. Default off preserves the strict QUIC behaviour.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>0</integer>
+    <key>Backup</key>
+    <integer>0</integer>
+  </map>
+  <key>TasiaTeleportTimeout</key>
+  <map>
+    <key>Comment</key>
+    <string>Base teleport timeout in seconds (waiting for AgentMovementComplete) before the viewer gives up on a teleport. Attachments add extra time on top of this. Default 15 matches stock Firestorm.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>F32</string>
+    <key>Value</key>
+    <real>15.0</real>
+    <key>Backup</key>
+    <integer>0</integer>
+  </map>
   <key>TasiaTipThankEnabled</key>
   <map>
     <key>Comment</key>

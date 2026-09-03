@@ -259,4 +259,101 @@
      Nieprawidłowy UUID. Wpisz pełny UUID animacji.
     </string>
 
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="20"
+     layout="topleft"
+     left="20"
+     top_pad="14"
+     name="tasia_opensim_label"
+     font="SansSerifBold"
+     font-size="12"
+     width="500">
+     Połączenie OpenSim
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="tasia_opensim_desc"
+     font="SansSerif"
+     width="480">
+     Dostrój sposób komunikacji viewera z symulatorami OpenSim (QUIC, LLUDP i pobieranie tekstur).
+    </text>
+
+    <spinner
+     allow_text_entry="true"
+     control_name="TasiaQuicConnectionRetries"
+     decimal_digits="0"
+     follows="left|top"
+     height="20"
+     increment="1"
+     label="Ponowne próby połączenia QUIC"
+     layout="topleft"
+     left="35"
+     max_val="10"
+     min_val="1"
+     name="TasiaQuicConnectionRetries"
+     top_pad="10"
+     width="230" />
+
+    <check_box
+     control_name="TasiaQuicFallbackLLUDP"
+     follows="left|top"
+     height="16"
+     label="Przełącz na LLUDP, gdy połączenie QUIC zawiedzie"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="TasiaQuicFallbackLLUDP"
+     width="420" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="50"
+     top_pad="3"
+     name="tasia_quic_fb_desc"
+     font="SansSerif"
+     width="460">
+     Gdy wyłączone, nieudany teleport QUIC pokazuje błąd. Gdy włączone, viewer próbuje najpierw LLUDP.
+    </text>
+
+    <spinner
+     allow_text_entry="true"
+     control_name="TasiaTeleportTimeout"
+     decimal_digits="1"
+     follows="left|top"
+     height="20"
+     increment="1"
+     label="Limit czasu teleportu (sekundy)"
+     layout="topleft"
+     left="35"
+     max_val="120"
+     min_val="5"
+     name="TasiaTeleportTimeout"
+     top_pad="10"
+     width="230" />
+
+    <check_box
+     control_name="ImagePipelineUseHTTP"
+     follows="left|top"
+     height="16"
+     label="Pobieraj tekstury przez HTTP (gdy dostępne)"
+     layout="topleft"
+     left="35"
+     top_pad="10"
+     name="ImagePipelineUseHTTP"
+     width="420" />
+
 </panel>

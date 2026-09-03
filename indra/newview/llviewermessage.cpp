@@ -3972,23 +3972,40 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
     else if (quic_port > 0 && !quic_host.empty())
     {
         std::string quic_err;
-        if (!gMessageSystem->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err))
+        static LLCachedControl<S32> quic_retries(gSavedSettings, "TasiaQuicConnectionRetries");
+        static LLCachedControl<bool> quic_fallback_lludp(gSavedSettings, "TasiaQuicFallbackLLUDP");
+        if (!gMessageSystem->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err, quic_retries))
         {
-            LL_WARNS("Teleport","Messaging") << "TeleportFinish: QUIC enable failed for " << sim_host
-                                             << " (host=" << quic_host << " port=" << quic_port
-                                             << "): " << quic_err
-                                             << "; per spec NOT falling back to LLUDP." << LL_ENDL;
-            LLSD args;
-            args["REASON"] = quic_err.empty()
-                ? std::string("Could not establish QUIC connection to the destination simulator")
-                : quic_err;
-            LLNotificationsUtil::add("CouldNotTeleportReason", args);
-            gAgent.setTeleportState(LLAgent::TELEPORT_NONE);
-            s_active_quic_teleport_dest = LLHost();
-            return;
+            if (quic_fallback_lludp)
+            {
+                LL_WARNS("Teleport","Messaging") << "TeleportFinish: QUIC enable failed for " << sim_host
+                                                 << " (host=" << quic_host << " port=" << quic_port
+                                                 << "): " << quic_err
+                                                 << "; TasiaQuicFallbackLLUDP enabled, falling back to LLUDP." << LL_ENDL;
+                gMessageSystem->enableCircuit(sim_host, true);
+                s_active_quic_teleport_dest = LLHost();
+            }
+            else
+            {
+                LL_WARNS("Teleport","Messaging") << "TeleportFinish: QUIC enable failed for " << sim_host
+                                                 << " (host=" << quic_host << " port=" << quic_port
+                                                 << "): " << quic_err
+                                                 << "; per spec NOT falling back to LLUDP." << LL_ENDL;
+                LLSD args;
+                args["REASON"] = quic_err.empty()
+                    ? std::string("Could not establish QUIC connection to the destination simulator")
+                    : quic_err;
+                LLNotificationsUtil::add("CouldNotTeleportReason", args);
+                gAgent.setTeleportState(LLAgent::TELEPORT_NONE);
+                s_active_quic_teleport_dest = LLHost();
+                return;
+            }
         }
-        s_active_quic_teleport_dest = sim_host;
-        gMessageSystem->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
+        else
+        {
+            s_active_quic_teleport_dest = sim_host;
+            gMessageSystem->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
+        }
     }
     else
     {
@@ -4440,18 +4457,30 @@ void process_crossed_region(LLMessageSystem* msg, void**)
         if (quic_port > 0 && !quic_host.empty())
         {
             std::string quic_err;
-            if (!msg->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err))
+            static LLCachedControl<S32> quic_retries(gSavedSettings, "TasiaQuicConnectionRetries");
+            static LLCachedControl<bool> quic_fallback_lludp(gSavedSettings, "TasiaQuicFallbackLLUDP");
+            if (!msg->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err, quic_retries))
             {
-                LL_WARNS("CrossingCaps","Messaging") << "CrossedRegion: QUIC enable failed for " << sim_host
-                                                     << ": " << quic_err
-                                                     << "; per spec NOT falling back to LLUDP." << LL_ENDL;
-                LLSD args;
-                args["REASON"] = quic_err.empty()
-                    ? std::string("Could not establish QUIC connection to the destination simulator")
-                    : quic_err;
-                LLNotificationsUtil::add("CouldNotTeleportReason", args);
-                s_active_quic_teleport_dest = LLHost();
-                return;
+                if (quic_fallback_lludp)
+                {
+                    LL_WARNS("CrossingCaps","Messaging") << "CrossedRegion: QUIC enable failed for " << sim_host
+                                                         << ": " << quic_err
+                                                         << "; TasiaQuicFallbackLLUDP enabled, falling back to LLUDP." << LL_ENDL;
+                    msg->enableCircuit(sim_host, true);
+                }
+                else
+                {
+                    LL_WARNS("CrossingCaps","Messaging") << "CrossedRegion: QUIC enable failed for " << sim_host
+                                                         << ": " << quic_err
+                                                         << "; per spec NOT falling back to LLUDP." << LL_ENDL;
+                    LLSD args;
+                    args["REASON"] = quic_err.empty()
+                        ? std::string("Could not establish QUIC connection to the destination simulator")
+                        : quic_err;
+                    LLNotificationsUtil::add("CouldNotTeleportReason", args);
+                    s_active_quic_teleport_dest = LLHost();
+                    return;
+                }
             }
         }
         else
