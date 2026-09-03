@@ -1,0 +1,128 @@
+name: Build Tasia Dependency - WebRTC Linux ARM64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build WebRTC m137 for Linux ARM64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout viewer repository
+        uses: actions/checkout@v4
+
+      - name: Assert x86_64 cross-build host
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "x86_64"
+          docker version
+
+      - name: Free disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          docker system prune --all --force
+          df -h /
+
+      - name: Checkout pinned Second Life WebRTC builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/secondlife/3p-webrtc-build.git thirdparty-webrtc
+          git -C thirdparty-webrtc checkout d3f62d32bac8694d3c7423c731ae30c113bf6a11
+          test "$(git -C thirdparty-webrtc rev-parse HEAD)" = "d3f62d32bac8694d3c7423c731ae30c113bf6a11"
+
+      - name: Repair legacy ARM package filename mismatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          files = [
+              Path('thirdparty-webrtc/build/ubuntu-20.04_armv8/Dockerfile'),
+              Path('thirdparty-webrtc/build/build.ubuntu-20.04_armv8.sh'),
+          ]
+          for path in files:
+              text = path.read_text()
+              assert 'webrtc.tar.gz' in text, path
+              path.write_text(text.replace('webrtc.tar.gz', 'webrtc.tar.bz2'))
+          PY
+
+      - name: Cross-build WebRTC m137 for Linux ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd thirdparty-webrtc/build
+          ./build.ubuntu-20.04_armv8.sh m137_release
+
+      - name: Create ARM64 autobuild package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw_archive="thirdparty-webrtc/build/_package/ubuntu-20.04_armv8/webrtc.tar.bz2"
+          test -s "$raw_archive"
+
+          rm -rf webrtc-raw webrtc-stage webrtc-verify
+          mkdir -p webrtc-raw webrtc-stage/include/webrtc webrtc-stage/lib/release webrtc-stage/LICENSES
+          tar -xjf "$raw_archive" -C webrtc-raw
+          test -d webrtc-raw/webrtc/include
+          test -f webrtc-raw/webrtc/lib/libwebrtc.a
+          test -f webrtc-raw/webrtc/NOTICE
+
+          cp -a webrtc-raw/webrtc/include/. webrtc-stage/include/webrtc/
+          install -m 0644 webrtc-raw/webrtc/lib/libwebrtc.a webrtc-stage/lib/release/libwebrtc.a
+          install -m 0644 webrtc-raw/webrtc/NOTICE webrtc-stage/LICENSES/webrtc-license.txt
+          if test -f webrtc-raw/webrtc/VERSIONS; then
+            install -m 0644 webrtc-raw/webrtc/VERSIONS webrtc-stage/VERSIONS.txt
+          fi
+          printf '%s\n' 'm137.7151.04.23-linux-arm64' > webrtc-stage/VERSION.txt
+
+          package="webrtc-m137.7151.04.23-linuxarm64-${GITHUB_RUN_ID}.tar.zst"
+          tar --zstd -cf "$package" -C webrtc-stage .
+          test -s "$package"
+
+          mkdir -p webrtc-verify
+          tar --zstd -xf "$package" -C webrtc-verify
+          test -f webrtc-verify/include/webrtc/api/peer_connection_interface.h
+          test -f webrtc-verify/lib/release/libwebrtc.a
+          mapfile -t members < <(ar t webrtc-verify/lib/release/libwebrtc.a)
+          test "${#members[@]}" -gt 0
+          member="${members[0]}"
+          ar p webrtc-verify/lib/release/libwebrtc.a "$member" > webrtc-first-object.o
+          file webrtc-first-object.o | tee webrtc-architecture.txt
+          grep -Eq 'ARM aarch64|ARM64' webrtc-architecture.txt
+          if grep -Eq 'x86-64|Intel 80386' webrtc-architecture.txt; then
+            echo "::error::x86 object found in WebRTC ARM64 archive"
+            exit 1
+          fi
+
+          sha256sum "$package" | tee "$package.sha256"
+          sha1sum "$package" | tee "$package.sha1"
+          md5sum "$package" | tee "$package.md5"
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+
+      - name: Upload WebRTC Linux ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tasia-WebRTC-m137-Linux-ARM64
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          path: |
+            ${{ steps.package.outputs.package }}
+            ${{ steps.package.outputs.package }}.sha256
+            ${{ steps.package.outputs.package }}.sha1
+            ${{ steps.package.outputs.package }}.md5
+            webrtc-architecture.txt
