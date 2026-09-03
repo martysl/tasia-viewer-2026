@@ -159,6 +159,7 @@
 #include "chatbar_as_cmdline.h"
 #include "llchatbar.h" // <Tasia> EChatType + sendChatFromViewer for DJ-mode tip thank-yous
 #include "llui.h" // <Tasia> LLUI::getLanguage() for PL/EN thank-you
+#include "llquicconnection.h" // <Tasia> Access LLQuicConnection for clean-peer-close detection in on_quic_circuit_failed_vm
 
 extern void on_new_message(const LLSD& msg);
 
@@ -3773,6 +3774,64 @@ bool LLPostTeleportNotifiers::tick()
 
 // Teleport notification from the simulator
 // We're going to pretend to be a new agent
+
+namespace
+{
+    LLHost s_active_quic_teleport_dest;
+
+    void on_quic_circuit_failed_vm(const LLHost& host, void* /*user_data*/)
+    {
+        std::string reason;
+        bool clean_peer_close = false;
+        if (gMessageSystem)
+        {
+            LLCircuitData* cdp = gMessageSystem->mCircuitInfo.findCircuit(host);
+            if (cdp && cdp->isQuic())
+            {
+                reason = cdp->describeQuicFailure();
+                if (const auto& conn = cdp->getQuicConnection())
+                {
+                    clean_peer_close = conn->wasClosedByPeer()
+                        && conn->getLastAppErrorCode() == 0
+                        && conn->getLastTransportStatus() == 0;
+                }
+            }
+        }
+        if (reason.empty())
+        {
+            reason = "QUIC connection to the simulator was lost";
+        }
+
+        if (clean_peer_close)
+        {
+            LL_INFOS("Messaging") << "QUIC circuit to " << host
+                                  << " closed cleanly by peer: " << reason
+                                  << LL_ENDL;
+        }
+        else
+        {
+            LL_WARNS("Messaging") << "QUIC circuit to " << host
+                                  << " failed: " << reason
+                                  << " (per spec there is no LLUDP fallback)"
+                                  << LL_ENDL;
+        }
+
+        const bool is_active_tp_dest =
+            s_active_quic_teleport_dest.isOk()
+            && host == s_active_quic_teleport_dest;
+
+        if (is_active_tp_dest
+            && gAgent.getTeleportState() != LLAgent::TELEPORT_NONE)
+        {
+            LLSD args;
+            args["REASON"] = reason;
+            LLNotificationsUtil::add("CouldNotTeleportReason", args);
+            gAgent.setTeleportState(LLAgent::TELEPORT_NONE);
+            s_active_quic_teleport_dest = LLHost();
+        }
+    }
+}
+
 void process_teleport_finish(LLMessageSystem* msg, void**)
 {
     LL_DEBUGS("Teleport","Messaging") << "Received TeleportFinish message" << LL_ENDL;
@@ -3900,6 +3959,15 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
                                          << " circuit to " << sim_host
                                          << LL_ENDL;
         gMessageSystem->enableCircuit(sim_host, true);
+        if (existing_cdp->isQuic())
+        {
+            s_active_quic_teleport_dest = sim_host;
+            gMessageSystem->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
+        }
+        else
+        {
+            s_active_quic_teleport_dest = LLHost();
+        }
     }
     else if (quic_port > 0 && !quic_host.empty())
     {
@@ -3916,13 +3984,17 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
                 : quic_err;
             LLNotificationsUtil::add("CouldNotTeleportReason", args);
             gAgent.setTeleportState(LLAgent::TELEPORT_NONE);
+            s_active_quic_teleport_dest = LLHost();
             return;
         }
+        s_active_quic_teleport_dest = sim_host;
+        gMessageSystem->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
     }
     else
     {
         // Viewer trusts the simulator.
         gMessageSystem->enableCircuit(sim_host, true);
+        s_active_quic_teleport_dest = LLHost();
     }
 // <FS:CR> Aurora Sim
     //LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host);
@@ -4152,6 +4224,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 
         LL_INFOS("Teleport") << "Agent movement complete, setting state to TELEPORT_START_ARRIVAL" << LL_ENDL;
         gAgent.setTeleportState( LLAgent::TELEPORT_START_ARRIVAL );
+        s_active_quic_teleport_dest = LLHost();
 
         // <FS:Ansariel> [Legacy Bake]
         // set the appearance on teleport since the new sim does not;
@@ -4187,6 +4260,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
         LL_INFOS("Teleport") << "State is not TELEPORT_MOVING, so this is initial log-in or region crossing. "
                              << "Setting state to TELEPORT_NONE" << LL_ENDL;
         gAgent.setTeleportState( LLAgent::TELEPORT_NONE );
+        s_active_quic_teleport_dest = LLHost();
 
         if(LLStartUp::getStartupState() < STATE_STARTED)
         {   // This is initial log-in, not a region crossing:
@@ -4371,12 +4445,30 @@ void process_crossed_region(LLMessageSystem* msg, void**)
                 LL_WARNS("CrossingCaps","Messaging") << "CrossedRegion: QUIC enable failed for " << sim_host
                                                      << ": " << quic_err
                                                      << "; per spec NOT falling back to LLUDP." << LL_ENDL;
+                LLSD args;
+                args["REASON"] = quic_err.empty()
+                    ? std::string("Could not establish QUIC connection to the destination simulator")
+                    : quic_err;
+                LLNotificationsUtil::add("CouldNotTeleportReason", args);
+                s_active_quic_teleport_dest = LLHost();
+                return;
             }
         }
         else
         {
             msg->enableCircuit(sim_host, true);
         }
+    }
+
+    LLCircuitData* cdp_after = msg->mCircuitInfo.findCircuit(sim_host);
+    if (cdp_after && cdp_after->isQuic())
+    {
+        s_active_quic_teleport_dest = sim_host;
+        msg->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
+    }
+    else
+    {
+        s_active_quic_teleport_dest = LLHost();
     }
 
     send_complete_agent_movement(sim_host);
