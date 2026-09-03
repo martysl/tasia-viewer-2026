@@ -3876,34 +3876,47 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 
     LLHost sim_host(sim_ip, sim_port);
 
-    // Try QUIC for the teleport destination (same pattern as EnableSimulator).
-    // If the server includes QuicHost/QuicPort in the LLSD body, use QUIC;
-    // otherwise fall back to plain LLUDP.
+    // Re-establish the circuit to the teleport destination. The destination
+    // simulator is advertising QUIC via SimQuicHost/SimQuicPort in the
+    // TeleportFinish event body (when QUIC is enabled on the grid), matching
+    // how Misfitz handles it. If a QUIC circuit already exists to the
+    // destination (pre-seeded by EnableSimulator), reuse it; otherwise open
+    // a new QUIC circuit. Per the Tasia QUIC spec there is no LLUDP fallback
+    // when QUIC is advertised but cannot be established.
     std::string quic_host;
     U16         quic_port = 0;
     if (const LLSD* body = msg->getCurrentLLSDMessageBody())
     {
         const LLSD& info = (*body)["Info"][0];
-        if (info.has("QuicHost")) quic_host = info["QuicHost"].asString();
-        if (info.has("QuicPort")) quic_port = static_cast<U16>(info["QuicPort"].asInteger());
+        if (info.has("SimQuicHost")) quic_host = info["SimQuicHost"].asString();
+        if (info.has("SimQuicPort")) quic_port = static_cast<U16>(info["SimQuicPort"].asInteger());
     }
 
-    LL_INFOS("Teleport","Messaging") << "TeleportFinish: sim=" << sim_host
-                                     << " QuicHost='" << quic_host
-                                     << "' QuicPort=" << quic_port
-                                     << " -> " << (quic_port > 0 && !quic_host.empty() ? "QUIC" : "LLUDP")
-                                     << LL_ENDL;
-
-    if (quic_port > 0 && !quic_host.empty())
+    LLCircuitData* existing_cdp = gMessageSystem->mCircuitInfo.findCircuit(sim_host);
+    if (existing_cdp)
+    {
+        LL_INFOS("Teleport","Messaging") << "TeleportFinish: reusing existing "
+                                         << (existing_cdp->isQuic() ? "QUIC" : "LLUDP")
+                                         << " circuit to " << sim_host
+                                         << LL_ENDL;
+        gMessageSystem->enableCircuit(sim_host, true);
+    }
+    else if (quic_port > 0 && !quic_host.empty())
     {
         std::string quic_err;
         if (!gMessageSystem->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err))
         {
             LL_WARNS("Teleport","Messaging") << "TeleportFinish: QUIC enable failed for " << sim_host
-                                              << " (" << quic_host << ":" << quic_port
-                                              << "): " << quic_err
-                                              << "; falling back to LLUDP." << LL_ENDL;
-            gMessageSystem->enableCircuit(sim_host, true);
+                                             << " (host=" << quic_host << " port=" << quic_port
+                                             << "): " << quic_err
+                                             << "; per spec NOT falling back to LLUDP." << LL_ENDL;
+            LLSD args;
+            args["REASON"] = quic_err.empty()
+                ? std::string("Could not establish QUIC connection to the destination simulator")
+                : quic_err;
+            LLNotificationsUtil::add("CouldNotTeleportReason", args);
+            gAgent.setTeleportState(LLAgent::TELEPORT_NONE);
+            return;
         }
     }
     else
@@ -4328,6 +4341,44 @@ void process_crossed_region(LLMessageSystem* msg, void**)
     }
 #endif
 // </FS:CR> Aurora Sim
+
+    // Re-establish the circuit for the crossed-into region. The destination
+    // advertises QUIC via SimQuicHost/SimQuicPort (when the grid has QUIC
+    // enabled). If EnableSimulator already pre-seeded a circuit here, keep
+    // it (including any existing QUIC connection); otherwise establish one,
+    // preferring QUIC when advertised. Matches Misfitz's handling.
+    if (!msg->mCircuitInfo.findCircuit(sim_host))
+    {
+        std::string quic_host;
+        U16         quic_port = 0;
+        if (const LLSD* body = msg->getCurrentLLSDMessageBody())
+        {
+            const LLSD& rdata = (*body)["RegionData"][0];
+            if (rdata.has("SimQuicHost")) quic_host = rdata["SimQuicHost"].asString();
+            if (rdata.has("SimQuicPort")) quic_port = static_cast<U16>(rdata["SimQuicPort"].asInteger());
+        }
+
+        LL_INFOS("CrossingCaps","Messaging") << "CrossedRegion: enabling new circuit sim=" << sim_host
+                                             << " SimQuicHost='" << quic_host
+                                             << "' SimQuicPort=" << quic_port
+                                             << " -> " << (quic_port > 0 && !quic_host.empty() ? "QUIC" : "LLUDP")
+                                             << LL_ENDL;
+        if (quic_port > 0 && !quic_host.empty())
+        {
+            std::string quic_err;
+            if (!msg->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err))
+            {
+                LL_WARNS("CrossingCaps","Messaging") << "CrossedRegion: QUIC enable failed for " << sim_host
+                                                     << ": " << quic_err
+                                                     << "; per spec NOT falling back to LLUDP." << LL_ENDL;
+            }
+        }
+        else
+        {
+            msg->enableCircuit(sim_host, true);
+        }
+    }
+
     send_complete_agent_movement(sim_host);
 
 // <FS:CR> Aurora Sim
