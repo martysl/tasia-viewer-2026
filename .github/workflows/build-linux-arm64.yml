@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
-          key: autobuild-linux-arm64-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
+          key: autobuild-linux-arm64-v4-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
 
       - name: Install build tools and ARM system dependencies
         shell: bash
@@ -79,24 +79,6 @@ jobs:
         with:
           repository: FirestormViewer/fs-build-variables
           path: .build-variables
-
-      - name: Remove all x86_64 installables for ARM64 build
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Remove all installables that only have linux64 (x86_64) packages
-          # ARM64 will use system packages installed via apt
-          # KEEP: ogg_vorbis (required as prebuilt by CMake), openal (required as prebuilt by CMake), fmodstudio (private ARM64 package)
-          for pkg in apr_suite boost breakpad colladadom cubemaptoequirectangular \
-                     discord-rpc dullahan expat fltk freetype glib \
-                     glod gntp-growl gstreamer10 havok-source jemalloc jpegencoderbasic \
-                     kdu libhunspell libjpeg-turbo libpng libuuid libxml2 \
-                     llphysicsextensions_tpv meshoptimizer mikktspace minizip-ng \
-                     nghttp2 open-libndofdev openjpeg openssl \
-                     openxr pcre slvoice tracy viewer-manager webrtc zlib-ng; do
-            autobuild installables remove "$pkg" || true
-          done
-          echo "All x86_64 installables removed for ARM64 build (ogg_vorbis, openal kept for CMake prebuilt)"
 
       - name: Load autobuild environment
         shell: bash
@@ -131,7 +113,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          autobuild installables edit fmodstudio \
+          # Use 'add' to ensure ARM64 package is used (replaces any x86_64)
+          autobuild installables add fmodstudio \
             platform=linux64 hash="$FMOD_HASH" url="$FMOD_FILE_URL"
 
       - name: Download WebRTC ARM64 package
@@ -156,7 +139,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Use 'add' since we removed the x86_64 installable
+          # Use 'add' to ensure ARM64 package is used (replaces any x86_64)
           autobuild installables add webrtc \
             platform=linux64 hash="$WEBRTC_HASH" url="$WEBRTC_FILE_URL"
 
