@@ -2504,7 +2504,8 @@ class Linux_aarch64_Manifest(Linux_x86_64_Manifest):
                     "libnghttp2.so*", "libz.so*", "libexpat.so*", "libfreetype.so*",
                     "libpng16.so*", "libjpeg.so*", "libhunspell*.so*",
                     "libopenjp2.so*", "libvorbis*.so*", "libogg.so*",
-                    "libxml2.so*", "libminizip.so*", "libxxhash.so*"):
+                    "libxml2.so*", "libminizip.so*", "libxxhash.so*",
+                    "libcollada14dom.so*"):
                 self.path_optional(pattern)
 
     def package_vivox_runtime(self, pkgdir):
