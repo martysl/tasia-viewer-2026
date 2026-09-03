@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout viewer source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -54,7 +54,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Checkout build variables
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FirestormViewer/fs-build-variables
           path: .build-variables
