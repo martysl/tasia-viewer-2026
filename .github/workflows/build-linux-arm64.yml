@@ -156,7 +156,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          autobuild installables edit webrtc \
+          # Use 'add' since we removed the x86_64 installable
+          autobuild installables add webrtc \
             platform=linux64 hash="$WEBRTC_HASH" url="$WEBRTC_FILE_URL"
 
       - name: Set Tasia build metadata
