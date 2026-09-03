@@ -97,7 +97,7 @@ jobs:
             --dir private-deps
           FMOD_PACKAGE="$(find private-deps -type f -name '*linuxarm64*.tar.bz2' -print -quit)"
           test -n "$FMOD_PACKAGE"
-          echo '0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5  '"$FMOD_PACKAGE" | sha256sum --check --strict
+          echo '0358e2221e5d8c1a03784db4e4d847510e8679c6eaf4c25ad0ec87ff21ef93fe  '"$FMOD_PACKAGE" | sha256sum --check --strict
           FMOD_HASH="$(md5sum "$FMOD_PACKAGE" | cut -d' ' -f1)"
           FMOD_FILE_URL="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$FMOD_PACKAGE")"
           echo "FMOD_HASH=$FMOD_HASH" >> "$GITHUB_ENV"
