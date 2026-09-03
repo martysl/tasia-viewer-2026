@@ -86,17 +86,17 @@ jobs:
           set -euo pipefail
           # Remove all installables that only have linux64 (x86_64) packages
           # ARM64 will use system packages installed via apt
-          # KEEP: ogg_vorbis (required as prebuilt by CMake), fmodstudio (private ARM64 package)
+          # KEEP: ogg_vorbis (required as prebuilt by CMake), openal (required as prebuilt by CMake), fmodstudio (private ARM64 package)
           for pkg in apr_suite boost breakpad colladadom cubemaptoequirectangular \
                      discord-rpc dullahan expat fltk freetype glib \
                      glod gntp-growl gstreamer10 havok-source jemalloc jpegencoderbasic \
                      kdu libhunspell libjpeg-turbo libpng libuuid libxml2 \
                      llphysicsextensions_tpv meshoptimizer mikktspace minizip-ng \
-                     nghttp2 open-libndofdev openal openjpeg openssl \
+                     nghttp2 open-libndofdev openjpeg openssl \
                      openxr pcre slvoice tracy viewer-manager webrtc zlib-ng; do
             autobuild installables remove "$pkg" || true
           done
-          echo "All x86_64 installables removed for ARM64 build (ogg_vorbis kept for CMake prebuilt)"
+          echo "All x86_64 installables removed for ARM64 build (ogg_vorbis, openal kept for CMake prebuilt)"
 
       - name: Load autobuild environment
         shell: bash
