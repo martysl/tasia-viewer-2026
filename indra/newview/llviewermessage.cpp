@@ -3876,8 +3876,41 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 
     LLHost sim_host(sim_ip, sim_port);
 
-    // Viewer trusts the simulator.
-    gMessageSystem->enableCircuit(sim_host, true);
+    // Try QUIC for the teleport destination (same pattern as EnableSimulator).
+    // If the server includes QuicHost/QuicPort in the LLSD body, use QUIC;
+    // otherwise fall back to plain LLUDP.
+    std::string quic_host;
+    U16         quic_port = 0;
+    if (const LLSD* body = msg->getCurrentLLSDMessageBody())
+    {
+        const LLSD& info = (*body)["Info"][0];
+        if (info.has("QuicHost")) quic_host = info["QuicHost"].asString();
+        if (info.has("QuicPort")) quic_port = static_cast<U16>(info["QuicPort"].asInteger());
+    }
+
+    LL_INFOS("Teleport","Messaging") << "TeleportFinish: sim=" << sim_host
+                                     << " QuicHost='" << quic_host
+                                     << "' QuicPort=" << quic_port
+                                     << " -> " << (quic_port > 0 && !quic_host.empty() ? "QUIC" : "LLUDP")
+                                     << LL_ENDL;
+
+    if (quic_port > 0 && !quic_host.empty())
+    {
+        std::string quic_err;
+        if (!gMessageSystem->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err))
+        {
+            LL_WARNS("Teleport","Messaging") << "TeleportFinish: QUIC enable failed for " << sim_host
+                                              << " (" << quic_host << ":" << quic_port
+                                              << "): " << quic_err
+                                              << "; falling back to LLUDP." << LL_ENDL;
+            gMessageSystem->enableCircuit(sim_host, true);
+        }
+    }
+    else
+    {
+        // Viewer trusts the simulator.
+        gMessageSystem->enableCircuit(sim_host, true);
+    }
 // <FS:CR> Aurora Sim
     //LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host);
     LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host, region_size_x, region_size_y);
