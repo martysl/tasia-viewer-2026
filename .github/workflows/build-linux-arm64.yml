@@ -165,7 +165,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          package="$(find build-linux-aarch64/newview -maxdepth 1 -type f -name '*.tar.xz' -print -quit)"
+          package="$(find build-linux-x86_64/newview -maxdepth 1 -type f -name '*.tar.xz' -print -quit)"
           test -n "$package"
           verify_dir="${RUNNER_TEMP}/tasia-arm64-package"
           mkdir -p "$verify_dir"
@@ -212,8 +212,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
           path: |
-            build-linux-aarch64/**/*.log
-            build-linux-aarch64/CMakeCache.txt
-            build-linux-aarch64/**/CMakeError.log
-            build-linux-aarch64/**/CMakeOutput.log
+            build-linux-x86_64/**/*.log
+            build-linux-x86_64/CMakeCache.txt
+            build-linux-x86_64/**/CMakeError.log
+            build-linux-x86_64/**/CMakeOutput.log
             ${{ runner.temp }}/tasia-arm64-*.txt
