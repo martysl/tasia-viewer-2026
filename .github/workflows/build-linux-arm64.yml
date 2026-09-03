@@ -80,36 +80,22 @@ jobs:
           repository: FirestormViewer/fs-build-variables
           path: .build-variables
 
-      - name: Remove KDU
-        shell: bash
-        run: autobuild installables remove kdu || true
-
-      - name: Download private ARM64 FMOD package
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.FMOD_DEPS_TOKEN }}
-        run: |
-          set -euo pipefail
-          test -n "${GH_TOKEN:-}" || { echo "::error::FMOD_DEPS_TOKEN is missing"; exit 1; }
-          mkdir -p private-deps
-          gh release download fmod-20307 \
-            --repo martysl/tasia-private-deps \
-            --pattern '*linuxarm64*.tar.bz2' \
-            --dir private-deps
-          FMOD_PACKAGE="$(find private-deps -type f -name '*linuxarm64*.tar.bz2' -print -quit)"
-          test -n "$FMOD_PACKAGE"
-          echo '0358e2221e5d8c1a03784db4e4d847510e8679c6eaf4c25ad0ec87ff21ef93fe  '"$FMOD_PACKAGE" | sha256sum --check --strict
-          FMOD_HASH="$(md5sum "$FMOD_PACKAGE" | cut -d' ' -f1)"
-          FMOD_FILE_URL="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$FMOD_PACKAGE")"
-          echo "FMOD_HASH=$FMOD_HASH" >> "$GITHUB_ENV"
-          echo "FMOD_FILE_URL=$FMOD_FILE_URL" >> "$GITHUB_ENV"
-
-      - name: Point autobuild to ARM64 FMOD package
+      - name: Remove all x86_64 installables for ARM64 build
         shell: bash
         run: |
           set -euo pipefail
-          autobuild installables edit fmodstudio \
-            platform=linux64 hash="$FMOD_HASH" url="$FMOD_FILE_URL"
+          # Remove all installables that only have linux64 (x86_64) packages
+          # ARM64 will use system packages installed via apt
+          for pkg in apr_suite boost breakpad colladadom cubemaptoequirectangular \
+                     discord-rpc dullahan expat fltk fmodstudio freetype glib \
+                     glod gntp-growl gstreamer10 havok-source jemalloc jpegencoderbasic \
+                     kdu libhunspell libjpeg-turbo libpng libuuid libxml2 \
+                     llphysicsextensions_tpv meshoptimizer mikktspace minizip-ng \
+                     nghttp2 ogg_vorbis open-libndofdev openal openjpeg openssl \
+                     openxr pcre slvoice tracy viewer-manager webrtc zlib-ng; do
+            autobuild installables remove "$pkg" || true
+          done
+          echo "All x86_64 installables removed for ARM64 build"
 
       - name: Load autobuild environment
         shell: bash
@@ -128,35 +114,6 @@ jobs:
           echo "TASIA_SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           echo "TASIA_DISPLAY_VERSION=8.0.1.${{ github.run_number }}" >> "$GITHUB_ENV"
           echo "TASIA_BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
-
-      - name: Prepare native ARM64 dependencies
-        shell: bash
-        run: bash .github/scripts/prepare-linux-arm64-deps.sh
-
-      - name: Download WebRTC ARM64 package
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api repos/martysl/tasia-viewer-2026/actions/artifacts/9909446268/zip \
-            > /tmp/webrtc-arm64.zip
-          mkdir -p private-deps
-          unzip -q /tmp/webrtc-arm64.zip -d private-deps
-          WEBRTC_PACKAGE="$(find private-deps -type f -name '*linux64-arm64*.tar.zst' -print -quit)"
-          test -n "$WEBRTC_PACKAGE"
-          echo "Using WebRTC package: $WEBRTC_PACKAGE"
-          WEBRTC_HASH=$(python3 -c "import hashlib,sys; print(hashlib.md5(open(sys.argv[1],'rb').read()).hexdigest())" "$WEBRTC_PACKAGE")
-          WEBRTC_FILE_URL=$(python3 -c "import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())" "$WEBRTC_PACKAGE")
-          echo "WEBRTC_HASH=$WEBRTC_HASH" >> "$GITHUB_ENV"
-          echo "WEBRTC_FILE_URL=$WEBRTC_FILE_URL" >> "$GITHUB_ENV"
-
-      - name: Point autobuild to ARM64 WebRTC package
-        shell: bash
-        run: |
-          set -euo pipefail
-          autobuild installables edit webrtc \
-            platform=linux64 hash="$WEBRTC_HASH" url="$WEBRTC_FILE_URL"
 
       - name: Configure Linux ARM64 with FMOD
         shell: bash
