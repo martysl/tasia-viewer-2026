@@ -168,9 +168,21 @@ jobs:
           FFMPEG_ARCHIVE="${RUNNER_TEMP}/tasia-ffmpeg.tar.xz"
 
           mkdir -p "$DEST_DIR" "$FFMPEG_EXTRACT"
-          curl --fail --silent --show-error --location \
-            --output "$FFMPEG_ARCHIVE" "$FFMPEG_URL"
+
+          # Retry the download a few times in case of transient network/checksum hiccups
+          for attempt in 1 2 3 4 5; do
+            curl --fail --silent --show-error --location \
+              --output "$FFMPEG_ARCHIVE" "$FFMPEG_URL"
+            if echo "$FFMPEG_SHA256  $FFMPEG_ARCHIVE" | sha256sum --check --strict; then
+              echo "FFmpeg download verified on attempt $attempt"
+              break
+            fi
+            echo "::warning::FFmpeg download checksum failed on attempt $attempt, retrying..."
+            sleep 5
+            rm -f "$FFMPEG_ARCHIVE"
+          done
           echo "$FFMPEG_SHA256  $FFMPEG_ARCHIVE" | sha256sum --check --strict
+
           tar -xJf "$FFMPEG_ARCHIVE" -C "$FFMPEG_EXTRACT"
 
           FFMPEG_BIN="$(find "$FFMPEG_EXTRACT" -maxdepth 2 -type f -name ffmpeg -print -quit)"
