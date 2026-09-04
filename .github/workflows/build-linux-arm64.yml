@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
-          key: autobuild-linux-arm64-v16-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
+          key: autobuild-linux-arm64-v17-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
 
       - name: Install build tools and ARM system dependencies
         shell: bash
@@ -112,8 +112,11 @@ jobs:
           # glod (GLOD.cmake),
           # jpegencoderbasic (JPEGEncoderBasic.cmake),
           # open-libndofdev (NDOF.cmake)
-          # Only remove packages NOT in the CMake use_prebuilt_binary list
-          for pkg in viewer-manager; do
+          # REMOVE packages that have x86_64 binaries in installables and no ARM64 version:
+          # curl (libcurl.a has EM:62 x86_64), openssl, nghttp2, expat, libxml2, etc.
+          # These will be built from source or use system packages
+          for pkg in curl openssl nghttp2 expat libxml2 \
+                     viewer-manager; do
             autobuild installables remove "$pkg" || true
           done
           echo "Removed x86_64-only installables for ARM64 build"
