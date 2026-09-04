@@ -131,8 +131,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Use 'add' since we removed the x86_64 installable
-          autobuild installables add fmodstudio \
+          # Use 'edit' since the package may already exist from build-variables
+          autobuild installables edit fmodstudio \
             platform=linux64 hash="$FMOD_HASH" url="$FMOD_FILE_URL"
 
       - name: Download WebRTC ARM64 package
@@ -157,8 +157,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Use 'add' since we removed the x86_64 installable
-          autobuild installables add webrtc \
+          # Use 'edit' since the package may already exist from build-variables
+          autobuild installables edit webrtc \
             platform=linux64 hash="$WEBRTC_HASH" url="$WEBRTC_FILE_URL"
 
       - name: Set Tasia build metadata
