@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
-          key: autobuild-linux-arm64-v11-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
+          key: autobuild-linux-arm64-v12-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
 
       - name: Install build tools and ARM system dependencies
         shell: bash
@@ -106,11 +106,12 @@ jobs:
           # apr_suite, zlib_ng, mesa, freetype, harfbuzz, fontconfig, icu, pcre,
           # sqlite, zlib, xz, lz4, bzip2, openjpeg (OpenJPEG.cmake),
           # meshoptimizer (Meshoptimizer.cmake),
-          # minizip-ng (LLPrimitive.cmake)
+          # minizip-ng (LLPrimitive.cmake),
+          # slvoice (ViewerMiscLibs.cmake)
           # Only remove packages NOT in the CMake use_prebuilt_binary list
           for pkg in glod gstreamer10 \
                      jpegencoderbasic open-libndofdev \
-                     slvoice viewer-manager; do
+                     viewer-manager; do
             autobuild installables remove "$pkg" || true
           done
           echo "Removed x86_64-only installables for ARM64 build"
