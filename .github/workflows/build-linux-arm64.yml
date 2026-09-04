@@ -46,7 +46,7 @@ jobs:
           cache: pip
 
       - name: Restore ARM autobuild cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
           key: autobuild-linux-arm64-v18-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
