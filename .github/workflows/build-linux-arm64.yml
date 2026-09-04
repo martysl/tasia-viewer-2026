@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
-          key: autobuild-linux-arm64-v6-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
+          key: autobuild-linux-arm64-v7-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
 
       - name: Install build tools and ARM system dependencies
         shell: bash
@@ -88,6 +88,24 @@ jobs:
           LL_BUILD="${LL_BUILD:-${LL_BUILD_RELEASE:-}}"
           echo "LL_BUILD=$LL_BUILD" >> "$GITHUB_ENV"
           echo "LL_BUILD_RELEASE=${LL_BUILD_RELEASE:-}" >> "$GITHUB_ENV"
+
+      - name: Remove x86_64-only installables for ARM64 build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Remove installables that only have linux64 (x86_64) packages and we have system packages for
+          # These packages caused "file in wrong format" errors in previous builds
+          # KEEP: fmodstudio, webrtc (custom ARM64), ogg_vorbis, openal, apr_suite, boost, expat, zlib_ng (CMake needs prebuilt, may have ARM64)
+          for pkg in curl openssl nghttp2 meshoptimizer freetype glib glod \
+                     discord-rpc dullahan expat fltk gstreamer10 \
+                     havok-source jemalloc jpegencoderbasic kdu \
+                     libhunspell libjpeg-turbo libpng libuuid libxml2 \
+                     llphysicsextensions_tpv mikktspace minizip-ng \
+                     open-libndofdev openjpeg openxr pcre slvoice tracy \
+                     viewer-manager zlib-ng; do
+            autobuild installables remove "$pkg" || true
+          done
+          echo "Removed x86_64-only installables for ARM64 build"
 
       - name: Download private ARM64 FMOD package
         shell: bash
