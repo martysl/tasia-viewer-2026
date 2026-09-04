@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
-          key: autobuild-linux-arm64-v7-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
+          key: autobuild-linux-arm64-v8-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('autobuild.xml') }}
 
       - name: Install build tools and ARM system dependencies
         shell: bash
@@ -95,14 +95,20 @@ jobs:
           set -euo pipefail
           # Remove installables that only have linux64 (x86_64) packages and we have system packages for
           # These packages caused "file in wrong format" errors in previous builds
-          # KEEP: fmodstudio, webrtc (custom ARM64), ogg_vorbis, openal, apr_suite, boost, expat, zlib_ng (CMake needs prebuilt, may have ARM64)
-          for pkg in curl openssl nghttp2 meshoptimizer freetype glib glod \
-                     discord-rpc dullahan expat fltk gstreamer10 \
-                     havok-source jemalloc jpegencoderbasic kdu \
-                     libhunspell libjpeg-turbo libpng libuuid libxml2 \
-                     llphysicsextensions_tpv mikktspace minizip-ng \
-                     open-libndofdev openjpeg openxr pcre slvoice tracy \
-                     viewer-manager zlib-ng; do
+          # KEEP all packages that CMake requires via use_prebuilt_binary:
+          # fmodstudio, webrtc (custom ARM64), boost, curl, glib, glod, discord-rpc,
+          # mikktspace, cubemaptoequirectangular, llca, openxr, vlc-bin, gstreamer,
+          # tracy, kdu, tinyexr, SDL2, tut, openal, gstreamer10, libxml2, havok-source,
+          # openssl, dictionaries, libhunspell, dullahan, vulkan_gltf,
+          # llphysicsextensions_source, llphysicsextensions_tpv, libpng, jemalloc,
+          # nghttp2, glm, libuuid, slvoice, nanosvg, viewer-fonts, emoji_shortcodes,
+          # bugsplat, breakpad, jpegencoderbasic, fltk, expat, ogg_vorbis, openal,
+          # apr_suite, zlib_ng, mesa, freetype, harfbuzz, fontconfig, icu, pcre,
+          # sqlite, zlib, xz, lz4, bzip2
+          # Only remove packages NOT in the CMake use_prebuilt_binary list
+          for pkg in meshoptimizer glod gstreamer10 \
+                     jpegencoderbasic minizip-ng open-libndofdev openjpeg \
+                     slvoice viewer-manager; do
             autobuild installables remove "$pkg" || true
           done
           echo "Removed x86_64-only installables for ARM64 build"
