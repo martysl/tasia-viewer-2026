@@ -43,6 +43,15 @@ if (USE_FMODSTUDIO)
 
     target_link_libraries(ll::fmodstudio INTERFACE ${FMOD_LIBRARY})
 
+    if (DARWIN)
+      # macOS packages libfmod.dylib in Contents/Resources while FMOD keeps an
+      # @rpath install name. Make that packaged Resources directory visible to
+      # dyld from the main viewer executable at runtime.
+      target_link_options(ll::fmodstudio INTERFACE
+        "LINKER:-rpath,@executable_path/../Resources"
+      )
+    endif()
+
     target_include_directories( ll::fmodstudio SYSTEM INTERFACE ${LIBS_PREBUILT_DIR}/include/fmodstudio)
   endif (FMODSTUDIO_LIBRARY AND FMODSTUDIO_INCLUDE_DIR)
 else()
