@@ -48,7 +48,7 @@ jobs:
 
       - name: Restore autobuild installables cache
         id: cache-autobuild
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
           key: autobuild-linux-${{ hashFiles('autobuild.xml') }}
