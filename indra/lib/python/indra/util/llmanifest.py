@@ -326,6 +326,11 @@ MissingFile = namedtuple("MissingFile", ("pattern", "tried"))
 class LLManifest(object, metaclass=LLManifestRegistry):
     manifests = {}
     def for_platform(self, platform, arch = None):
+        # Apple Silicon uses the same Darwin packaging manifest as Intel.
+        # Keep args['arch'] unchanged for naming/metadata; only alias the
+        # manifest registry lookup, whose historical class is x86_64-named.
+        if platform.lower() == 'darwin' and arch in ('aarch64', 'arm64'):
+            arch = 'x86_64'
         if arch:
             platform = platform + '_' + arch + '_'
         return self.manifests[platform.lower()]
