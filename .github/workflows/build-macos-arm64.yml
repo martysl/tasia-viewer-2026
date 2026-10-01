@@ -196,7 +196,7 @@ jobs:
           echo "Verified macOS DMG: $PACKAGE"
 
       - name: Upload artifact - macOS ARM64
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Tasia-Viewer-macOS-arm64-FMOD
           if-no-files-found: error

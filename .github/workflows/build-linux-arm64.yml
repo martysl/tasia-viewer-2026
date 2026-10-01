@@ -245,7 +245,7 @@ jobs:
           sha256sum "$package"
 
       - name: Upload Linux ARM64 artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Tasia-Viewer-Linux-ARM64-FMOD
           if-no-files-found: error
@@ -254,7 +254,7 @@ jobs:
 
       - name: Upload diagnostic logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Tasia-Linux-ARM64-diagnostics
           if-no-files-found: ignore
