@@ -731,8 +731,8 @@ void DXShader::resolveIncludes(std::string& source)
     // subsequent *real* #include (e.g. the varying/*.hlsli one a few lines
     // later in the same file) unresolved, which is what actually produced
     // the downstream "X1505: no include handler" failure.
-    static const std::regex include_pattern(R"RX(^[ \t]*#include\s*"([^"]+)"[^\n]*\n?)RX",
-        std::regex_constants::ECMAScript | std::regex_constants::multiline);
+    static const std::regex include_pattern(R"RX((?:\A|\n)[ \t]*#include\s*"([^"]+)"[^\n]*\n?)RX",
+        std::regex_constants::ECMAScript);
 
     std::string shaders_root = gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "shaders", "");
 
@@ -774,7 +774,15 @@ void DXShader::resolveIncludes(std::string& source)
             included_text.erase(0, 3);
         }
 
-        source.replace(match.position(0), match.length(0), included_text);
+        // The pattern anchors a line start with (?:\A|\n) rather than the
+        // "^" anchor plus regex_constants::multiline. Both mean the same
+        // thing, but multiline is C++17 and MSVC's <regex> in the VS2022
+        // 14.44 toolchain this repository builds with does not expose it,
+        // not even under /std:c++20.
+        const std::string whole_match = match.str(0);
+        const bool had_leading_newline = whole_match.front() == '\n';
+        source.replace(match.position(0), match.length(0),
+            had_leading_newline ? "\n" + included_text : included_text);
     }
 }
 
