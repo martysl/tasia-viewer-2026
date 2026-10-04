@@ -200,10 +200,17 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $url = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
-          $expected = 'fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9'
-          $zip = Join-Path $env:RUNNER_TEMP 'tasia-ffmpeg-9.0.1-essentials.zip'
-          $unpack = Join-Path $env:RUNNER_TEMP 'tasia-ffmpeg-9.0.1-essentials'
+          # Pinned to an immutable dated BtbN release tag. The previous
+          # source, gyan.dev's ffmpeg-release-essentials.zip, is a rolling
+          # release: the same URL serves a different binary over time, so a
+          # pinned hash there goes stale and breaks every build. A dated tag
+          # with a content hash in the asset digest stays valid.
+          $tag = 'autobuild-2026-10-03-18-14'
+          $asset = 'ffmpeg-n9.0.2-22-g46d8f462ee-win64-gpl-9.0.zip'
+          $expected = '7b5087f26c532ccb8cb17a7bef2ff1ab40aeeb60cc13e7ec14e46b56df1abc49'
+          $url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/$tag/$asset"
+          $zip = Join-Path $env:RUNNER_TEMP 'tasia-ffmpeg.zip'
+          $unpack = Join-Path $env:RUNNER_TEMP 'tasia-ffmpeg'
           Invoke-WebRequest -Uri $url -OutFile $zip
           $actual = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLowerInvariant()
           if ($actual -ne $expected) { throw "FFmpeg SHA-256 mismatch: $actual" }
