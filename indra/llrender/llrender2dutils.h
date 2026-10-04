@@ -34,6 +34,12 @@
 #include "llrect.h"
 #include "llsingleton.h"
 #include "llglslshader.h"
+// S24: under DX_RENDER these two program objects are the LLHLSLShader ones
+// llglslshader.h hides, so pull their declarations in instead. Both blocks
+// below are inert in a DX_RENDER=OFF build.
+#ifdef DX_RENDER
+#include "llhlslshader.h"
+#endif
 
 class LLColor4;
 class LLVector3;
@@ -171,8 +177,13 @@ private:
 };
 
 
+// S24: see the llhlslshader.h include above - under DX_RENDER these come from
+// there as LLHLSLShader, so only declare the LLGLSLShader forms when that is
+// not the case.
+#if !defined(DX_RENDER)
 extern LLGLSLShader gSolidColorProgram;
 extern LLGLSLShader gUIProgram;
+#endif
 
 #endif // LL_RENDER2DUTILS_H
 

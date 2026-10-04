@@ -30,6 +30,13 @@
 #include "llgl.h"
 #include "llglslshader.h"
 
+#ifdef DX_RENDER
+// S24: only a pointer parameter below, so a forward declaration is enough -
+// including llhlslshader.h would drag DXShader.h/DXDevice.h into every
+// llshadermgr.h consumer for nothing.
+class LLHLSLShader;
+#endif
+
 class LLShaderMgr
 {
 public:
@@ -369,6 +376,14 @@ public:
     virtual void initAttribsAndUniforms(void);
 
     bool attachShaderFeatures(LLGLSLShader * shader);
+#ifdef DX_RENDER
+    // S24: DX_RENDER sibling of attachShaderFeatures() above. A separate
+    // overload rather than a retyped one because LLGLSLShader and LLHLSLShader
+    // are unrelated types, so no single implementation can serve both without
+    // turning into a template - and templating the existing GL member would
+    // change a declaration every GL caller already sees.
+    bool attachShaderFeaturesDX(LLHLSLShader * shader);
+#endif
     void dumpObjectLog(GLuint ret, bool warns = true, const std::string& filename = "");
     void dumpShaderSource(U32 shader_code_count, GLchar** shader_code_text);
     bool    linkProgramObject(GLuint obj, bool suppress_errors = false);
@@ -401,6 +416,17 @@ public:
 
     // Implemented in the application to actually update out of date uniforms for a particular shader
     virtual void updateShaderUniforms(LLGLSLShader * shader) = 0; // Pure Virtual
+
+#ifdef DX_RENDER
+    // S24: DX_RENDER sibling of updateShaderUniforms() above, called from
+    // LLHLSLShader::bind(). Deliberately NOT pure virtual: every existing
+    // override (llviewershadermgr.cpp, llenvironment.cpp and the
+    // llviewershadermgr test stub) takes an LLGLSLShader*, so a pure virtual
+    // here would leave LLShaderMgr abstract and fail to compile every one of
+    // them. The DX_RENDER override arrives with newview's port; until then the
+    // base body warns once rather than silently doing nothing.
+    virtual void updateShaderUniformsDX(LLHLSLShader * shader);
+#endif
 
     void initShaderCache(bool enabled, const LLUUID& old_cache_version, const LLUUID& current_cache_version, bool second_instance);
     void clearShaderCache();

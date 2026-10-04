@@ -30,6 +30,7 @@
 
 #include "lltexture.h"
 #include "llgl.h"
+#include "llimagedx.h"
 
 class LLImageRaw;
 
@@ -174,7 +175,7 @@ protected:
 	void setTexelsPerImage();
 
 public:
-	/*virtual*/ LLImageDX* getGLTexture() const ;
+	/*virtual*/ LLImageDX* getDXTexture() const ;
 
 protected:
 	S32 mBoostLevel;				// enum describing priority level

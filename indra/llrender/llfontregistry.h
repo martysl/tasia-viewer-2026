@@ -32,6 +32,12 @@
 
 class LLFontGL;
 
+#ifdef DX_RENDER
+// S24: LLFontDX's registry half, below. Pointer-only use, so a forward
+// declaration is enough and llfontdx.h does not have to be dragged in here.
+class LLFontDX;
+#endif
+
 typedef std::vector<std::string> string_vec_t;
 
 struct LLFontFileInfo
@@ -114,6 +120,17 @@ public:
     void destroyGL();
 
     LLFontGL *getFont(const LLFontDescriptor& desc);
+
+#ifdef DX_RENDER
+    // S24: DX_RENDER counterpart of getFont() just above. LLFontDX is not a
+    // subclass of LLFontGL and there is no common base in this tree, so the DX
+    // half gets its own font map and its own createFont copy rather than
+    // disturbing the GL one. Each font class owns a private LLFontRegistry
+    // instance (LLFontGL::sFontRegistry / LLFontDX::sFontRegistry), so in
+    // practice only one of the two maps is ever populated per registry.
+    LLFontDX *getFontDX(const LLFontDescriptor& desc);
+#endif
+
     const LLFontDescriptor *getMatchingFontDesc(const LLFontDescriptor& desc);
     const LLFontDescriptor *getClosestFontTemplate(const LLFontDescriptor& desc);
 
@@ -129,6 +146,12 @@ private:
     LLFontGL *createFont(const LLFontDescriptor& desc);
     typedef std::map<LLFontDescriptor,LLFontGL*> font_reg_map_t;
     typedef std::map<std::string,F32> font_size_map_t;
+
+#ifdef DX_RENDER
+    LLFontDX *createFontDX(const LLFontDescriptor& desc);
+    typedef std::map<LLFontDescriptor,LLFontDX*> font_reg_map_dx_t;
+    font_reg_map_dx_t mFontMapDX;
+#endif
 
     // Given a descriptor, look up specific font instantiation.
     font_reg_map_t mFontMap;

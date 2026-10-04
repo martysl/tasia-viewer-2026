@@ -67,8 +67,13 @@ U32 LLGLSLShader::sTotalBinds = 0;
 boost::json::value LLGLSLShader::sDefaultStats;
 
 //UI shader -- declared here so llui_libtest will link properly
+// S24: guarded out under DX_RENDER, where these names belong to the
+// LLHLSLShader objects defined in llhlslshader.cpp instead. Nothing in this
+// file refers to them, and a DX_RENDER=OFF build is unaffected.
+#if !defined(DX_RENDER)
 LLGLSLShader    gUIProgram;
 LLGLSLShader    gSolidColorProgram;
+#endif
 
 // NOTE: Keep gShaderConsts* and LLGLSLShader::ShaderConsts_e in sync!
 const std::string gShaderConstsKey[LLGLSLShader::NUM_SHADER_CONSTS] =

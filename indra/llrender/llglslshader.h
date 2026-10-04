@@ -30,103 +30,15 @@
 #include "llgl.h"
 #include "llrender.h"
 #include "llstaticstringtable.h"
+#include "llshaderfeatures.h"
 #include <boost/json.hpp>
 #include <unordered_map>
 
-class LLShaderFeatures
-{
-public:
-    S32 mIndexedTextureChannels = 0;
-    bool calculatesLighting = false;
-    bool calculatesAtmospherics = false;
-    bool hasLighting = false; // implies no transport (it's possible to have neither though)
-    bool isAlphaLighting = false; // indicates lighting shaders need not be linked in (lighting performed directly in alpha shader to match deferred lighting functions)
-    bool isSpecular = false;
-    bool hasTransport = false; // implies no lighting (it's possible to have neither though)
-    bool hasSkinning = false;
-    bool hasObjectSkinning = false;
-    bool mGLTF = false;
-    bool hasAtmospherics = false;
-    bool hasGamma = false;
-    bool hasShadows = false;
-    bool hasAmbientOcclusion = false;
-    bool hasSrgb = false;
-    bool isDeferred = false;
-    bool hasFullGBuffer = false;
-    bool hasScreenSpaceReflections = false;
-    bool hasAlphaMask = false;
-    bool hasReflectionProbes = false;
-    bool attachNothing = false;
-    bool hasHeroProbes = false;
-    bool isPBRTerrain = false;
-    bool hasTonemap = false;
-};
+// S24: LLShaderFeatures and LLShaderUniforms used to be defined right here.
+// They are backend independent, and llhlslshader.h needs the same two types,
+// so they now live in llshaderfeatures.h - which is included above, keeping
+// them visible to every existing includer of this header exactly as before.
 
-// ============= Structure for caching shader uniforms ===============
-class LLGLSLShader;
-
-class LLShaderUniforms
-{
-public:
-
-    template<typename T>
-    struct UniformSetting
-    {
-        S32 mUniform{ 0 };
-        T mValue{};
-    };
-
-    typedef UniformSetting<S32> IntSetting;
-    typedef UniformSetting<F32> FloatSetting;
-    typedef UniformSetting<LLVector4> VectorSetting;
-    typedef UniformSetting<LLVector3> Vector3Setting;
-
-    void clear()
-    {
-        mIntegers.resize(0);
-        mFloats.resize(0);
-        mVectors.resize(0);
-        mVector3s.resize(0);
-    }
-
-    void uniform1i(S32 index, S32 value)
-    {
-        mIntegers.push_back({ index, value });
-    }
-
-    void uniform1f(S32 index, F32 value)
-    {
-        mFloats.push_back({ index, value });
-    }
-
-    void uniform4fv(S32 index, const LLVector4& value)
-    {
-        mVectors.push_back({ index, value });
-    }
-
-    void uniform4fv(S32 index, const F32* value)
-    {
-        mVectors.push_back({ index, LLVector4(value) });
-    }
-
-    void uniform3fv(S32 index, const LLVector3& value)
-    {
-        mVector3s.push_back({ index, value });
-    }
-
-    void uniform3fv(S32 index, const F32* value)
-    {
-        mVector3s.push_back({ index, LLVector3(value) });
-    }
-
-    void apply(LLGLSLShader* shader);
-
-
-    std::vector<IntSetting> mIntegers;
-    std::vector<FloatSetting> mFloats;
-    std::vector<VectorSetting> mVectors;
-    std::vector<Vector3Setting> mVector3s;
-};
 class LLGLSLShader
 {
 public:
@@ -375,12 +287,20 @@ private:
     static boost::json::value sDefaultStats;
 };
 
+// S24: these three are program objects with a backend baked into their type,
+// so a build can only have one set of them. Under DX_RENDER they are the
+// LLHLSLShader equivalents declared by llhlslshader.h instead - a translation
+// unit that sees both headers (llhlslshader.cpp, via llshadermgr.h) cannot
+// have two different gUIProgram at once. Nothing above this point is affected,
+// and in a DX_RENDER=OFF build this block is present exactly as before.
+#if !defined(DX_RENDER)
 //UI shader (declared here so llui_libtest will link properly)
 extern LLGLSLShader         gUIProgram;
 //output vec4(color.rgb,color.a*tex0[tc0].a)
 extern LLGLSLShader         gSolidColorProgram;
 //Alpha mask shader (declared here so llappearance can access properly)
 extern LLGLSLShader         gAlphaMaskProgram;
+#endif
 
 #if LL_PROFILER_ENABLE_RENDER_DOC
 #define LL_SET_SHADER_LABEL(shader) shader.setLabel(#shader)

@@ -55,6 +55,18 @@ class LLRenderTarget;
 class LLTexture;
 class LLVertexBufferData;
 
+#ifdef DX_RENDER
+// S24: forward declarations for the DX_RENDER bind() overloads below.
+// Forward declarations rather than includes on purpose: DXCubeMap.h and
+// DXCubeMapArray.h both include llimagedx.h, which includes llrender.h, so
+// including either from here would be a cycle. Only pointers are passed and
+// none of the bodies dereference a complete type, so forward declarations are
+// enough (same idiom as the LLImageGL/LLCubeMap decls just above).
+class LLImageDX;
+class DXCubeMap;
+class DXCubeMapArray;
+#endif
+
 #define LL_MATRIX_STACK_DEPTH 32
 
 constexpr U32 LL_NUM_TEXTURE_LAYERS = 32;
@@ -173,6 +185,23 @@ public:
     // (automatically enables the unit for the LLImageGL's texture type)
     bool bind(LLImageGL* texture, bool for_rendering = false, bool forceBind = false, S32 usename = 0);
     bool bind(LLTexture* texture, bool for_rendering = false, bool forceBind = false);
+
+#ifdef DX_RENDER
+    // S24: DX_RENDER siblings of the three bind() overloads above. The GL
+    // overloads stay exactly as they are - LLImageDX is unrelated to
+    // LLImageGL/LLTexture, so the extra overloads cannot perturb overload
+    // resolution at any existing GL call site (and in a DX_RENDER=OFF build
+    // this block does not exist at all).
+    //
+    // Signatures mirror the donor's LLTexUnit one-for-one, including the
+    // by-value LLImageDX* (llfontdx.cpp:181 passes an LLImageDX* lvalue,
+    // which binds to it). The definitions belong to llrender.cpp's DX_RENDER
+    // port, which still has the GL bodies only - same "declared, defined
+    // later" state as applyDXBlendState()/isRecording() below.
+    bool bind(LLImageDX* texture, bool for_rendering = false, bool forceBind = false, S32 usename = 0);
+    bool bind(DXCubeMap* cubeMap);
+    bool bind(DXCubeMapArray* cubeMapArray);
+#endif
 
     // bind implementation for inner loops
     // makes the following assumptions:

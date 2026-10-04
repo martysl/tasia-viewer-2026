@@ -18,3 +18,13 @@
 
 ## Blockers
 - None currently.
+
+## 2026-10-04: DX11 llrender
+1. ✅ Five dxcheck error groups cleared in `indra/llrender`.
+2. ⬜ Run `.github/workflows/build-windows-dxrender.yml` (MSVC is the authority).
+3. ⬜ `llrender.cpp` DX port: `LLTexUnit::bind(LLImageDX*/DXCubeMap*/DXCubeMapArray*)`
+   bodies, `LLRender::isRecording()`, `applyDXBlendState()`, `applyDXRasterizerState()`.
+4. ⬜ `llfontfreetype.cpp` needs a DX branch at the glyph-upload site (~line 641)
+   so rasterised glyphs reach `LLFontBitmapCache::getImageDX()`.
+5. ⬜ newview port owns `LLShaderMgr::updateShaderUniformsDX()` and the
+   `LLGLSLShader` -> `LLHLSLShader` conversion in llviewershadermgr/llenvironment.

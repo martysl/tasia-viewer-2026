@@ -66,6 +66,7 @@ set(llrender_HEADER_FILES
     llrendernavprim.h
     llrendersphere.h
     llshadermgr.h
+    llshaderfeatures.h
     lltexture.h
     lltexturemanagerbridge.h
     lluiimage.h

@@ -172,3 +172,38 @@ Next work:
 ## Next exact action
 - Commit/push Linux and Windows badge branches and run CI.
 >>>>>>> 4b7e6eedcca (Support built-in profile badge names)
+
+## 2026-10-04: D3D11 llrender compile fixes (branch tasia-dx11-merge, not committed)
+
+### What is done
+- All five dxcheck.sh error groups cleared; `indra/llrender` DX sources are
+  semantically clean under MSVC-style flags (see BUILD_NOTES.md).
+- `LLShaderFeatures` / `LLShaderUniforms` extracted to new shared
+  `indra/llrender/llshaderfeatures.h`; both `llglslshader.h` and
+  `llhlslshader.h` include it.
+- `gUIProgram` / `gSolidColorProgram` / `gAlphaMaskProgram` are now one set per
+  build: LLGLSLShader under GL, LLHLSLShader under DX_RENDER.
+- `LLTexUnit` gained DX-guarded `bind(LLImageDX*)`, `bind(DXCubeMap*)`,
+  `bind(DXCubeMapArray*)` declarations (definitions still owed by llrender.cpp).
+- `LLShaderMgr` gained `attachShaderFeaturesDX()` (full body) and a
+  non-pure `updateShaderUniformsDX()` (warns once until newview overrides it).
+- `LLFontRegistry` gained DX-guarded `createFontDX()` / `getFontDX()`;
+  `LLFontBitmapCache` gained DX-guarded `getImageDX()` + `mImageDXVec`.
+
+### What is broken
+- Nothing compile-wise. Runtime-wise the DX font and bind paths are still
+  stubs (see "Next exact action").
+
+### What was last attempted
+- Full-directory mingw check with and without `-DDX_RENDER=1`; GL baseline is
+  byte-identical to the pre-change state.
+
+### What must not be changed
+- OpenGL behaviour anywhere in `indra/llrender`. Every DX addition is guarded by
+  `#ifdef DX_RENDER`; the only unguarded edit to a shared file is the
+  `LLDXTexture::getGLTexture()` -> `getDXTexture()` rename in a DX-only class.
+
+### Next exact action
+- Run the MSVC gate `.github/workflows/build-windows-dxrender.yml`.
+- Then: `llrender.cpp` DX port (the `LLTexUnit::bind` bodies, `isRecording()`,
+  `applyDX*State()`), and `llfontfreetype.cpp`'s glyph-upload DX branch.

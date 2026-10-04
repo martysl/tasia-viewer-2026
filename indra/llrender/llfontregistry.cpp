@@ -30,6 +30,9 @@
 #include "llfontfreetype.h"
 #include "llfontgl.h"
 #include "llfontregistry.h"
+#ifdef DX_RENDER
+#include "llfontdx.h"
+#endif
 #include <boost/tokenizer.hpp>
 #include "llcontrol.h"
 #include "lldir.h"
@@ -641,6 +644,16 @@ void LLFontRegistry::reset()
         if (it->second)
             it->second->reset();
     }
+#ifdef DX_RENDER
+    for (font_reg_map_dx_t::iterator it = mFontMapDX.begin();
+         it != mFontMapDX.end();
+         ++it)
+    {
+        // Reset the corresponding font but preserve the entry.
+        if (it->second)
+            it->second->reset();
+    }
+#endif
 }
 
 void LLFontRegistry::clear()
@@ -653,6 +666,16 @@ void LLFontRegistry::clear()
         delete fontp;
     }
     mFontMap.clear();
+#ifdef DX_RENDER
+    for (font_reg_map_dx_t::iterator it = mFontMapDX.begin();
+         it != mFontMapDX.end();
+         ++it)
+    {
+        LLFontDX *fontp = it->second;
+        delete fontp;
+    }
+    mFontMapDX.clear();
+#endif
 }
 
 void LLFontRegistry::destroyGL()
@@ -665,6 +688,16 @@ void LLFontRegistry::destroyGL()
         if (it->second)
             it->second->destroyGL();
     }
+#ifdef DX_RENDER
+    for (font_reg_map_dx_t::iterator it = mFontMapDX.begin();
+         it != mFontMapDX.end();
+         ++it)
+    {
+        // Reset the corresponding font but preserve the entry.
+        if (it->second)
+            it->second->destroyGL();
+    }
+#endif
 }
 
 LLFontGL *LLFontRegistry::getFont(const LLFontDescriptor& desc)
@@ -689,6 +722,212 @@ LLFontGL *LLFontRegistry::getFont(const LLFontDescriptor& desc)
         return fontp;
     }
 }
+
+#ifdef DX_RENDER
+// S24: createFontDX()/getFontDX() below are twins of createFont()/getFont() -
+// same descriptor normalisation, same template lookup, same font file search
+// order, same fallback chain - with LLFontDX substituted. They cannot share one
+// implementation because LLFontDX and LLFontGL are unrelated classes here (the
+// donor deleted the GL half rather than introduce a base class), and templating
+// the GL pair would change two declarations every GL caller already sees.
+LLFontDX *LLFontRegistry::createFontDX(const LLFontDescriptor& desc)
+{
+    // Name should hold a font name recognized as a setting; the value
+    // of the setting should be a list of font files.
+    // Size should be a recognized string value
+    // Style should be a set of flags including any implied by the font name.
+
+    // First decipher the requested size.
+    LLFontDescriptor norm_desc = desc.normalize();
+    F32 point_size;
+    bool found_size = nameToSize(norm_desc.getSize(),point_size);
+    if (!found_size)
+    {
+        LL_WARNS() << "createFontDX unrecognized size " << norm_desc.getSize() << LL_ENDL;
+        return NULL;
+    }
+    LL_INFOS() << "createFontDX " << norm_desc.getName() << " size " << norm_desc.getSize() << " style " << ((S32) norm_desc.getStyle()) << LL_ENDL;
+    F32 fallback_scale = 1.0;
+
+    // Find corresponding font template (based on same descriptor with no size specified)
+    LLFontDescriptor template_desc(norm_desc);
+    template_desc.setSize(s_template_string);
+    const LLFontDescriptor *match_desc = getClosestFontTemplate(template_desc);
+    if (!match_desc)
+    {
+        LL_WARNS() << "createFontDX failed, no template found for "
+                << norm_desc.getName() << " style [" << ((S32)norm_desc.getStyle()) << "]" << LL_ENDL;
+        return NULL;
+    }
+
+    // See whether this best-match font has already been instantiated in the requested size.
+    LLFontDescriptor nearest_exact_desc = *match_desc;
+    nearest_exact_desc.setSize(norm_desc.getSize());
+    font_reg_map_dx_t::iterator it = mFontMapDX.find(nearest_exact_desc);
+    // If we fail to find a font in the fonts directory, it->second might be NULL.
+    // We shouldn't construcnt a font with a NULL mFontFreetype.
+    // This may not be the best solution, but it at least prevents a crash.
+    if (it != mFontMapDX.end() && it->second != NULL)
+    {
+        LL_INFOS() << "-- matching font exists: " << nearest_exact_desc.getName() << " size " << nearest_exact_desc.getSize() << " style " << ((S32) nearest_exact_desc.getStyle()) << LL_ENDL;
+
+        // copying underlying Freetype font, and storing in LLFontDX with requested font descriptor
+        LLFontDX *font = new LLFontDX;
+        font->mFontDescriptor = desc;
+        font->mFontFreetype = it->second->mFontFreetype;
+        mFontMapDX[desc] = font;
+
+        return font;
+    }
+
+    // Build list of font names to look for.
+    // Files specified for this font come first, followed by those from the default descriptor.
+    font_file_info_vec_t font_files = match_desc->getFontFiles();
+    font_file_info_vec_t font_collection_files = match_desc->getFontCollectionFiles();
+    LLFontDescriptor default_desc("default",s_template_string,0);
+    const LLFontDescriptor *match_default_desc = getMatchingFontDesc(default_desc);
+    if (match_default_desc)
+    {
+        font_files.insert(font_files.end(),
+                          match_default_desc->getFontFiles().begin(),
+                          match_default_desc->getFontFiles().end());
+        font_collection_files.insert(font_collection_files.end(),
+            match_default_desc->getFontCollectionFiles().begin(),
+            match_default_desc->getFontCollectionFiles().end());
+    }
+
+    // Add ultimate fallback list - generated dynamically on linux,
+    // null elsewhere.
+    std::transform(getUltimateFallbackList().begin(), getUltimateFallbackList().end(), std::back_inserter(font_files),
+                   [](const std::string& file_name) { return LLFontFileInfo(file_name); });
+
+    // Load fonts based on names.
+    if (font_files.empty())
+    {
+        LL_WARNS() << "createFontDX failed, no file names specified" << LL_ENDL;
+        return NULL;
+    }
+
+    LLFontDX *result = NULL;
+
+    // The first font will get pulled will be the "head" font, set to non-fallback.
+    // Rest will consitute the fallback list.
+    bool is_first_found = true;
+
+    string_vec_t font_search_paths;
+    font_search_paths.push_back(LLFontDX::getFontPathLocal());
+    font_search_paths.push_back(LLFontDX::getFontPathSystem());
+    // <FS:Kadah> User fonts: Also load from user_settings/fonts
+    font_search_paths.push_back(gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS , "fonts", ""));
+    // <FS:Ansariel> Search executable path as well - in case we run from within VS (seems to work without as well, but just to be safe)
+    font_search_paths.push_back(gDirUtilp->getExpandedFilename(LL_PATH_EXECUTABLE, "fonts", ""));
+#if LL_DARWIN
+    font_search_paths.push_back(MACOSX_FONT_PATH_LIBRARY);
+    font_search_paths.push_back(MACOSX_FONT_PATH_LIBRARY + MACOSX_FONT_SUPPLEMENTAL);
+    font_search_paths.push_back(LLFontDX::getFontPathSystem() + MACOSX_FONT_SUPPLEMENTAL);
+#endif
+
+    // The fontname string may contain multiple font file names separated by semicolons.
+    // Break it apart and try loading each one, in order.
+    for(font_file_info_vec_t::iterator font_file_it = font_files.begin();
+        font_file_it != font_files.end();
+        ++font_file_it)
+    {
+        LLFontDX *fontp = NULL;
+
+        bool is_ft_collection = (std::find_if(font_collection_files.begin(), font_collection_files.end(),
+                                              [&font_file_it](const LLFontFileInfo& ffi) { return font_file_it->FileName == ffi.FileName; }) != font_collection_files.end());
+
+        // *HACK: Fallback fonts don't render, so we can use that to suppress
+        // creation of OpenGL textures for test apps. JC
+        bool is_fallback = !is_first_found || !mCreateGLTextures;
+        F32 extra_scale = (is_fallback) ? fallback_scale : 1.0f;
+        F32 point_size_scale = extra_scale * point_size;
+        bool is_font_loaded = false;
+        for(string_vec_t::iterator font_search_path_it = font_search_paths.begin();
+            font_search_path_it != font_search_paths.end();
+            ++font_search_path_it)
+        {
+            const std::string font_path = *font_search_path_it + font_file_it->FileName;
+
+            fontp = new LLFontDX;
+            S32 num_faces = is_ft_collection ? fontp->getNumFaces(font_path) : 1;
+            for (S32 i = 0; i < num_faces; i++)
+            {
+                if (fontp == NULL)
+                {
+                    fontp = new LLFontDX;
+                }
+                if (fontp->loadFace(font_path, point_size_scale,
+                                 LLFontDX::sVertDPI, LLFontDX::sHorizDPI, is_fallback, i))
+                {
+                    is_font_loaded = true;
+                    if (is_first_found)
+                    {
+                        result = fontp;
+                        is_first_found = false;
+                    }
+                    else
+                    {
+                        result->mFontFreetype->addFallbackFont(fontp->mFontFreetype, font_file_it->CharFunctor);
+
+                        delete fontp;
+                        fontp = NULL;
+                    }
+                }
+                else
+                {
+                    delete fontp;
+                    fontp = NULL;
+                }
+            }
+            if (is_font_loaded) break;
+        }
+        if(!is_font_loaded)
+        {
+            LL_INFOS_ONCE("LLFontRegistry") << "Couldn't load font " << font_file_it->FileName <<  LL_ENDL;
+            delete fontp;
+            fontp = NULL;
+        }
+    }
+
+    if (result)
+    {
+        result->mFontDescriptor = desc;
+    }
+    else
+    {
+        LL_WARNS() << "createFontDX failed in some way" << LL_ENDL;
+    }
+
+    mFontMapDX[desc] = result;
+    return result;
+}
+
+LLFontDX *LLFontRegistry::getFontDX(const LLFontDescriptor& desc)
+{
+    font_reg_map_dx_t::iterator it = mFontMapDX.find(desc);
+    if (it != mFontMapDX.end())
+        return it->second;
+    else
+    {
+        LLFontDX *fontp = createFontDX(desc);
+        if (!fontp)
+        {
+            LL_WARNS() << "getFontDX failed, name " << desc.getName()
+                    <<" style=[" << ((S32) desc.getStyle()) << "]"
+                    << " size=[" << desc.getSize() << "]" << LL_ENDL;
+        }
+        else
+        {
+            //generate glyphs for ASCII chars to avoid stalls later
+            fontp->generateASCIIglyphs();
+        }
+        return fontp;
+    }
+}
+
+#endif
 
 const LLFontDescriptor *LLFontRegistry::getMatchingFontDesc(const LLFontDescriptor& desc)
 {

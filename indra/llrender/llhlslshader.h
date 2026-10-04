@@ -30,106 +30,13 @@
 #include "llgl.h"
 #include "llrender.h"
 #include "llstaticstringtable.h"
+#include "llshaderfeatures.h"
 #include <boost/json.hpp>
 #include <unordered_map>
 
 #include "DXShader.h"
 #include "DXDevice.h"
 
-class LLShaderFeatures
-{
-public:
-    S32 mIndexedTextureChannels = 0;
-    bool calculatesLighting = false;
-    bool calculatesAtmospherics = false;
-    bool hasLighting = false; // implies no transport (it's possible to have neither though)
-    bool isAlphaLighting = false; // indicates lighting shaders need not be linked in (lighting performed directly in alpha shader to match deferred lighting functions)
-    bool isSpecular = false;
-    bool hasTransport = false; // implies no lighting (it's possible to have neither though)
-    bool hasSkinning = false;
-    bool hasObjectSkinning = false;
-    bool mGLTF = false;
-    bool hasAtmospherics = false;
-    bool hasGamma = false;
-    bool hasShadows = false;
-    bool hasAmbientOcclusion = false;
-    bool hasSrgb = false;
-    bool isDeferred = false;
-    bool hasFullGBuffer = false;
-    bool hasScreenSpaceReflections = false;
-    bool hasAlphaMask = false;
-    bool hasReflectionProbes = false;
-    bool attachNothing = false;
-    bool hasHeroProbes = false;
-    bool isPBRTerrain = false;
-    bool hasTonemap = false;
-};
-
-// ============= Structure for caching shader uniforms ===============
-class LLHLSLShader;
-
-class LLShaderUniforms
-{
-public:
-
-    template<typename T>
-    struct UniformSetting
-    {
-        S32 mUniform{ 0 };
-        T mValue{};
-    };
-
-    typedef UniformSetting<S32> IntSetting;
-    typedef UniformSetting<F32> FloatSetting;
-    typedef UniformSetting<LLVector4> VectorSetting;
-    typedef UniformSetting<LLVector3> Vector3Setting;
-
-    void clear()
-    {
-        mIntegers.resize(0);
-        mFloats.resize(0);
-        mVectors.resize(0);
-        mVector3s.resize(0);
-    }
-
-    void uniform1i(S32 index, S32 value)
-    {
-        mIntegers.push_back({ index, value });
-    }
-
-    void uniform1f(S32 index, F32 value)
-    {
-        mFloats.push_back({ index, value });
-    }
-
-    void uniform4fv(S32 index, const LLVector4& value)
-    {
-        mVectors.push_back({ index, value });
-    }
-
-    void uniform4fv(S32 index, const F32* value)
-    {
-        mVectors.push_back({ index, LLVector4(value) });
-    }
-
-    void uniform3fv(S32 index, const LLVector3& value)
-    {
-        mVector3s.push_back({ index, value });
-    }
-
-    void uniform3fv(S32 index, const F32* value)
-    {
-        mVector3s.push_back({ index, LLVector3(value) });
-    }
-
-    void apply(LLHLSLShader* shader);
-
-
-    std::vector<IntSetting> mIntegers;
-    std::vector<FloatSetting> mFloats;
-    std::vector<VectorSetting> mVectors;
-    std::vector<Vector3Setting> mVector3s;
-};
 class LLHLSLShader
 {
 public:
@@ -386,6 +293,10 @@ private:
     static boost::json::value sDefaultStats;
 };
 
+// S24: the DX_RENDER counterparts of llglslshader.h's gUIProgram /
+// gSolidColorProgram / gAlphaMaskProgram trio, which that header hides under
+// DX_RENDER. One set of these names per build, whichever backend is live.
+#if defined(DX_RENDER)
 //UI shader (declared here so llui_libtest will link properly)
 extern LLHLSLShader         gUIProgram;
 // S24: uiHueShiftF.hlsl variant of gUIProgram - rotates the sampled texel's own hue, used only at
@@ -397,6 +308,7 @@ extern LLHLSLShader         gUIHueShiftProgram;
 extern LLHLSLShader         gSolidColorProgram;
 //Alpha mask shader (declared here so llappearance can access properly)
 extern LLHLSLShader         gAlphaMaskProgram;
+#endif
 
 #if LL_PROFILER_ENABLE_RENDER_DOC
 #define LL_SET_SHADER_LABEL(shader) shader.setLabel(#shader)

@@ -549,7 +549,7 @@ bool LLHLSLShader::buildDXSource()
 	// attachVertexObject()/attachFragmentObject()'s DX_RENDER branches below
 	// append to mDXVertexSource/mDXPixelSource instead of glAttachShader'ing
 	// a precompiled object, so attachShaderFeatures() itself is unchanged.
-	if (!LLShaderMgr::instance()->attachShaderFeatures(this))
+	if (!LLShaderMgr::instance()->attachShaderFeaturesDX(this))
 	{
 		return false;
 	}
@@ -748,7 +748,7 @@ void LLHLSLShader::bind()
 	// loop, so this can't fire before LLEnvironment has run at least once.
 	if (mUniformsDirty)
 	{
-		LLShaderMgr::instance()->updateShaderUniforms(this);
+		LLShaderMgr::instance()->updateShaderUniformsDX(this);
 		mUniformsDirty = false;
 	}
 }

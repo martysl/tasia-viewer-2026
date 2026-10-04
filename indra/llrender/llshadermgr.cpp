@@ -33,6 +33,10 @@
 #include "llsdserialize.h"
 #include "hbxxh.h"
 
+#ifdef DX_RENDER
+#include "llhlslshader.h"
+#endif
+
 #if LL_DARWIN
 #include "OpenGL/OpenGL.h"
 #endif
@@ -364,6 +368,322 @@ bool LLShaderMgr::attachShaderFeatures(LLGLSLShader * shader)
 
     return true;
 }
+
+#ifdef DX_RENDER
+// S24: DX_RENDER twin of attachShaderFeatures() just above - same feature
+// gates, same attach order, same .glsl source names (LLHLSLShader::
+// attachVertexObject()/attachFragmentObject() do the extension swap and
+// append to mDXVertexSource/mDXPixelSource). Kept as a copy rather than a
+// template so that the GL member above keeps its exact signature and
+// body.
+bool LLShaderMgr::attachShaderFeaturesDX(LLHLSLShader * shader)
+{
+    llassert_always(shader != NULL);
+    LLShaderFeatures *features = & shader->mFeatures;
+
+    if (features->attachNothing)
+    {
+        return true;
+    }
+    //////////////////////////////////////
+    // Attach Vertex Shader Features First
+    //////////////////////////////////////
+
+    // NOTE order of shader object attaching is VERY IMPORTANT!!!
+    if (features->calculatesAtmospherics || features->hasGamma || features->isDeferred)
+    {
+        if (!shader->attachVertexObject("windlight/atmosphericsVarsV.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->calculatesLighting || features->calculatesAtmospherics)
+    {
+        if (!shader->attachVertexObject("windlight/atmosphericsHelpersV.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->calculatesLighting)
+    {
+        if (features->isSpecular)
+        {
+            if (!shader->attachVertexObject("lighting/lightFuncSpecularV.glsl"))
+            {
+                return false;
+            }
+
+            if (!features->isAlphaLighting)
+            {
+                if (!shader->attachVertexObject("lighting/sumLightsSpecularV.glsl"))
+                {
+                    return false;
+                }
+            }
+
+            if (!shader->attachVertexObject("lighting/lightSpecularV.glsl"))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (!shader->attachVertexObject("lighting/lightFuncV.glsl"))
+            {
+                return false;
+            }
+
+            if (!features->isAlphaLighting)
+            {
+                if (!shader->attachVertexObject("lighting/sumLightsV.glsl"))
+                {
+                    return false;
+                }
+            }
+
+            if (!shader->attachVertexObject("lighting/lightV.glsl"))
+            {
+                return false;
+            }
+        }
+    }
+
+    // NOTE order of shader object attaching is VERY IMPORTANT!!!
+    if (features->calculatesAtmospherics)
+    {
+        if (!shader->attachVertexObject("environment/srgbF.glsl")) // NOTE -- "F" suffix is superfluous here, there is nothing fragment specific in srgbF
+        {
+            return false;
+        }
+
+        if (!shader->attachVertexObject("windlight/atmosphericsFuncs.glsl")) {
+            return false;
+        }
+
+        if (!shader->attachVertexObject("windlight/atmosphericsV.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasSkinning)
+    {
+        if (!shader->attachVertexObject("avatar/avatarSkinV.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasObjectSkinning)
+    {
+        shader->mRiggedVariant = shader;
+        if (!shader->attachVertexObject("avatar/objectSkinV.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (!shader->attachVertexObject("deferred/textureUtilV.glsl"))
+    {
+        return false;
+    }
+
+    ///////////////////////////////////////
+    // Attach Fragment Shader Features Next
+    ///////////////////////////////////////
+
+    // NOTE order of shader object attaching is VERY IMPORTANT!!!
+
+    if (!shader->attachFragmentObject("deferred/globalF.glsl"))
+    {
+        return false;
+    }
+
+    if (features->hasSrgb || features->hasAtmospherics || features->calculatesAtmospherics || features->isDeferred)
+    {
+        if (!shader->attachFragmentObject("environment/srgbF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if(features->calculatesAtmospherics || features->hasGamma || features->isDeferred)
+    {
+        if (!shader->attachFragmentObject("windlight/atmosphericsVarsF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->calculatesLighting || features->calculatesAtmospherics)
+    {
+        if (!shader->attachFragmentObject("windlight/atmosphericsHelpersF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    // we want this BEFORE shadows and AO because those facilities use pos/norm access
+    if (features->isDeferred || features->hasReflectionProbes)
+    {
+        if (!shader->attachFragmentObject("deferred/deferredUtil.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasFullGBuffer)
+    {
+        if (!shader->attachFragmentObject("deferred/gbufferUtil.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasScreenSpaceReflections || features->hasReflectionProbes)
+    {
+        if (!shader->attachFragmentObject("deferred/screenSpaceReflUtil.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasShadows)
+    {
+        if (!shader->attachFragmentObject("deferred/shadowUtil.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasReflectionProbes)
+    {
+        if (!shader->attachFragmentObject("deferred/reflectionProbeF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasAmbientOcclusion)
+    {
+        if (!shader->attachFragmentObject("deferred/aoUtil.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasGamma || features->isDeferred)
+    {
+        if (!shader->attachFragmentObject("windlight/gammaF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasAtmospherics || features->isDeferred)
+    {
+        if (!shader->attachFragmentObject("windlight/atmosphericsFuncs.glsl")) {
+            return false;
+        }
+
+        if (!shader->attachFragmentObject("windlight/atmosphericsF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->isPBRTerrain)
+    {
+        if (!shader->attachFragmentObject("deferred/pbrterrainUtilF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasTonemap)
+    {
+        if (!shader->attachFragmentObject("deferred/tonemapUtilF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    // NOTE order of shader object attaching is VERY IMPORTANT!!!
+    if (features->hasAtmospherics)
+    {
+        if (!shader->attachFragmentObject("environment/waterFogF.glsl"))
+        {
+            return false;
+        }
+    }
+
+    if (features->hasLighting)
+    {
+        if (features->mIndexedTextureChannels <= 1)
+        {
+            if (features->hasAlphaMask)
+            {
+                if (!shader->attachFragmentObject("lighting/lightAlphaMaskNonIndexedF.glsl"))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (!shader->attachFragmentObject("lighting/lightNonIndexedF.glsl"))
+                {
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            if (features->hasAlphaMask)
+            {
+                if (!shader->attachFragmentObject("lighting/lightAlphaMaskF.glsl"))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (!shader->attachFragmentObject("lighting/lightF.glsl"))
+                {
+                    return false;
+                }
+            }
+            shader->mFeatures.mIndexedTextureChannels = llmax(LLHLSLShader::sIndexedTextureChannels, 1);
+        }
+    }
+
+    if (features->mIndexedTextureChannels <= 1)
+    {
+        if (!shader->attachVertexObject("objects/nonindexedTextureV.glsl"))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        if (!shader->attachVertexObject("objects/indexedTextureV.glsl"))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void LLShaderMgr::updateShaderUniformsDX(LLHLSLShader * shader)
+{
+    // No DX_RENDER subclass overrides this yet - that lands with newview's
+    // port. See the declaration's comment for why it is not pure virtual.
+    LL_WARNS_ONCE("Shaders") << "updateShaderUniformsDX() not implemented; shader "
+                             << shader->mName << " keeps its cached uniform values" << LL_ENDL;
+}
+#endif
 
 //============================================================================
 // Load Shader

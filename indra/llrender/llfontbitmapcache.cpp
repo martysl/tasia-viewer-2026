@@ -28,6 +28,9 @@
 
 #include "llgl.h"
 #include "llfontbitmapcache.h"
+#ifdef DX_RENDER
+#include "llimagedx.h"
+#endif
 
 LLFontBitmapCache::LLFontBitmapCache()
 
@@ -77,6 +80,17 @@ LLImageGL *LLFontBitmapCache::getImageGL(EFontGlyphType bitmap_type, U32 bitmap_
     return mImageGLVec[bitmap_idx][bitmap_num];
 }
 
+#ifdef DX_RENDER
+LLImageDX *LLFontBitmapCache::getImageDX(EFontGlyphType bitmap_type, U32 bitmap_num) const
+{
+    const U32 bitmap_idx = static_cast<U32>(bitmap_type);
+    if (bitmap_type >= EFontGlyphType::Count || bitmap_num >= mImageDXVec[bitmap_idx].size())
+        return nullptr;
+
+    return mImageDXVec[bitmap_idx][bitmap_num];
+}
+#endif
+
 
 bool LLFontBitmapCache::nextOpenPos(S32 width, S32& pos_x, S32& pos_y, EFontGlyphType bitmap_type, U32& bitmap_num)
 {
@@ -120,6 +134,12 @@ bool LLFontBitmapCache::nextOpenPos(S32 width, S32& pos_x, S32& pos_y, EFontGlyp
             mImageGLVec[bitmap_idx].emplace_back(new LLImageGL(image_raw, false, false));
             LLImageGL* image_gl = getImageGL(bitmap_type, bitmap_num);
 
+#ifdef DX_RENDER
+            // Make the corresponding DX image from the same atlas.
+            mImageDXVec[bitmap_idx].emplace_back(new LLImageDX(image_raw, false, false));
+            LLImageDX* image_dx = getImageDX(bitmap_type, bitmap_num);
+#endif
+
             // Start at beginning of the new image.
             mCurrentOffsetX[bitmap_idx] = 1;
             mCurrentOffsetY[bitmap_idx] = 1;
@@ -127,6 +147,10 @@ bool LLFontBitmapCache::nextOpenPos(S32 width, S32& pos_x, S32& pos_y, EFontGlyp
             // Attach corresponding GL texture. (*TODO: is this needed?)
             gGL.getTexUnit(0)->bind(image_gl);
             image_gl->setFilteringOption(LLTexUnit::TFO_POINT); // was setMipFilterNearest(true, true);
+#ifdef DX_RENDER
+            gDX.getTexUnit(0)->bind(image_dx);
+            image_dx->setFilteringOption(LLTexUnit::TFO_POINT);
+#endif
         }
         else
         {
@@ -154,6 +178,12 @@ void LLFontBitmapCache::destroyGL()
         {
             image_gl->destroyGLTexture();
         }
+#ifdef DX_RENDER
+        for (LLImageDX* image_dx : mImageDXVec[idx])
+        {
+            image_dx->destroyGLTexture();
+        }
+#endif
     }
 }
 
@@ -163,6 +193,9 @@ void LLFontBitmapCache::reset()
     {
         mImageRawVec[idx].clear();
         mImageGLVec[idx].clear();
+#ifdef DX_RENDER
+        mImageDXVec[idx].clear();
+#endif
         mCurrentOffsetX[idx] = 1;
         mCurrentOffsetY[idx] = 1;
     }

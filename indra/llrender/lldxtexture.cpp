@@ -130,7 +130,7 @@ void LLDXTexture::generateGLTexture()
 	}
 }
 
-LLImageDX* LLDXTexture::getGLTexture() const
+LLImageDX* LLDXTexture::getDXTexture() const
 {
     llassert(mGLTexturep.notNull()) ;
 

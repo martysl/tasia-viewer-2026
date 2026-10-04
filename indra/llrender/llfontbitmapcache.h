@@ -30,6 +30,10 @@
 #include <vector>
 #include "lltrace.h"
 
+#ifdef DX_RENDER
+class LLImageDX;
+#endif
+
 enum class EFontGlyphType : U32
 {
     Grayscale = 0,
@@ -59,6 +63,14 @@ public:
     LLImageRaw* getImageRaw(EFontGlyphType bitmapType, U32 bitmapNum) const;
     LLImageGL* getImageGL(EFontGlyphType bitmapType, U32 bitmapNum) const;
 
+#ifdef DX_RENDER
+    // S24: DX_RENDER counterpart of getImageGL() above. The donor simply
+    // renamed the GL pair to DX; here both live side by side, so a DX build
+    // keeps a texture per glyph atlas that LLFontDX can sample while the GL
+    // one is untouched.
+    LLImageDX* getImageDX(EFontGlyphType bitmapType, U32 bitmapNum) const;
+#endif
+
     S32 getMaxCharWidth() const { return mMaxCharWidth; }
     U32 getNumBitmaps(EFontGlyphType bitmapType) const { return (bitmapType < EFontGlyphType::Count) ? static_cast<U32>(mImageRawVec[static_cast<U32>(bitmapType)].size()) : 0U; }
     S32 getBitmapWidth() const { return mBitmapWidth; }
@@ -78,6 +90,9 @@ private:
     S32 mGeneration = 0;
     std::vector<LLPointer<LLImageRaw>> mImageRawVec[static_cast<U32>(EFontGlyphType::Count)];
     std::vector<LLPointer<LLImageGL>> mImageGLVec[static_cast<U32>(EFontGlyphType::Count)];
+#ifdef DX_RENDER
+    std::vector<LLPointer<LLImageDX>> mImageDXVec[static_cast<U32>(EFontGlyphType::Count)];
+#endif
 };
 
 #endif //LL_LLFONTBITMAPCACHE_H

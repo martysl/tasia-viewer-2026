@@ -94,14 +94,14 @@ void LLFontDX::destroyGL()
     mFontFreetype->destroyGL();
 }
 
-bool LLFontDX::loadFace(const std::string& filename, F32 point_size, const F32 vert_dpi, const F32 horz_dpi, S32 weight, bool is_fallback, S32 face_n, EFontHinting hinting, S32 flags)
+bool LLFontDX::loadFace(const std::string& filename, F32 point_size, const F32 vert_dpi, const F32 horz_dpi, bool is_fallback, S32 face_n)
 {
     if(mFontFreetype == reinterpret_cast<LLFontFreetype*>(NULL))
     {
         mFontFreetype = new LLFontFreetype;
     }
 
-    return mFontFreetype->loadFace(filename, point_size, vert_dpi, horz_dpi, weight, is_fallback, face_n, hinting, flags);
+    return mFontFreetype->loadFace(filename, point_size, vert_dpi, horz_dpi, is_fallback, face_n);
 }
 
 S32 LLFontDX::getNumFaces(const std::string& filename)
@@ -475,15 +475,6 @@ S32 LLFontDX::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
             break;
         }
 
-        // Calculate horizontal offset for tabular numbers (center narrow digits)
-        F32 x_offset = 0.0f;
-        if (mFontFreetype->getFontWeight() > 0 && fgi->mChar >= '0' && fgi->mChar <= '9' && mFontFreetype->getMaxDigitWidth() > 0.0f)
-        {
-            // getXAdvance will return max digit width.
-            // use mXAdvanceRaw directly here, since we don't want to get max width instead.
-            x_offset = (mFontFreetype->getMaxDigitWidth() - fgi->mXAdvanceRaw) * 0.5f;
-        }
-
         // Draw the text at the appropriate location
         //Specify vertices and texture coordinates
         LLRectf uv_rect((fgi->mXBitmapOffset) * inv_width,
@@ -491,9 +482,9 @@ S32 LLFontDX::render(const LLWString &wstr, S32 begin_offset, F32 x, F32 y, cons
                 (fgi->mXBitmapOffset + fgi->mWidth) * inv_width,
                 (fgi->mYBitmapOffset - PAD_UVY) * inv_height);
         // snap glyph origin to whole screen pixel
-        LLRectf screen_rect((F32)ll_round(cur_render_x + (F32)fgi->mXBearing + x_offset),
+        LLRectf screen_rect((F32)ll_round(cur_render_x + (F32)fgi->mXBearing),
                     (F32)ll_round(cur_render_y + (F32)fgi->mYBearing),
-                    (F32)ll_round(cur_render_x + (F32)fgi->mXBearing + x_offset) + (F32)fgi->mWidth,
+                    (F32)ll_round(cur_render_x + (F32)fgi->mXBearing) + (F32)fgi->mWidth,
                     (F32)ll_round(cur_render_y + (F32)fgi->mYBearing) - (F32)fgi->mHeight);
 
         if (glyph_count >= GLYPH_BATCH_SIZE)
@@ -1002,7 +993,10 @@ void LLFontDX::initClass(F32 screen_dpi, F32 x_scale, F32 y_scale, const std::st
     // Font registry init
     if (!sFontRegistry)
     {
-        sFontRegistry = new LLFontRegistry(create_gl_textures);
+        // S24: this tree's LLFontRegistry also takes a size modifier (a
+        // Firestorm addition the donor does not have). 0.f is the neutral
+        // value, i.e. exactly what the donor's single-argument call meant.
+        sFontRegistry = new LLFontRegistry(create_gl_textures, 0.f);
         sFontRegistry->parseFontInfo("fonts.xml");
     }
     else
@@ -1287,7 +1281,7 @@ LLFontDX* LLFontDX::getFontSansSerifBold()
 //static
 LLFontDX* LLFontDX::getFont(const LLFontDescriptor& desc)
 {
-    return sFontRegistry->getFont(desc);
+    return sFontRegistry->getFontDX(desc);
 }
 
 //static

@@ -33,6 +33,13 @@
 
 #include "llimagegl.h"
 #include "llfontbitmapcache.h"
+#ifdef DX_RENDER
+// S24: the DX counterpart of llimagegl.h above. LLFontBitmapCache holds
+// LLPointer<LLImageDX> members under DX_RENDER, and ~LLPointer needs the
+// complete type, so every translation unit that can destroy a cache - which is
+// every user of this header - has to see it. Same arrangement as the GL side.
+#include "llimagedx.h"
+#endif
 
 // Hack.  FT_Face is just a typedef for a pointer to a struct,
 // but there's no simple forward declarations file for FreeType,

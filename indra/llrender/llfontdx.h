@@ -87,7 +87,11 @@ public:
 
     void destroyGL();
 
-    bool loadFace(const std::string& filename, F32 point_size, const F32 vert_dpi, const F32 horz_dpi, S32 weight, bool is_fallback, S32 face_n, EFontHinting hinting, S32 flags);
+    // S24: matches LLFontFreetype::loadFace() and LLFontGL::loadFace() as they
+    // exist here. The donor's extra weight/hinting/flags arguments come from a
+    // later llfontfreetype revision that this tree predates, and porting that
+    // revision would mean reworking the shared GL font code; dropped instead.
+    bool loadFace(const std::string& filename, F32 point_size, const F32 vert_dpi, const F32 horz_dpi, bool is_fallback, S32 face_n);
 
     S32 getNumFaces(const std::string& filename);
     S32 getCacheGeneration() const;
