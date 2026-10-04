@@ -1,0 +1,241 @@
+﻿/**
+ * @file class1/deferred/shadowUtil.hlsl
+ *
+ * Copyright (c) 2025 Kirstenlee Cinquetti (Lee Quick)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#if defined(SUN_SHADOW)
+Texture2D shadowMap0 : register(t10);
+SamplerComparisonState shadowMap0Sampler : register(s10);
+Texture2D shadowMap1 : register(t11);
+SamplerComparisonState shadowMap1Sampler : register(s11);
+Texture2D shadowMap2 : register(t12);
+SamplerComparisonState shadowMap2Sampler : register(s12);
+Texture2D shadowMap3 : register(t13);
+SamplerComparisonState shadowMap3Sampler : register(s13);
+#endif
+
+#if defined(SPOT_SHADOW)
+Texture2D shadowMap4 : register(t14);
+SamplerComparisonState shadowMap4Sampler : register(s14);
+Texture2D shadowMap5 : register(t15);
+SamplerComparisonState shadowMap5Sampler : register(s15);
+#endif
+
+// sun_dir/moon_dir are also declared (and actually used) by
+// softenLightF.hlsl - genuinely dual-use, same reasoning as color/size -
+// include-guarded rather than left bare.
+#ifndef LL_SUN_MOON_DIR_DECLARED
+#define LL_SUN_MOON_DIR_DECLARED
+uniform float3 sun_dir;
+uniform float3 moon_dir;
+#endif
+uniform float2 shadow_res;
+uniform float2 proj_shadow_res;
+uniform float4x4 shadow_matrix[6];
+uniform float4 shadow_clip;
+uniform float shadow_bias;
+uniform float shadow_offset;
+uniform float spot_shadow_bias;
+uniform float spot_shadow_offset;
+
+// inv_proj/screen_res are also declared by deferredUtil.hlsl/several
+// light shaders (all grouped under the same guard) - reuse it here.
+#ifndef LL_INV_PROJ_DECLARED
+#define LL_INV_PROJ_DECLARED
+uniform float4x4 inv_proj;
+uniform float2 screen_res;
+#endif
+
+// sun_up_factor is also declared by atmosphericsFuncs.hlsl, guarded there -
+// reuse the same guard here.
+#ifndef LL_SUN_UP_FACTOR_DECLARED
+#define LL_SUN_UP_FACTOR_DECLARED
+uniform int sun_up_factor;
+#endif
+
+float pcfShadow(Texture2D shadowMap, SamplerComparisonState shadowSampler, float3 norm, float4 stc, float bias_mul, float2 pos_screen, float3 light_dir)
+{
+#if defined(SUN_SHADOW)
+    float offset = shadow_bias * bias_mul;
+    stc.xyz /= stc.w;
+    // GL-vs-D3D11 texture-origin flip: stc.xy comes from a GL-convention
+    // trans*proj*view*inv_view chain (generateSunShadow(), pipeline.cpp).
+    // stc is only used for shadow-map sampling here, so flipping once is
+    // equivalent to flipping each tap below.
+    stc.y = 1.0 - stc.y;
+    // Bias pushes the comparison depth "away from the light" to avoid
+    // self-shadowing acne. Under the reversed-Z convention (near=1/far=0,
+    // see kGLtoDXDepthRemap, llrender.cpp) that direction is the smaller
+    // value, hence subtract rather than add.
+    stc.z -= offset * 2.0;
+    stc.x = floor(stc.x * shadow_res.x + frac(pos_screen.y * shadow_res.y)) / shadow_res.x;
+    float cs = shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy, stc.z);
+    float shadow_val = cs * 4.0;
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(1.5 / shadow_res.x, 0.5 / shadow_res.y), stc.z);
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(0.5 / shadow_res.x, -1.5 / shadow_res.y), stc.z);
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(-1.5 / shadow_res.x, -0.5 / shadow_res.y), stc.z);
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(-0.5 / shadow_res.x, 1.5 / shadow_res.y), stc.z);
+    return clamp(shadow_val * 0.125, 0.0, 1.0);
+#else
+    return 1.0;
+#endif
+}
+
+float pcfSpotShadow(Texture2D shadowMap, SamplerComparisonState shadowSampler, float4 stc, float bias_scale, float2 pos_screen)
+{
+#if defined(SPOT_SHADOW)
+    stc.xyz /= stc.w;
+    // Same GL-vs-D3D11 texture-origin flip and reversed-Z bias sign as pcfShadow() above.
+    stc.y = 1.0 - stc.y;
+    stc.z -= spot_shadow_bias * bias_scale;
+    stc.x = floor(proj_shadow_res.x * stc.x + frac(pos_screen.y * 0.666666666)) / proj_shadow_res.x;
+
+    float cs = shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy, stc.z);
+    float shadow_val = cs;
+
+    float2 off = 1.0 / proj_shadow_res;
+    off.y *= 1.5;
+
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(off.x * 2.0, off.y), stc.z);
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(off.x, -off.y), stc.z);
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(-off.x, off.y), stc.z);
+    shadow_val += shadowMap.SampleCmpLevelZero(shadowSampler, stc.xy + float2(-off.x * 2.0, -off.y), stc.z);
+    return shadow_val * 0.2;
+#else
+    return 1.0;
+#endif
+}
+
+float sampleDirectionalShadow(float3 pos, float3 norm, float2 pos_screen)
+{
+#if defined(SUN_SHADOW)
+    // accum_shadow/accum_weight accumulate independently across 4
+    // non-exclusive cascade `if` blocks; the final ternary avoids an
+    // uninitialized-variable warning FXC raises on the equivalent if/else.
+    float3 light_dir = normalize((sun_up_factor == 1) ? sun_dir : moon_dir);
+
+    float dp_directional_light = max(0.0, dot(norm.xyz, light_dir));
+    dp_directional_light = clamp(dp_directional_light, 0.0, 1.0);
+
+    float3 shadow_pos = pos.xyz;
+    float3 offset = light_dir.xyz * (1.0 - dp_directional_light);
+    shadow_pos += offset * shadow_offset * 2.0;
+
+    float4 spos = float4(shadow_pos.xyz, 1.0);
+
+    if (spos.z <= -shadow_clip.w)
+    {
+        return 1.0f;
+    }
+
+    float4 lpos = float4(0, 0, 0, 0);
+    float4 near_split = shadow_clip * -0.75;
+    float4 far_split = shadow_clip * -1.25;
+    float4 transition_domain = near_split - far_split;
+    float accum_shadow = 0.0;
+    float accum_weight = 0.0;
+
+    if (spos.z < near_split.z)
+    {
+        lpos = mul(shadow_matrix[3], spos);
+        float w = 1.0;
+        w -= max(spos.z - far_split.z, 0.0) / transition_domain.z;
+        float contrib = pcfShadow(shadowMap3, shadowMap3Sampler, norm, lpos, 1.0, pos_screen, light_dir) * w;
+        accum_shadow += contrib;
+        accum_weight += w;
+        accum_shadow += max((pos.z + shadow_clip.z) / (shadow_clip.z - shadow_clip.w) * 2.0 - 1.0, 0.0);
+    }
+
+    if (spos.z < near_split.y && spos.z > far_split.z)
+    {
+        lpos = mul(shadow_matrix[2], spos);
+        float w = 1.0;
+        w -= max(spos.z - far_split.y, 0.0) / transition_domain.y;
+        w -= max(near_split.z - spos.z, 0.0) / transition_domain.z;
+        float contrib = pcfShadow(shadowMap2, shadowMap2Sampler, norm, lpos, 1.0, pos_screen, light_dir) * w;
+        accum_shadow += contrib;
+        accum_weight += w;
+    }
+
+    if (spos.z < near_split.x && spos.z > far_split.y)
+    {
+        lpos = mul(shadow_matrix[1], spos);
+        float w = 1.0;
+        w -= max(spos.z - far_split.x, 0.0) / transition_domain.x;
+        w -= max(near_split.y - spos.z, 0.0) / transition_domain.y;
+        float contrib = pcfShadow(shadowMap1, shadowMap1Sampler, norm, lpos, 1.0, pos_screen, light_dir) * w;
+        accum_shadow += contrib;
+        accum_weight += w;
+    }
+
+    if (spos.z > far_split.x)
+    {
+        lpos = mul(shadow_matrix[0], spos);
+        float w = 1.0;
+        w -= max(near_split.x - spos.z, 0.0) / transition_domain.x;
+        float contrib = pcfShadow(shadowMap0, shadowMap0Sampler, norm, lpos, 1.0, pos_screen, light_dir) * w;
+        accum_shadow += contrib;
+        accum_weight += w;
+    }
+
+    return (accum_weight > 0.0) ? (accum_shadow / accum_weight) : 1.0f;
+#else
+    return 1.0;
+#endif
+}
+
+float sampleSpotShadow(float3 pos, float3 norm, int index, float2 pos_screen)
+{
+#if defined(SPOT_SHADOW)
+    pos += norm * spot_shadow_offset;
+
+    float4 spos = float4(pos, 1.0);
+    if (spos.z > -shadow_clip.w)
+    {
+        // S24: this used to run a 4-cascade-style transition-weight blend (near_split/far_split/
+        // transition_domain, all derived from shadow_clip - which is the SUN's own cascade clip
+        // planes, mSunClipPlanes in pipeline.cpp, not anything spot-light-specific) around a
+        // single pcfSpotShadow() sample, plus an extra unexplained "shadow += max(...)" term also
+        // built from the sun's clip-plane distances. A spot light has exactly one shadow sample,
+        // not cascades to blend between - there was nothing to weight-blend. The weight
+        // multiply-then-divide-by-itself was algebraically a no-op in the normal case (real risk:
+        // a genuine divide-by-zero/NaN if that weight ever landed on exactly 0), and the extra
+        // term added an unrelated, sun-cascade-distance-derived contribution to a spot light's
+        // own occlusion test. Removed - this is a direct single-sample lookup now, matching what
+        // a spot light with one shadow map actually needs.
+        float4 lpos;
+        if (index == 0)
+        {
+            lpos = mul(shadow_matrix[4], spos);
+            return pcfSpotShadow(shadowMap4, shadowMap4Sampler, lpos, 0.8, spos.xy);
+        }
+        else
+        {
+            lpos = mul(shadow_matrix[5], spos);
+            return pcfSpotShadow(shadowMap5, shadowMap5Sampler, lpos, 0.8, spos.xy);
+        }
+    }
+    return 1.0f;
+#else
+    return 1.0;
+#endif
+}

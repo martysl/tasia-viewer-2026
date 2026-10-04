@@ -63,6 +63,11 @@
 // DXUIBatch.h is self-contained (d3d11.h + DXBuffer.h) and llrender.cpp already
 // includes it under the same guard, so this adds no new header dependency.
 #include "DXUIBatch.h"
+// DXStateCache for getDepthStencilState() in applyDXDepthStencilState() below,
+// DXDevice for the gDXDevice context it binds through - the same pair
+// llrender.cpp's applyDXBlendState()/applyDXRasterizerState() already use.
+#include "DXStateCache.h"
+#include "DXDevice.h"
 #endif
 
 #if LL_SDL
@@ -2609,6 +2614,50 @@ namespace
             gDX.applyDXRasterizerState();
         }
     }
+
+    // GL depth funcs -> D3D11_COMPARISON_FUNC. GL_NEVER is first in both
+    // enumerations but the underlying values aren't contiguous/matching, so
+    // this is a real lookup, not an arithmetic remap.
+    //
+    // LESS/LEQUAL <-> GREATER/GEQUAL are swapped from the "obvious" direct
+    // mapping - the depth buffer stores near=1.0/far=0.0 (reversed-Z), so
+    // GL's "passes if closer" (GL_LESS/GL_LEQUAL) needs D3D11's
+    // GREATER/GREATER_EQUAL to match. The same convention DXRenderTarget.cpp/
+    // DXContext.cpp already clear depth to 0.0f against.
+    // EQUAL/NOTEQUAL/ALWAYS/NEVER are direction-independent.
+    D3D11_COMPARISON_FUNC glDepthFuncToDX(DXenum depth_func)
+    {
+        switch (depth_func)
+        {
+        case GL_NEVER:    return D3D11_COMPARISON_NEVER;
+        case GL_LESS:     return D3D11_COMPARISON_GREATER;
+        case GL_EQUAL:    return D3D11_COMPARISON_EQUAL;
+        case GL_LEQUAL:   return D3D11_COMPARISON_GREATER_EQUAL;
+        case GL_GREATER:  return D3D11_COMPARISON_LESS;
+        case GL_NOTEQUAL: return D3D11_COMPARISON_NOT_EQUAL;
+        case GL_GEQUAL:   return D3D11_COMPARISON_LESS_EQUAL;
+        case GL_ALWAYS:   return D3D11_COMPARISON_ALWAYS;
+        default:
+            LL_WARNS("RenderState") << "Unmapped GL depth func 0x" << std::hex << depth_func << std::dec << LL_ENDL;
+            return D3D11_COMPARISON_GREATER_EQUAL;
+        }
+    }
+
+    // Mirrors applyDXState() above but for LLGLDepthTest (llglstates.h) -
+    // depth-enable/write-enable/depth-func are three independently-set GL
+    // toggles (glEnable(GL_DEPTH_TEST)/glDepthMask()/glDepthFunc()) that
+    // D3D11 bundles into one ID3D11DepthStencilState (see DXStateCache.h).
+    // LLGLDepthTest already tracks all three as one unit internally
+    // (sDepthEnabled/sWriteEnabled/sDepthFunc), so unlike blend state there's
+    // no separate LLRender-side chokepoint needed - this is called directly
+    // from the constructor/destructor with the full combination in hand.
+    void applyDXDepthStencilState(GLboolean depth_enabled, GLboolean write_enabled, DXenum depth_func)
+    {
+        ID3D11DeviceContext* ctx = gDXDevice.getContext();
+        D3D11_COMPARISON_FUNC func = glDepthFuncToDX(depth_func);
+        ID3D11DepthStencilState* ds = DXStateCache::getDepthStencilState(depth_enabled != GL_FALSE, write_enabled != GL_FALSE, func);
+        ctx->OMSetDepthStencilState(ds, 0);
+    }
 }
 
 #endif // DX_RENDER
@@ -2944,12 +2993,43 @@ LLGLDepthTest::LLGLDepthTest(GLboolean depth_enabled, GLboolean write_enabled, G
         glDepthMask(write_enabled);
         sWriteEnabled = write_enabled;
     }
+
+#ifdef DX_RENDER
+    // applyDXDepthStencilState() calls OMSetDepthStencilState() immediately -
+    // without a flush first, geometry already queued under the OLD depth state
+    // would be rasterized with the NEW one once it flushes. LLGLDepthTest backs
+    // LLGLSUIDefault (nearly every UI draw call) and is constructed/destroyed
+    // hundreds of times per frame, so this is a real, frequent risk.
+    // gDXUIBatch is a second, independent GPU-submission queue gGL.flush()
+    // above doesn't reach, so drain it too.
+    //
+    // The three blocks above update sDepthEnabled/sDepthFunc/sWriteEnabled in
+    // place, so by here they already equal the locals - comparing the locals
+    // against the mPrev* snapshot the member-init list captured is what tells
+    // us whether any of the three moved.
+    if (depth_enabled != mPrevDepthEnabled || depth_func != mPrevDepthFunc || write_enabled != mPrevWriteEnabled)
+    {
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        applyDXDepthStencilState(depth_enabled, write_enabled, depth_func);
+    }
+#endif
 }
 
 LLGLDepthTest::~LLGLDepthTest()
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     checkState();
+#ifdef DX_RENDER
+    // Snapshot before the restore below. Unlike the constructor, mPrev* is what
+    // the three blocks here restore TO, not what they started from - they leave
+    // sDepthEnabled/sDepthFunc/sWriteEnabled equal to mPrev* either way, so
+    // without a snapshot taken first, "did anything actually change" is gone by
+    // the time the DX branch could ask.
+    const GLboolean prev_sDepthEnabled = sDepthEnabled;
+    const GLenum prev_sDepthFunc = sDepthFunc;
+    const GLboolean prev_sWriteEnabled = sWriteEnabled;
+#endif
     if (sDepthEnabled != mPrevDepthEnabled )
     {
         gGL.flush();
@@ -2969,6 +3049,16 @@ LLGLDepthTest::~LLGLDepthTest()
         glDepthMask(mPrevWriteEnabled);
         sWriteEnabled = mPrevWriteEnabled;
     }
+#ifdef DX_RENDER
+    // Same missing-flush issue as the constructor - see its comment.
+    if (prev_sDepthEnabled != mPrevDepthEnabled || prev_sDepthFunc != mPrevDepthFunc
+        || prev_sWriteEnabled != mPrevWriteEnabled)
+    {
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        applyDXDepthStencilState(mPrevDepthEnabled, mPrevWriteEnabled, mPrevDepthFunc);
+    }
+#endif
 }
 
 void LLGLDepthTest::checkState()
