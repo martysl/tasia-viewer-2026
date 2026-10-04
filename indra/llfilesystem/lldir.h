@@ -27,6 +27,9 @@
 #ifndef LL_LLDIR_H
 #define LL_LLDIR_H
 
+#include <set>
+#include <string>
+
 // these numbers are read from settings_files.xml, so we need to be explicit
 typedef enum ELLPath
 {

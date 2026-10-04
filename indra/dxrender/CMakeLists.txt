@@ -108,6 +108,16 @@ target_include_directories(dxrender PUBLIC
 
 set_property(TARGET dxrender PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+# Firestorm's build variables pin _WIN32_WINNT/WINVER to 0x0601 (Windows 7)
+# for the whole tree. DirectComposition needs Windows 8+, and this backend
+# includes d3d11_1.h and dxgi1_5.h, which assume Windows 10. Left at 0x0601,
+# dcomp.h compiles down to nothing and every IDComposition* type disappears.
+# Raised for this target only.
+target_compile_definitions(dxrender PRIVATE
+    _WIN32_WINNT=0x0A00
+    WINVER=0x0A00
+)
+
 if (MSVC)
   target_compile_options(dxrender PRIVATE "/Zc:wchar_t-")
 endif()

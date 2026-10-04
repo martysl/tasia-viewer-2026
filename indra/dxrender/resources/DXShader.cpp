@@ -732,7 +732,7 @@ void DXShader::resolveIncludes(std::string& source)
     // later in the same file) unresolved, which is what actually produced
     // the downstream "X1505: no include handler" failure.
     static const std::regex include_pattern(R"RX(^[ \t]*#include\s*"([^"]+)"[^\n]*\n?)RX",
-        std::regex::ECMAScript | std::regex::multiline);
+        std::regex_constants::ECMAScript | std::regex_constants::multiline);
 
     std::string shaders_root = gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "shaders", "");
 
