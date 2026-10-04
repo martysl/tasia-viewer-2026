@@ -1,0 +1,145 @@
+name: DX11 Compile Check
+
+# Fast compile verification for the Direct3D 11 backend only.
+#
+# The full Windows build cannot verify indra/dxrender on its own: it is
+# workflow_dispatch, it builds and packages the entire viewer, and it is
+# currently blocked by a stale pinned ffmpeg hash. This workflow does the
+# one thing that matters for backend work, which is: does the DX code
+# compile under MSVC with DX_RENDER=ON?
+#
+# It builds only the dxrender target, so it skips FMOD, ffmpeg, voice and
+# packaging entirely. Nothing here is published; this is a compile gate.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'tasia-dx11-merge'
+    paths:
+      - 'indra/dxrender/**'
+      - 'indra/cmake/DXRender.cmake'
+      - 'indra/cmake/Variables.cmake'
+      - 'indra/llcommon/**'
+      - 'indra/llmath/**'
+      - 'indra/llfilesystem/**'
+      - '.github/workflows/build-windows-dxrender.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AUTOBUILD_ADDRSIZE: 64
+  AUTOBUILD_INSTALLABLE_CACHE: ${{ github.workspace }}/.autobuild-installables
+  AUTOBUILD_VARIABLES_FILE: ${{ github.workspace }}/.build-variables/variables
+  AUTOBUILD_VCS_INFO: "true"
+  LL_SKIP_REQUIRE_SYSROOT: 1
+
+jobs:
+  dxrender:
+    name: Compile indra/dxrender (DX_RENDER=ON)
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout viewer source
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Restore autobuild installables cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.AUTOBUILD_INSTALLABLE_CACHE }}
+          key: autobuild-win-dxrender-${{ hashFiles('autobuild.xml') }}
+
+      - name: Install autobuild and Python deps
+        run: pip install -r requirements.txt
+
+      - name: Checkout build variables
+        uses: actions/checkout@v4
+        with:
+          repository: FirestormViewer/fs-build-variables
+          path: .build-variables
+
+      - name: Remove KDU (proprietary, cannot use)
+        shell: bash
+        run: |
+          autobuild installables remove kdu || true
+
+      - name: Load autobuild environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          autobuild source_environment > .source_env
+          . .source_env
+          LL_BUILD="${LL_BUILD:-${LL_BUILD_RELEASE:-}}"
+          if [ -z "$LL_BUILD" ]; then
+            echo "::error::Both LL_BUILD and LL_BUILD_RELEASE are empty."
+            exit 1
+          fi
+          LL_BUILD="${LL_BUILD//\/Zi/}"
+          LL_BUILD_RELEASE="${LL_BUILD_RELEASE//\/Zi/}"
+          echo "LL_BUILD=$LL_BUILD" >> "$GITHUB_ENV"
+          echo "LL_BUILD_RELEASE=$LL_BUILD_RELEASE" >> "$GITHUB_ENV"
+
+      - name: Setup MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          vsversion: 2022
+
+      - name: Set Tasia build metadata
+        shell: bash
+        run: |
+          echo "VIEWER_VERSION_GITHASH=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          TASIA_SHORT_SHA="${GITHUB_SHA}"
+          echo "TASIA_SHORT_SHA=${TASIA_SHORT_SHA::7}" >> "$GITHUB_ENV"
+          echo "TASIA_DISPLAY_VERSION=8.0.1.dxcheck" >> "$GITHUB_ENV"
+          echo "TASIA_BUILD_NUMBER=0" >> "$GITHUB_ENV"
+
+      - name: Configure with DX_RENDER=ON
+        shell: bash
+        run: |
+          set -euo pipefail
+          autobuild configure \
+            -c ReleaseFS_open \
+            -A ${{ env.AUTOBUILD_ADDRSIZE }} \
+            -- \
+            --no-package \
+            --jobs 2 \
+            -DDX_RENDER=ON
+
+      - name: Confirm the dxrender target exists and is Windows-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -d build-*/ | head -1
+          if ! find build-* -name 'dxrender*.vcxproj' | grep -q .; then
+            echo "::error::DX_RENDER=ON did not produce a dxrender project."
+            exit 1
+          fi
+          echo "dxrender project found:"
+          find build-* -name 'dxrender*.vcxproj'
+
+      - name: Compile the dxrender target
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_DIR=$(ls -d build-*/ | head -1)
+          cmake --build "${BUILD_DIR%/}" --config Release --target dxrender -- -m
+
+      - name: Report compiled objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_DIR=$(ls -d build-*/ | head -1)
+          find "${BUILD_DIR}" -name 'DX*.obj' | wc -l
