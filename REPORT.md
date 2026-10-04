@@ -3,6 +3,44 @@
 Branch `tasia-dx11-merge`. Newest first. Verification evidence only, no claims
 without a command behind them.
 
+## R10 — T2 + T5 + depth state (`21bb380`)
+
+| check | result |
+|---|---|
+| `dxcheck.sh` | 6/6 OK |
+| deletions in `indra/llrender` | **0** |
+| deletions in `indra/newview` not containing `LLGLSLShader` | **0** |
+| Linux full build | `BUILD_EXIT=0` |
+
+**The blocker is cleared.** Two agents independently established that no
+`LLHLSLShader` was ever constructed, so `D3DCompile` could never run and nothing
+could render regardless of what else was finished.
+
+Solved with one guarded typedef in `llviewershadermgr.h:33-44`:
+`LLViewerShaderProgram` is `LLHLSLShader` under `DX_RENDER` and `LLGLSLShader`
+otherwise, substituted at all 336 program uses. The file text stays
+backend-agnostic, so no `#if` appears at any of those sites and the GL
+preprocessed output is byte-identical to HEAD.
+
+`#define LLGLSLShader LLHLSLShader` was rejected on evidence: `llenvironment.h`
+and the test stub legitimately still mean the GL class in the same translation
+unit, so the define would silently retype the GL override.
+
+Depth state: no `OMSetDepthStencilState` was ever issued, because `LLGLDepthTest`
+was pure unguarded GL. `DXStateCache` already had a matching factory, so no
+`dxrender` change was needed. Added `glDepthFuncToDX` and
+`applyDXDepthStencilState` to the existing anonymous namespace and hooked them
+into `LLGLDepthTest`'s ctor and dtor. GL preprocessed output byte-identical.
+
+**Two things the agents flagged that are still wrong, deliberately not forced:**
+- `syncMatrices()` has no DX branch, so the depth convention does not line up:
+  `dxrender` clears depth to `0.0` (reversed-Z) while the target still uploads
+  GL-convention depth. The agent used the donor's reversed-Z comparison funcs and
+  flagged the mismatch rather than flipping them to contradict `dxrender`.
+- `GL_DEPTH_TEST` has no branch in `applyDXState`, so `LLGLDisable
+  depth(GL_DEPTH_TEST)` at `newview/pipeline.cpp:4603` silently no-ops, and
+  `LLGLDepthTest::sWriteEnabled`/`sDepthFunc` are private with no accessor.
+
 ---
 
 ## R9 — llrender DX definitions (`f899525`)
