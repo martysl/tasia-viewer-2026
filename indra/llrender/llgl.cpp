@@ -58,6 +58,13 @@
 #include "lldxhardware.h"
 #endif
 
+#ifdef DX_RENDER
+// gDXUIBatch, for flushPending() in LLGLState::setEnabled()/~LLGLState() below.
+// DXUIBatch.h is self-contained (d3d11.h + DXBuffer.h) and llrender.cpp already
+// includes it under the same guard, so this adds no new header dependency.
+#include "DXUIBatch.h"
+#endif
+
 #if LL_SDL
 #include "SDL2/SDL_video.h"
 
@@ -2563,6 +2570,49 @@ void LLGLState::checkStates(GLboolean writeAlpha)
 
 ///////////////////////////////////////////////////////////////////////
 
+#ifdef DX_RENDER
+
+namespace
+{
+    // Scoped to GL_BLEND/GL_CULL_FACE/GL_SCISSOR_TEST/GL_DEPTH_CLAMP/
+    // GL_POLYGON_OFFSET_FILL/GL_POLYGON_OFFSET_LINE - the only states
+    // LLGLEnable/LLGLDisable actually toggle in this codebase (confirmed by
+    // grep, not guessed). Everything else (GL_STENCIL_TEST, ...) still
+    // updates sStateMap bookkeeping (in setEnabled(), unconditionally) but
+    // has no D3D11 equivalent applied - deferred until something that
+    // toggles them is converted to DX_RENDER.
+    // `enabled` is not read: D3D11 bundles each of these states with several
+    // others into one state object, so both directions rebuild the object from
+    // the current sStateMap values rather than from the requested direction.
+    void applyDXState(DXenum state, bool enabled)
+    {
+        if (state == GL_BLEND)
+        {
+            // Blend enable is only one of the three pieces D3D11 bundles
+            // into one ID3D11BlendState - factors and color write mask live on
+            // LLRender, not here. Route through the shared chokepoint rather
+            // than building a partial state.
+            gDX.applyDXBlendState();
+        }
+        else if (state == GL_CULL_FACE || state == GL_SCISSOR_TEST || state == GL_DEPTH_CLAMP
+            || state == GL_POLYGON_OFFSET_FILL || state == GL_POLYGON_OFFSET_LINE)
+        {
+            // GL_CULL_FACE/GL_SCISSOR_TEST/GL_DEPTH_CLAMP/
+            // GL_POLYGON_OFFSET_FILL/LINE all bundle into the same D3D11
+            // rasterizer-state object - toggling any one must read the CURRENT
+            // value of the others too (via sStateMap, which setEnabled() has
+            // already updated before calling this) so it doesn't silently
+            // clobber them back to a default. Routed through
+            // applyDXRasterizerState() (llrender.cpp), which gathers all
+            // dimensions fresh on every call, rather than duplicating
+            // getRasterizerState()+RSSetState() inline.
+            gDX.applyDXRasterizerState();
+        }
+    }
+}
+
+#endif // DX_RENDER
+
 LLGLState::LLGLState(LLGLenum state, S32 enabled) :
     mState(state), mWasEnabled(false), mIsEnabled(false)
 {
@@ -2590,12 +2640,30 @@ void LLGLState::setEnabled(S32 enabled)
         gGL.flush();
         glEnable(mState);
         sStateMap[mState] = GL_TRUE;
+#ifdef DX_RENDER
+        // Flush BEFORE the bookkeeping+state-apply, not after -
+        // applyDXState() changes real D3D11 pipeline state immediately, and
+        // without flushing first, already-queued CPU-side geometry would be
+        // drawn with the new state instead of the one it was built under.
+        // gDXUIBatch is a second, independent GPU-submission queue
+        // gGL.flush() above doesn't reach, so drain it too.
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        applyDXState(mState, true);
+#endif
     }
     else if (enabled == DISABLED_STATE && sStateMap[mState] != GL_FALSE)
     {
         gGL.flush();
         glDisable(mState);
         sStateMap[mState] = GL_FALSE;
+#ifdef DX_RENDER
+        // Same missing-flush issue as the ENABLED_STATE branch above - also
+        // drain gDXUIBatch, see its comment there.
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        applyDXState(mState, false);
+#endif
     }
     mIsEnabled = enabled;
 }
@@ -2633,6 +2701,16 @@ LLGLState::~LLGLState()
                 glDisable(mState);
                 sStateMap[mState] = GL_FALSE;
             }
+#ifdef DX_RENDER
+            // Must pair the sStateMap write above with a real applyDXState()
+            // call and a preceding flush, same as setEnabled() - otherwise this
+            // restore path desyncs bookkeeping from real GPU state (was the
+            // root cause of a black-world bug: blend state stuck enabled,
+            // never actually toggled).
+            gDX.flush();
+            gDXUIBatch.flushPending();
+            applyDXState(mState, mWasEnabled);
+#endif
         }
     }
 }

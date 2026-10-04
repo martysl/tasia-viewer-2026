@@ -567,6 +567,28 @@ public:
     void applyDXRasterizerState();
 #endif
 
+    // Cross-backend replacement for the raw glPolygonOffset() call - a
+    // statically linked core-GL symbol with no DX11 dispatch-table entry, so
+    // under DX_RENDER it silently did nothing while still costing a CPU-side
+    // flush point. GL branch is the original call, unchanged; DX branch stores
+    // the values where applyDXRasterizerState() gathers them and rebinds the
+    // rasterizer state immediately if polygon-offset is currently enabled
+    // (mirrors GL's "takes effect on next state change" semantics). No #ifdef
+    // needed at any call site - call this unconditionally from both backends.
+    void setPolygonOffset(F32 factor, F32 units);
+
+    // Cross-backend replacement for the raw glCullFace() call - likewise a
+    // statically linked core-GL symbol with no DX11 dispatch-table entry, so
+    // under DX_RENDER it did nothing and DXState::sCullFace stayed GL_BACK
+    // no matter what was asked for (found via LLViewerJoint::render()'s
+    // hair/skirt "render inside" pass, llviewerjoint.cpp, always culling back
+    // faces regardless of the front-face cull it asked for). GL branch is the
+    // original call, unchanged; DX branch tracks the direction
+    // (DXState::setCullFace()) and rebinds the rasterizer state immediately,
+    // mirroring setPolygonOffset() above. No #ifdef needed at any call site -
+    // call this unconditionally from both backends.
+    void cullFace(GLenum face);
+
     LLLightState* getLight(U32 index);
     void setAmbientLightColor(const LLColor4& color);
 
@@ -647,6 +669,14 @@ private:
     // GL polygon-offset user and it calls glPolygonOffsetClamp() directly), so
     // under DX_RENDER they stay at their 0.f initial value until a DX_RENDER
     // LLRender::setPolygonOffset() is added.
+    // Update: LLRender::setPolygonOffset() now exists (cross-backend, declared
+    // above) and its DX branch does write both of these, so the "until ... is
+    // added" caveat above no longer holds. Two corrections to it: LLRenderTarget
+    // is NOT a polygon-offset user in this tree - it has no glPolygonOffset*
+    // call at all (confirmed by grep), and the real GL callers are ten
+    // glPolygonOffset() calls in newview/llviewerwindow.cpp, none of which go
+    // through setPolygonOffset() yet. Until those are rewired, both fields stay
+    // at 0.f under DX_RENDER.
     F32 mCurrPolygonOffsetFactor = 0.f;
     F32 mCurrPolygonOffsetUnits = 0.f;
 #endif

@@ -449,6 +449,18 @@ public:
     // Read by llhlslshader.cpp at lines 540, 544, 647-648 and 661-662.
     std::map<std::string, std::string> mVertexShaderSourceText;
     std::map<std::string, std::string> mFragmentShaderSourceText;
+
+    // Raw (BOM-stripped, pre-splice) on-disk shader file text, keyed by
+    // "<filename>@<requested gpu class>" - see loadShaderFile()'s own comment.
+    // A settings-triggered shader reload calls loadShaderFile() again for every
+    // entry file of every shader and every attached utility file, even though
+    // the vast majority of that content cannot have changed mid-session, so
+    // this cache skips the real disk probe/read on a repeat call for the same
+    // key. Note the cached text is pre-splice on purpose: the
+    // diffuseLookup() splice depends on this call's texture_index_channels and
+    // attaches_deferred_util, which differ between programs that share a file.
+    void clearRawShaderFileCache() { mRawShaderFileTextCache.clear(); }
+    std::map<std::string, std::string> mRawShaderFileTextCache;
 #endif
 
     //global (reserved slot) shader parameters

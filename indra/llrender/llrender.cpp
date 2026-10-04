@@ -1061,6 +1061,15 @@ bool LLRender::init(bool needs_vertex_buffer)
     gGL.setAmbientLightColor(LLColor4::black);
 
     glCullFace(GL_BACK);
+#ifdef DX_RENDER
+    // glCullFace() above is a statically linked core-GL symbol with no DX11
+    // dispatch-table entry, so it does nothing under DX_RENDER and
+    // DXState::sCullFace stays at its GL_BACK default anyway. cullFace() is
+    // the cross-backend spelling that additionally tracks the direction and
+    // binds the D3D11 rasterizer state, so route the same intent through it
+    // here. GL is untouched: the call above still runs, unchanged.
+    cullFace(GL_BACK);
+#endif
 
     // necessary for reflection maps
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
@@ -1595,6 +1604,16 @@ void LLRender::setColorMask(bool writeColorR, bool writeColorG, bool writeColorB
                     writeColorG ? GL_TRUE : GL_FALSE,
                     writeColorB ? GL_TRUE : GL_FALSE,
                     writeAlpha ? GL_TRUE : GL_FALSE);
+
+#ifdef DX_RENDER
+        // The color write mask is the third input D3D11 folds into the same
+        // ID3D11BlendState as blend-enable and the blend factors, so it has to
+        // go through the same chokepoint as blendFunc() above - otherwise the
+        // D3D11 mask lags until the next blendFunc()/GL_BLEND toggle happens
+        // to rebuild it. Inside the if() on purpose: an unchanged mask needs
+        // no state push, exactly as the glColorMask() above is skipped.
+        applyDXBlendState();
+#endif
     }
 }
 
@@ -1717,6 +1736,27 @@ void LLRender::applyDXRasterizerState()
     gDXDevice.getContext()->RSSetState(rs);
 }
 #endif
+
+void LLRender::cullFace(GLenum face)
+{
+#ifndef DX_RENDER
+    glCullFace(face);
+#else
+    DXState::setCullFace(face);
+    applyDXRasterizerState();
+#endif
+}
+
+void LLRender::setPolygonOffset(F32 factor, F32 units)
+{
+#ifndef DX_RENDER
+    glPolygonOffset(factor, units);
+#else
+    mCurrPolygonOffsetFactor = factor;
+    mCurrPolygonOffsetUnits = units;
+    applyDXRasterizerState();
+#endif
+}
 
 LLTexUnit* LLRender::getTexUnit(U32 index)
 {

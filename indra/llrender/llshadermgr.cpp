@@ -787,6 +787,229 @@ void LLShaderMgr::dumpObjectLog(GLuint ret, bool warns, const std::string& filen
 // exactly as before.
 GLuint LLShaderMgr::loadShaderFile(const std::string& filename, S32 & shader_level, DXenum type, std::map<std::string, std::string>* defines, S32 texture_index_channels, bool attaches_deferred_util)
 {
+#ifdef DX_RENDER
+    // S24: DX_RENDER twin of the GL path below, which a DX build does not
+    // compile at all (hence the #else rather than an early return - no GL call
+    // is reachable from here under DX_RENDER, and nothing below is either).
+    //
+    // There is no glCreateShader()/glShaderSource()/glCompileShader() here:
+    // D3DCompile takes one source blob per stage, so a compiled "shader
+    // object" does not exist yet at this point. What this branch does is
+    // resolve one file to its raw text and publish that text under the file's
+    // ORIGINAL (still ".glsl") name in mVertexShaderSourceText /
+    // mFragmentShaderSourceText - the exact lookup
+    // LLHLSLShader::buildDXSource(), attachVertexObject() and
+    // attachFragmentObject() perform afterwards, unchanged, and the same
+    // names attachShaderFeaturesDX() passes to those two. Real compilation
+    // happens exactly once, later, in LLHLSLShader::createShaderDX() ->
+    // DXShader::compileVertexShader()/compilePixelShader(), by which point this
+    // entry file's text and every attached utility file's text have been
+    // concatenated into a single blob per stage.
+
+    if (filename.empty())
+    {
+        LL_WARNS("ShaderLoading") << "tried loading empty filename" << LL_ENDL;
+        return 0;
+    }
+
+    //read in from file
+    LLFILE* file = NULL;
+
+    std::string open_file_name;
+
+    // Raw (BOM-stripped, pre-splice) on-disk text, cached per
+    // (filename, try_gpu_class): buildDXSource() calls this once per entry
+    // file per program and attachShaderFeaturesDX() once per attached utility
+    // file per program, so any shared file is read from disk many times over.
+    // The resolved file for a given pair cannot change mid-session except
+    // through Develop > Rebuild Shaders / Purge Shader Cache, both of which
+    // call clearRawShaderFileCache() first, so a hit here skips the real disk
+    // probe and read entirely. The key uses the ORIGINAL (pre extension-swap)
+    // filename, same as mVertexShaderSourceText/mFragmentShaderSourceText.
+    const S32 try_gpu_class = shader_level;
+    const std::string raw_cache_key = filename + "@" + std::to_string(try_gpu_class);
+    std::string source_text;
+    bool have_source = false;
+    {
+        auto cached = mRawShaderFileTextCache.find(raw_cache_key);
+        if (cached != mRawShaderFileTextCache.end())
+        {
+            source_text = cached->second;
+            have_source = true;
+        }
+    }
+
+    // filename arrives with ".glsl" already baked in by ~150 call sites in
+    // llviewershadermgr.cpp - swap it to the equivalent ".hlsl" sibling on a
+    // local copy only, so the cache key above and the
+    // mVertexShaderSourceText/mFragmentShaderSourceText keys below both stay
+    // the ".glsl" name that attachShaderFeaturesDX()'s unmodified call sites
+    // look up.
+    std::string dx_filename = filename;
+    const std::string glsl_ext(".glsl");
+    if (dx_filename.size() >= glsl_ext.size() &&
+        dx_filename.compare(dx_filename.size() - glsl_ext.size(), glsl_ext.size(), glsl_ext) == 0)
+    {
+        dx_filename.replace(dx_filename.size() - glsl_ext.size(), glsl_ext.size(), ".hlsl");
+    }
+
+    if (!have_source)
+    {
+        //find the most relevant file
+        for (S32 gpu_class = try_gpu_class; gpu_class > 0; gpu_class--)
+        {   //search from the current gpu class down to class 1 to find the most relevant shader
+            std::stringstream fname;
+            fname << getShaderDirPrefix();
+            fname << gpu_class << gDirUtilp->getDirDelimiter() << dx_filename;
+
+            open_file_name = fname.str();
+
+            LL_DEBUGS("ShaderLoading") << "Looking in " << open_file_name << LL_ENDL;
+            file = LLFile::fopen(open_file_name, "r");      /* Flawfinder: ignore */
+            if (file)
+            {
+                LL_DEBUGS("ShaderLoading") << "Loading file: " << open_file_name << " (Want class " << gpu_class << ")" << LL_ENDL;
+                break; // done
+            }
+        }
+
+        if (file == NULL)
+        {
+            if (gDirUtilp->fileExists(open_file_name))
+            {
+                LL_WARNS("ShaderLoading") << "Shader file failed to open: " << open_file_name << LL_ENDL;
+            }
+            else
+            {
+                LL_WARNS("ShaderLoading") << "Shader file not found: " << open_file_name << LL_ENDL;
+            }
+            return 0;
+        }
+
+        {
+            char line_buf[1024];
+            while (fgets(line_buf, sizeof(line_buf), file) != NULL)
+            {
+                source_text += line_buf;
+            }
+        }
+        fclose(file);
+
+        // Strip a leading UTF-8 BOM if present - D3DCompile takes a raw
+        // in-memory string, not a file, so it has no concept of a BOM; and this
+        // text gets concatenated after a generated header
+        // (LLHLSLShader::buildDXShaderHeader()), so a BOM here lands mid-blob
+        // as 3 illegal bytes rather than at the true start of a file, where a
+        // text editor would silently have hidden it.
+        if (source_text.compare(0, 3, "\xEF\xBB\xBF") == 0)
+        {
+            source_text.erase(0, 3);
+        }
+
+        mRawShaderFileTextCache[raw_cache_key] = source_text;
+    }
+
+    if (type == GL_FRAGMENT_SHADER && texture_index_channels > 0)
+    {
+        // Mirrors the GL branch below's dynamic diffuseLookup() generation
+        // (same texture_index_channels parameter), in HLSL instead of GLSL.
+        // GL's version gets textually woven into every attached file that
+        // contains the "[EXTRA_CODE_HERE]" marker (there's no equivalent of
+        // "already attached" for loadShaderFile() - it's called once per file,
+        // and multiple attached files can each carry the marker) - GLSL's
+        // separate-compile-then-link model tolerates identical redefinitions
+        // across linked objects (same reasoning as the duplicate-uniform
+        // entries elsewhere in this project), but raw HLSL text concatenation
+        // does not, so this is include-guarded the same way those were,
+        // ensuring only the first marker position (in final concatenation
+        // order) actually keeps its copy.
+        std::string extra = "#ifndef LL_DIFFUSELOOKUP_DECLARED\n#define LL_DIFFUSELOOKUP_DECLARED\n";
+        // Matches GL's own unconditional "#define HAS_DIFFUSE_LOOKUP" here
+        // (the GL branch below, texture_index_channels > 0) - some ported
+        // fragment files (e.g. fullbrightShinyF.hlsl) already branch on this
+        // macro to choose between calling diffuseLookup() and a plain
+        // single-texture Sample() fallback. DXShader::
+        // injectTextureIndexInputs() defines the same macro on the vertex side.
+        extra += "#define HAS_DIFFUSE_LOOKUP 1\n";
+        // tex0.. defaults to t0/s0 (mirroring GL's texture-unit-0-based
+        // numbering) - safe for the common case (G-buffer-*write* shaders like
+        // gDeferredDiffuseProgram set mIndexedTextureChannels but never attach
+        // deferredUtil.hlsl, so t0-t3 is genuinely free there).
+        //
+        // The base must move for shaders that DO attach deferredUtil.hlsl,
+        // which owns t0-t3: unconditional t16/s16 does not work, because SM5
+        // has only 16 *sampler* slots (s0-s15) even though it has 128
+        // SRV/texture slots - t16 is a valid t-register but s16 does not exist.
+        // attaches_deferred_util is the real attachShaderFeatures() condition
+        // for deferredUtil.hlsl, i.e. isDeferred || hasReflectionProbes, NOT
+        // isDeferred alone (gDeferredAlphaImpostorProgram sets only
+        // hasReflectionProbes and still attaches deferredUtil.hlsl), so
+        // checking isDeferred alone would have missed it.
+        //
+        // When attaches_deferred_util is true (the only shaders that combine
+        // this with indexed texturing are "Deferred/HUD Alpha Shader",
+        // "Deferred/Skinned Alpha Impostor Shader" and their rigged variants -
+        // confirmed via llviewershadermgr.cpp), the real attach set is
+        // deferredUtil.hlsl (t0-t3) + reflectionProbeF.hlsl (t4,
+        // hasReflectionProbes=true on all of these) + optionally
+        // shadowUtil.hlsl (t10-t15, gated on hasShadows/use_sun_shadow, the
+        // default-on case) - t5-t9 is the one gap clear of all of those, and
+        // 4 channels (sIndexedTextureChannels) fits in t5-t8 with t9 free as
+        // margin.
+        const S32 kIndexedTexRegisterBase = attaches_deferred_util ? 5 : 0;
+        for (S32 i = 0; i < texture_index_channels; ++i)
+        {
+            extra += llformat("Texture2D tex%d : register(t%d);\n", i, kIndexedTexRegisterBase + i);
+            extra += llformat("SamplerState tex%dSampler : register(s%d);\n", i, kIndexedTexRegisterBase + i);
+        }
+
+        if (texture_index_channels > 1)
+        {
+            // Real vertex-to-pixel wiring (a VSOutput/PSInput field populating
+            // this from a real semantic, not an ambient "flat in" the way GLSL
+            // declares it) is added per-entry-file as needed - see
+            // indexedTextureV.hlsl's own comment, DXShader::
+            // injectTextureIndexInputs()'s comment and the project's
+            // open-issues ledger for which files currently do.
+            extra += "static int vary_texture_index;\n";
+        }
+
+        extra += "float4 diffuseLookup(float2 texcoord)\n{\n";
+        if (texture_index_channels == 1)
+        {
+            extra += "    return tex0.Sample(tex0Sampler, texcoord);\n}\n";
+        }
+        else
+        {
+            extra += "    switch (vary_texture_index)\n    {\n";
+            for (S32 i = 0; i < texture_index_channels; ++i)
+            {
+                extra += llformat("        case %d: return tex%d.Sample(tex%dSampler, texcoord);\n", i, i, i);
+            }
+            extra += "        default: return float4(1,0,1,1);\n    }\n}\n";
+        }
+        extra += "#endif\n";
+
+        const std::string marker = "/*[EXTRA_CODE_HERE]*/";
+        size_t marker_pos = source_text.find(marker);
+        if (marker_pos != std::string::npos)
+        {
+            source_text.replace(marker_pos, marker.length(), extra);
+        }
+    }
+
+    if (type == GL_VERTEX_SHADER)
+    {
+        mVertexShaderSourceText[filename] = source_text;
+    }
+    else if (type == GL_FRAGMENT_SHADER)
+    {
+        mFragmentShaderSourceText[filename] = source_text;
+    }
+
+    shader_level = try_gpu_class;
+    return 1; // truthy sentinel - DX_RENDER has no real GL shader object
+#else
 
 // endsure work-around for missing GLSL funcs gets propogated to feature shader files (e.g. srgbF.glsl)
 #if LL_DARWIN
@@ -1278,6 +1501,7 @@ GLuint LLShaderMgr::loadShaderFile(const std::string& filename, S32 & shader_lev
 
     LL_DEBUGS("ShaderLoading") << "loadShaderFile() completed, ret: " << U32(ret) << LL_ENDL;
     return ret;
+#endif // DX_RENDER
 }
 
 bool LLShaderMgr::linkProgramObject(GLuint obj, bool suppress_errors)
