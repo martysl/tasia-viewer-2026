@@ -108,11 +108,22 @@ void LLTasiaGuardFloater::onUnban()
         return;
     }
 
+    // The viewer never learns its own public address, so "ExternalIP" stays unset.
+    // Refuse the request rather than posting an empty "ip".
+    std::string ip = gSavedSettings.getString("ExternalIP");
+    if (ip.empty())
+    {
+        LL_WARNS("TasiaGuard") << "Refusing unban request: ExternalIP is unknown, "
+                               << "so the target address cannot be determined." << LL_ENDL;
+        setStatus("Cannot detect your IP address, cannot send request.", true);
+        return;
+    }
+
     mUnbanBtn->setEnabled(false);
     setStatus("Requesting...");
 
     LLSD post_data;
-    post_data["ip"] = gSavedSettings.getString("ExternalIP");
+    post_data["ip"] = ip;
     post_data["uuid"] = MOM_UUID;
     post_data["first_name"] = first_name;
     post_data["last_name"] = last_name;

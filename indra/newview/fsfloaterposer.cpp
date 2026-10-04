@@ -252,8 +252,6 @@ bool FSFloaterPoser::postBuild()
     mScaleYSpnr              = getChild<LLUICtrl>("adv_scaley_spinner");
     mScaleZSpnr              = getChild<LLUICtrl>("adv_scalez_spinner");
 
-    mBtnJointRotate = getChild<LLButton>("button_joint_rotate_tool");
-
     return true;
 }
 

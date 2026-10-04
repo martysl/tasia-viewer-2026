@@ -220,13 +220,19 @@ void LLPanelBlockedList::blockResidentByName()
 
     LLView * button = findChild<LLButton>("plus_btn", true);
     LLFloater* root_floater = gFloaterView->getParentFloater(this);
+    if (!root_floater)
+    {
+        return;
+    }
+
     LLFloaterAvatarPicker * picker = LLFloaterAvatarPicker::show(boost::bind(&LLPanelBlockedList::callbackBlockPicked, this, _1, _2),
                                                                                     allow_multiple, close_on_select, false, root_floater->getName(), button);
-
-    if (root_floater)
+    if (!picker)
     {
-        root_floater->addDependentFloater(picker);
+        return;
     }
+
+    root_floater->addDependentFloater(picker);
 
     mPicker = picker->getHandle();
 }

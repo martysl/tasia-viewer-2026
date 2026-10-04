@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<menu
+ layout="topleft"
+ name="Popup"
+ visible="false">
+    <menu_item_call
+     label="Copy all"
+     layout="topleft"
+     name="psr_copy"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="psr_copy" />
+       <on_enable function="PanelObject.menuEnable" parameter="psr_copy" />
+    </menu_item_call>
+    <menu_item_call
+     label="Copy position"
+     layout="topleft"
+     name="pos_copy"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="pos_copy" />
+       <on_enable function="PanelObject.menuEnable" parameter="pos_copy" />
+    </menu_item_call>
+    <menu_item_call
+     label="Copy size"
+     layout="topleft"
+     name="size_copy"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="size_copy" />
+       <on_enable function="PanelObject.menuEnable" parameter="size_copy" />
+    </menu_item_call>
+    <menu_item_call
+     label="Copy rotation"
+     layout="topleft"
+     name="rot_copy"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="rot_copy" />
+       <on_enable function="PanelObject.menuEnable" parameter="rot_copy" />
+    </menu_item_call>
+    <menu_item_separator layout="topleft" />
+    <menu_item_call
+     label="Paste all"
+     layout="topleft"
+     name="psr_paste"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="psr_paste" />
+       <on_enable function="PanelObject.menuEnable" parameter="psr_paste" />
+    </menu_item_call>
+    <menu_item_call
+     label="Paste position"
+     layout="topleft"
+     name="pos_paste"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="pos_paste" />
+       <on_enable function="PanelObject.menuEnable" parameter="pos_paste" />
+    </menu_item_call>
+    <menu_item_call
+     label="Paste size"
+     layout="topleft"
+     name="size_paste"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="size_paste" />
+       <on_enable function="PanelObject.menuEnable" parameter="size_paste" />
+    </menu_item_call>
+    <menu_item_call
+     label="Paste rotation"
+     layout="topleft"
+     name="rot_paste"
+     visible="true">
+       <on_click function="PanelObject.menuDoToSelected" parameter="rot_paste" />
+       <on_enable function="PanelObject.menuEnable" parameter="rot_paste" />
+    </menu_item_call>
+</menu>

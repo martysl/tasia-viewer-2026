@@ -549,23 +549,19 @@ void LLInspectObject::updatePrice(LLSelectNode* nodep)
     bool for_sale = enable_buy_object();
     S32 price = nodep->mSaleInfo.getSalePrice();
 
-    bool show_price_icon = false;
     std::string line;
     if (for_copy
         || (for_sale && price == 0))
     {
         line = getString("PriceFree");
-        show_price_icon = true;
     }
     else if (for_sale)
     {
         LLStringUtil::format_map_t args;
         args["[AMOUNT]"] = LLResMgr::getInstance()->getMonetaryString(price);
         line = getString("Price", args);
-        show_price_icon = true;
     }
     getChild<LLUICtrl>("price_text")->setValue(line);
-    getChild<LLUICtrl>("price_icon")->setVisible(show_price_icon);
 }
 
 void LLInspectObject::updateSecureBrowsing()

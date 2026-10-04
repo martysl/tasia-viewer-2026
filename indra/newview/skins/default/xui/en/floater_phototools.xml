@@ -2659,6 +2659,178 @@
 					 parameter="RenderGlowWidth"/>
 				</button>
 			</panel>
+
+			<panel
+				name="PT_Vignette"
+				follows="top|left"
+				layout="topleft"
+				top_pad="3"
+				left="0"
+				width="288"
+				height="22"
+				bg_alpha_color="Phototools_Header"
+				border_visible="true"
+				border_thickness="1"
+				background_visible="true">
+				<text
+					name="T_Vignette_Settings"
+					follows="left|top"
+					layout="topleft"
+					left="7"
+					font="SansSerif"
+					height="17"
+					width="280">
+					Vignette Settings
+				</text>
+			</panel>
+
+			<panel
+				name="P_Vignette_Settings"
+				follows="top|left"
+				layout="topleft"
+				top_pad="1"
+				left="3"
+				right="-3"
+				height="79"
+				border_visible="true"
+				background_visible="true">
+
+				<!-- FSRenderVignette X component -->
+				<text
+					name="T_Vignette_X"
+					follows="top|left"
+					layout="topleft"
+					left="5"
+					top_pad="5"
+					tool_tip="Blends between no vignette effect and the full effect. A value of 0.0 leaves the image untouched, while 1.0 applies the vignette shading at full strength."
+					width="70">
+					Amount
+				</text>
+				<slider_bar
+					name="VignetteSliderX"
+					follows="left|right"
+					height="16"
+					decimal_digits="2"
+					increment="0.01"
+					layout="topleft"
+					left_pad="0"
+					min_val="0"
+					max_val="1"
+					top_delta="-2"
+					width="127"/>
+				<spinner
+					name="VignetteSpinnerX"
+					top_delta="-3"
+					label_width="0"
+					left_pad="0"
+					decimal_digits="2"
+					follows="top|right"
+					max_val="1"
+					min_val="0"
+					width="53"
+					increment="0.01"/>
+				<button
+					follows="left|top"
+					name="Reset_VignetteX"
+					height="22"
+					label="D"
+					layout="topleft"
+					left_pad="0"
+					top_delta="0"
+					width="20"
+					tool_tip="Reset to the default value."/>
+
+				<!-- FSRenderVignette Y component -->
+				<text
+					name="T_Vignette_Y"
+					follows="top|left"
+					layout="topleft"
+					left="5"
+					top_pad="5"
+					tool_tip="Controls the steepness of the vignette falloff. Low values darken the edges of the screen gently and evenly, while higher values concentrate the darkening tightly around the corners."
+					width="70">
+					Power
+				</text>
+				<slider_bar
+					name="VignetteSliderY"
+					follows="left|right"
+					height="16"
+					decimal_digits="2"
+					increment="0.1"
+					layout="topleft"
+					left_pad="0"
+					min_val="0"
+					max_val="10"
+					top_delta="-2"
+					width="127"/>
+				<spinner
+					name="VignetteSpinnerY"
+					top_delta="-3"
+					label_width="0"
+					left_pad="0"
+					decimal_digits="2"
+					follows="top|right"
+					max_val="10"
+					min_val="0"
+					width="53"
+					increment="0.1"/>
+				<button
+					follows="left|top"
+					name="Reset_VignetteY"
+					height="22"
+					label="D"
+					layout="topleft"
+					left_pad="0"
+					top_delta="0"
+					width="20"
+					tool_tip="Reset to the default value."/>
+
+				<!-- FSRenderVignette Z component -->
+				<text
+					name="T_Vignette_Z"
+					follows="top|left"
+					layout="topleft"
+					left="5"
+					top_pad="5"
+					tool_tip="Scales the intensity of the vignette shading before the falloff curve is applied. Higher values produce deeper corner darkening at the same Amount and Power."
+					width="70">
+					Multiplier
+				</text>
+				<slider_bar
+					name="VignetteSliderZ"
+					follows="left|right"
+					height="16"
+					decimal_digits="2"
+					increment="0.1"
+					layout="topleft"
+					left_pad="0"
+					min_val="0"
+					max_val="10"
+					top_delta="-2"
+					width="127"/>
+				<spinner
+					name="VignetteSpinnerZ"
+					top_delta="-3"
+					label_width="0"
+					left_pad="0"
+					decimal_digits="2"
+					follows="top|right"
+					max_val="10"
+					min_val="0"
+					width="53"
+					increment="0.1"/>
+				<button
+					follows="left|top"
+					name="Reset_VignetteZ"
+					height="22"
+					label="D"
+					layout="topleft"
+					left_pad="0"
+					top_delta="0"
+					width="20"
+					tool_tip="Reset to the default value."/>
+
+			</panel>
 		</panel>
 
 		<panel

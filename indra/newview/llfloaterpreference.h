@@ -68,8 +68,6 @@ namespace ll
     }
 }
 
-typedef std::map<std::string, std::string> notifications_map;
-
 typedef enum
     {
         GS_LOW_GRAPHICS,
@@ -130,7 +128,6 @@ protected:
     void        onClickBrowserClearCache();     // Clear web history and caches as well as viewer caches above
     void        onLanguageChange();
     void        onTimeFormatChange();
-    void        onNotificationsChange(const std::string& OptionName);
     void        onNameTagOpacityChange(const LLSD& newvalue);
     void        onConsoleOpacityChange(const LLSD& newvalue);   // <FS:CR> FIRE-1332 - Sepeate opacity settings for nametag and console chat
 
@@ -311,7 +308,6 @@ private:
     static bool loadFromFilename(const std::string& filename, std::map<std::string, std::string> &label_map);
 
     static std::string sSkin;
-    notifications_map mNotificationOptions;
     bool mGotPersonalInfo;
     // <FS:Ansariel> Keep it for OpenSim
     bool mOriginalIMViaEmail;

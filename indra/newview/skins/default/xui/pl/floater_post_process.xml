@@ -1,48 +1,62 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater name="Post-Process Floater" title="Ustawienia przetwarzania końcowego">
 	<tab_container name="Post-Process Tabs">
-		<panel label="Filtr koloru" name="wmiColorFilterPanel">
-			<check_box label="Włącz" name="wmiColorFilterToggle" />
-			<text name="wmiColorFilterBrightnessText">
+		<panel label="Filtr koloru" name="ColorFilterPanel">
+			<check_box control_name="ColorFilterToggle" label="Włącz" name="ColorFilterToggle" />
+			<text name="ColorFilterBrightnessText">
 				Jasność
 			</text>
-			<text name="wmiColorFilterSaturationText">
+			<slider control_name="ColorFilterBrightness" name="ColorFilterBrightness" />
+			<text name="ColorFilterSaturationText">
 				Nasycenie
 			</text>
-			<text name="wmiColorFilterContrastText">
+			<slider control_name="ColorFilterSaturation" name="ColorFilterSaturation" />
+			<text name="ColorFilterContrastText">
 				Kontrast
 			</text>
-			<text name="wmiColorFilterBaseText">
+			<slider control_name="ColorFilterContrast" name="ColorFilterContrast" />
+			<text name="ColorFilterBaseText">
 				Kontrast koloru podstawowego
 			</text>
+			<slider control_name="ColorFilterBaseR" label="R" name="ColorFilterBaseR" />
+			<slider control_name="ColorFilterBaseG" label="G" name="ColorFilterBaseG" />
+			<slider control_name="ColorFilterBaseB" label="B" name="ColorFilterBaseB" />
+			<slider control_name="ColorFilterBaseI" label="I" name="ColorFilterBaseI" />
 		</panel>
-		<panel label="Noktowizja" name="wmiNightVisionPanel">
-			<check_box label="Włącz" name="wmiNightVisionToggle" />
-			<text name="wmiNightVisionBrightMultText">
+		<panel label="Noktowizja" name="NightVisionPanel">
+			<check_box control_name="NightVisionToggle" label="Włącz" name="NightVisionToggle" />
+			<text name="NightVisionBrightMultText">
 				Wielokrotne wzmocnienie światła
 			</text>
-			<text name="wmiNightVisionNoiseSizeText">
+			<slider control_name="NightVisionBrightMult" name="NightVisionBrightMult" />
+			<text name="NightVisionNoiseSizeText">
 				Rozmiar szumu
 			</text>
-			<text name="wmiNightVisionNoiseStrengthText">
+			<slider control_name="NightVisionNoiseSize" name="NightVisionNoiseSize" />
+			<text name="NightVisionNoiseStrengthText">
 				Moc szumu
 			</text>
+			<slider control_name="NightVisionNoiseStrength" name="NightVisionNoiseStrength" />
 		</panel>
-		<panel label="Poświata" name="wmiBloomPanel">
-			<check_box label="Włącz" name="wmiBloomToggle" />
-			<text name="wmiBloomExtractText">
+		<panel label="Poświata" name="BloomPanel">
+			<check_box control_name="BloomToggle" label="Włącz" name="BloomToggle" />
+			<text name="BloomExtractText">
 				Ekstracja luminacji
 			</text>
-			<text name="wmiBloomSizeText">
+			<slider control_name="BloomExtract" name="BloomExtract" />
+			<text name="BloomSizeText">
 				Rozmiar poświaty
 			</text>
-			<text name="wmiBloomStrengthText">
+			<slider control_name="BloomSize" name="BloomSize" />
+			<text name="BloomStrengthText">
 				Moc poświaty
 			</text>
+			<slider control_name="BloomStrength" name="BloomStrength" />
 		</panel>
 		<panel label="Dodatki" name="Extras">
 			<button label="Wczytaj efekt" label_selected="Wczytaj efekt" name="PPLoadEffect" />
 			<button label="Zapisz efekt" label_selected="Zapisz efekt" name="PPSaveEffect" />
+			<combo_box name="PPEffectsCombo" />
 			<line_editor label="Nazwa efektu" name="PPEffectNameEditor" />
 		</panel>
 	</tab_container>

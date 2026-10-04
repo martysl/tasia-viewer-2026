@@ -90,7 +90,7 @@ bool LLFloaterGLTFAssetEditor::postBuild()
     mCtrlPosZ->setCommitCallback([this](LLUICtrl* ctrl, const LLSD& param) { onCommitTransform(); });
     setTransformsEnabled(false);
     // todo: do multiple panels based on selected element.
-    mTransformsPanel = getChild<LLPanel>("transform_panel", true);
+    mTransformsPanel = getChild<LLPanel>("transforms_panel", true);
     mTransformsPanel->setVisible(false);
 
     mItemListPanel = getChild<LLPanel>("item_list_panel", true);

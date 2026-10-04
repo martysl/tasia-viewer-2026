@@ -125,7 +125,6 @@ bool LLFloaterPerformance::postBuild()
     mSettingsPanel->getChild<LLButton>("advanced_btn")->setCommitCallback(boost::bind(&LLFloaterPerformance::onClickAdvanced, this));
     mSettingsPanel->getChild<LLButton>("defaults_btn")->setCommitCallback(boost::bind(&LLFloaterPerformance::onClickDefaults, this));
     mSettingsPanel->getChild<LLRadioGroup>("graphics_quality")->setCommitCallback(boost::bind(&LLFloaterPerformance::onChangeQuality, this, _2));
-    mSettingsPanel->getChild<LLCheckBoxCtrl>("advanced_lighting_model")->setMouseDownCallback(boost::bind(&LLFloaterPerformance::onClickAdvancedLighting, this));
     mSettingsPanel->getChild<LLComboBox>("ShadowDetail")->setMouseDownCallback(boost::bind(&LLFloaterPerformance::onClickShadows, this));
 
     mNearbyPanel->getChild<LLButton>("exceptions_btn")->setCommitCallback(boost::bind(&LLFloaterPerformance::onClickExceptions, this));
@@ -695,14 +694,6 @@ bool is_ALM_available()
     return LLFeatureManager::getInstance()->isFeatureAvailable("RenderDeferred") &&
         bumpshiny &&
         shaders;
-}
-
-void LLFloaterPerformance::onClickAdvancedLighting()
-{
-    if (!is_ALM_available())
-    {
-        changeQualityLevel("AdvancedLightingConfirm");
-    }
 }
 
 void LLFloaterPerformance::onClickShadows()

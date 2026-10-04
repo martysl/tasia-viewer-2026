@@ -395,10 +395,14 @@ void LLPanelPrimMediaControls::updateShape()
             if (mMediaPanelScroll)
             {
                 mMediaPanelScroll->setVisible(false);
-                mScrollUpCtrl->setVisible(false);
-                mScrollDownCtrl->setVisible(false);
-                mScrollRightCtrl->setVisible(false);
-                mScrollDownCtrl->setVisible(false);
+                if (mScrollUpCtrl)
+                    mScrollUpCtrl->setVisible(false);
+                if (mScrollDownCtrl)
+                    mScrollDownCtrl->setVisible(false);
+                if (mScrollRightCtrl)
+                    mScrollRightCtrl->setVisible(false);
+                if (mScrollLeftCtrl)
+                    mScrollLeftCtrl->setVisible(false);
             }
 
             F32 volume = media_impl->getVolume();
@@ -492,10 +496,14 @@ void LLPanelPrimMediaControls::updateShape()
             if (mMediaPanelScroll)
             {
                 mMediaPanelScroll->setVisible(has_focus);
-                mScrollUpCtrl->setVisible(has_focus);
-                mScrollDownCtrl->setVisible(has_focus);
-                mScrollRightCtrl->setVisible(has_focus);
-                mScrollDownCtrl->setVisible(has_focus);
+                if (mScrollUpCtrl)
+                    mScrollUpCtrl->setVisible(has_focus);
+                if (mScrollDownCtrl)
+                    mScrollDownCtrl->setVisible(has_focus);
+                if (mScrollRightCtrl)
+                    mScrollRightCtrl->setVisible(has_focus);
+                if (mScrollLeftCtrl)
+                    mScrollLeftCtrl->setVisible(has_focus);
             }
             // TODO: get the secure lock bool from media plug in
             std::string prefix =  std::string("https://");

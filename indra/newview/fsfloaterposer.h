@@ -543,7 +543,6 @@ public:
     LLButton* mRedoChangeBtn{ nullptr };
     LLButton* mUndoChangeBtn{ nullptr };
     LLButton* mSetToTposeButton{ nullptr };
-    LLButton* mBtnJointRotate{ nullptr };
     LLButton* mBtnJointReset{ nullptr };
     LLButton* mBtnWorldFrame{ nullptr };
     LLButton* mBtnAvatarFrame{ nullptr };
