@@ -46,7 +46,9 @@
 class LLWindow;
 
 #define BYTES_TO_MEGA_BYTES(x) ((x) >> 20)
+#ifndef MEGA_BYTES_TO_BYTES
 #define MEGA_BYTES_TO_BYTES(x) ((x) << 20)
+#endif
 
 namespace LLImageGLMemory
 {
