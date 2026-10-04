@@ -2589,6 +2589,10 @@ namespace
     // `enabled` is not read: D3D11 bundles each of these states with several
     // others into one state object, so both directions rebuild the object from
     // the current sStateMap values rather than from the requested direction.
+    // Defined below; forward-declared only so applyDXState() above can reach it
+    // for GL_DEPTH_TEST. Both live in this anonymous namespace.
+    void applyDXDepthStencilState(GLboolean depth_enabled, GLboolean write_enabled, DXenum depth_func);
+
     void applyDXState(DXenum state, bool enabled)
     {
         if (state == GL_BLEND)
@@ -2612,6 +2616,22 @@ namespace
             // dimensions fresh on every call, rather than duplicating
             // getRasterizerState()+RSSetState() inline.
             gDX.applyDXRasterizerState();
+        }
+        else if (state == GL_DEPTH_TEST)
+        {
+            // GL_DEPTH_TEST is the fourth state LLGLEnable/LLGLDisable
+            // actually toggle in this codebase (newview/pipeline.cpp's
+            // LLGLDisable depth(GL_DEPTH_TEST) in the snapshot-guide
+            // overlay, and elsewhere) - it was simply missing from the list
+            // above, so every such toggle silently did nothing to D3D11 and
+            // the depth test stayed whatever the last LLGLDepthTest left it
+            // as. The two pieces this class does not track (depth write mask,
+            // comparison function) live in LLGLDepthTest, so read them from
+            // there rather than duplicating that state here - see
+            // llglstates.h's accessors for why sDepthEnabled is not one of
+            // the three read: sStateMap is the authority for enable/disable.
+            applyDXDepthStencilState(DXState::isEnabled(GL_DEPTH_TEST),
+                LLGLDepthTest::getWriteEnabled(), LLGLDepthTest::getDepthFunc());
         }
     }
 

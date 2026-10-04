@@ -467,6 +467,22 @@ public:
     void syncMatrices();
     void syncLightState();
 
+#ifdef DX_RENDER
+    // DX_RENDER half of syncMatrices() above, called from its first
+    // statement and no-oped when no LLHLSLShader is bound. Kept separate so the
+    // GL body above stays exactly what it was - it can only ever run with an
+    // LLGLSLShader bound, which never happens under DX_RENDER.
+    void syncMatricesDX();
+
+    // DX_RENDER half of syncLightState() above, called from
+    // syncMatricesDX(). Same split and same reason: the GL body reads
+    // LLGLSLShader::sCurBoundShaderPtr, which under DX_RENDER is never set, so
+    // it returns immediately and the light arrays never reach a shader. Reads
+    // the same private mLightState/mAmbientLightColor, hence a member rather
+    // than a file-static.
+    void syncLightStateDX();
+#endif
+
     void translateUI(F32 x, F32 y, F32 z);
     void scaleUI(F32 x, F32 y, F32 z);
     void pushUIMatrix();

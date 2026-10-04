@@ -39,6 +39,11 @@
 #include "glm/gtc/type_ptr.hpp"
 
 #ifdef DX_RENDER
+// LLHLSLShader for syncMatricesDX()'s DX_RENDER branch - the DX-side sibling
+// of the LLGLSLShader above, and the only shader class that has anything to
+// upload matrices to under DX_RENDER. DX-only header, so guarded here and
+// invisible to a DX_RENDER=OFF build.
+#include "llhlslshader.h"
 #include "DXSampler.h"
 #include "DXStateCache.h"
 #include "DXTexture.h"
@@ -1204,10 +1209,30 @@ void LLRender::syncLightState()
     }
 }
 
+#ifdef DX_RENDER
+namespace
+{
+    // Extracts the upper-left 3x3 (as 3 columns of 3 floats each) from a
+    // column-major mat4 - matches the GL path's own norm_mat[] construction
+    // in syncMatrices() below (glm::value_ptr(mat)[0,1,2],[4,5,6],[8,9,10]).
+    void extractMat3(const glm::mat4& mat, float* out3x3)
+    {
+        const float* m = glm::value_ptr(mat);
+        out3x3[0] = m[0]; out3x3[1] = m[1]; out3x3[2] = m[2];
+        out3x3[3] = m[4]; out3x3[4] = m[5]; out3x3[5] = m[6];
+        out3x3[6] = m[8]; out3x3[7] = m[9]; out3x3[8] = m[10];
+    }
+}
+#endif
+
 void LLRender::syncMatrices()
 {
     STOP_GLERROR;
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DISPLAY;
+
+#ifdef DX_RENDER
+    syncMatricesDX();
+#endif
 
     static const U32 name[] =
     {
@@ -1353,6 +1378,199 @@ void LLRender::syncMatrices()
     }
     STOP_GLERROR;
 }
+
+#ifdef DX_RENDER
+// DX_RENDER counterpart of the matrix upload syncMatrices() does above, into
+// the LLHLSLShader/DXShader pair that LLHLSLShader::bind() makes current
+// instead of an LLGLSLShader. Only pushes the matrices syncMatrices() itself is
+// responsible for - modelview/projection/normal/texture0 plus the inverse
+// projection several deferred passes need - not GL's full inverse-modelview /
+// texture1-3 set.
+void LLRender::syncMatricesDX()
+{
+    LLHLSLShader* dx_shader = LLHLSLShader::sCurBoundShaderPtr;
+    if (!dx_shader)
+    {
+        return;
+    }
+
+    DXShader& vs = dx_shader->mDXVertexShader;
+    DXShader& ps = dx_shader->mDXPixelShader;
+
+    // Skip the matrix math and the setUniformMatrix4/3 calls below when nothing
+    // relevant changed since THIS shader's last sync. mMatHash[mode] is a
+    // monotonic per-mode counter bumped by every real matrix mutator
+    // (loadMatrix/multMatrix/loadIdentity/popMatrix/translatef/etc below), so it
+    // cannot miss a real camera switch. vs.uploadConstants()/
+    // VSSetConstantBuffers()/ps.uploadConstants()/PSSetConstantBuffers() further
+    // down stay unconditional - still needed to flush any other pending uniform
+    // write and rebind the buffer after a shader switch.
+    bool matrices_changed =
+        (mMatHash[MM_MODELVIEW] != dx_shader->mMatHash[MM_MODELVIEW]) ||
+        (mMatHash[MM_PROJECTION] != dx_shader->mMatHash[MM_PROJECTION]) ||
+        (mMatHash[MM_TEXTURE0] != dx_shader->mMatHash[MM_TEXTURE0]);
+
+    if (matrices_changed)
+    {
+        const glm::mat4& mdv = mMatrix[MM_MODELVIEW][mMatIdx[MM_MODELVIEW]];
+
+        // GL-convention projection matrices (glm::frustum()/ortho()/
+        // perspective(), e.g. LLViewerCamera::calcProjection()'s
+        // glm::perspective() - GLM_FORCE_DEPTH_ZERO_TO_ONE is not defined
+        // anywhere in this project) produce clip-space z in [-w,w], i.e. NDC z
+        // in [-1,1] after the divide. D3D11 requires clip-space z in [0,w] (NDC
+        // z in [0,1]) and clips away anything outside that range - fed a raw
+        // GL-convention matrix, the near half of the intended frustum (NDC z in
+        // [-1,0)) gets clipped as "in front of the near plane". Remapped here
+        // rather than touching the shared GL-convention projection-matrix
+        // construction code, which the GL build still depends on unmodified.
+        //
+        // z'=0.5*w-0.5*z (not the standard z'=0.5*z+0.5*w) - reversed-Z, so
+        // stored depth is near=1.0/far=0.0. This matrix is every pass's
+        // projection upload chokepoint (shadows included), so this one sign flip
+        // is the root of the whole conversion. Every site that turns a stored
+        // depth value back into GL NDC z must flip its own `2.0*depth-1.0` to
+        // `1.0-2.0*depth` - see deferredUtil.hlsl/aoUtil.hlsl/waterF.hlsl, which
+        // already do. Comparison funcs (glDepthFuncToDX(), llgl.cpp) and clear
+        // values (DXRenderTarget.cpp/DXContext.cpp, 1.0f->0.0f) flip alongside
+        // this as part of the same conversion, and all three are already in this
+        // tree - so this is the last of the three, not a new convention.
+        static const glm::mat4 kGLtoDXDepthRemap = []()
+        {
+            glm::mat4 m(1.0f);
+            m[2][2] = -0.5f;
+            m[3][2] = 0.5f;
+            return m;
+        }();
+        const glm::mat4& raw_proj = mMatrix[MM_PROJECTION][mMatIdx[MM_PROJECTION]];
+        const glm::mat4 proj = kGLtoDXDepthRemap * raw_proj;
+        glm::mat4 mvp = proj * mdv;
+        float normal3x3[9];
+        extractMat3(glm::transpose(glm::inverse(mdv)), normal3x3);
+
+        vs.setUniformMatrix4("modelview_matrix", glm::value_ptr(mdv));
+        vs.setUniformMatrix4("modelview_projection_matrix", glm::value_ptr(mvp));
+        // Standalone "projection_matrix" (not just the combined
+        // modelview_projection_matrix above) is needed by every HAS_SKIN/
+        // rigged vertex shader, which build an eye-space position via
+        // skin+modelview before projecting separately for lighting/normal math.
+        // Uses the same D3D11-depth-remapped `proj` (not raw_proj) as
+        // modelview_projection_matrix, since it feeds SV_Position.
+        vs.setUniformMatrix4("projection_matrix", glm::value_ptr(proj));
+        vs.setUniformMatrix3("normal_matrix", normal3x3);
+        const glm::mat4& tex_mat0 = mMatrix[MM_TEXTURE0][mMatIdx[MM_TEXTURE0]];
+        vs.setUniformMatrix4("texture_matrix0", glm::value_ptr(tex_mat0));
+
+        // inv_proj uses the UN-remapped GL-convention projection matrix, not
+        // `proj` above - getPositionWithDepth() (deferredUtil.hlsl) manually
+        // converts D3D11 [0,1] depth back to GL's [-1,1] NDC before this
+        // multiply, so inv_proj must invert that same GL-convention matrix.
+        // Pushed to both vs and ps - setUniformMatrix4() no-ops harmlessly
+        // wherever a stage doesn't declare "inv_proj".
+        glm::mat4 inv_proj = glm::inverse(raw_proj);
+        vs.setUniformMatrix4("inv_proj", glm::value_ptr(inv_proj));
+        ps.setUniformMatrix4("inv_proj", glm::value_ptr(inv_proj));
+
+        // Remember what this shader was just synced with, so the next draw using
+        // it can detect "nothing changed" and skip this block.
+        dx_shader->mMatHash[MM_MODELVIEW] = mMatHash[MM_MODELVIEW];
+        dx_shader->mMatHash[MM_PROJECTION] = mMatHash[MM_PROJECTION];
+        dx_shader->mMatHash[MM_TEXTURE0] = mMatHash[MM_TEXTURE0];
+    }
+
+    // Gated the same way the GL body of syncMatrices() gates its own
+    // syncLightState() call: only for shaders that actually declare
+    // lighting/atmospherics, not unconditionally for every bind (UI, water,
+    // post-process shaders never needed it).
+    if (dx_shader->mFeatures.hasLighting || dx_shader->mFeatures.calculatesLighting || dx_shader->mFeatures.calculatesAtmospherics)
+    {
+        syncLightStateDX();
+    }
+
+    vs.uploadConstants();
+
+    // Bind to $Globals' real reflected slot, not a hardcoded 0 - a shader
+    // claiming b0 for its own named cbuffer (e.g. pbrmetallicroughnessV.hlsl's
+    // GLTFMaterials) pushes $Globals to b1 instead. See
+    // DXShader::getConstantBufferBindPoint().
+    ID3D11Buffer* cb = vs.getConstantBuffer();
+    if (cb)
+    {
+        gDXDevice.getContext()->VSSetConstantBuffers(vs.getConstantBufferBindPoint(), 1, &cb);
+    }
+
+    // Symmetric pixel-shader handling - solidcolorF.hlsl's "uniform vec4 color"
+    // needs this (see LLHLSLShader::uniform4f()'s DX_RENDER branch); without
+    // it, staged pixel-stage uniforms never reach the GPU. No-ops for shaders
+    // with no pixel-stage top-level uniforms (mDXPixelShader.getConstantBuffer()
+    // returns nullptr).
+    ps.uploadConstants();
+    if (ID3D11Buffer* pcb = ps.getConstantBuffer())
+    {
+        gDXDevice.getContext()->PSSetConstantBuffers(ps.getConstantBufferBindPoint(), 1, &pcb);
+    }
+}
+
+// syncLightState() above is GL-only: it reads LLGLSLShader::sCurBoundShaderPtr,
+// which under DX_RENDER is never set (LLGLSLShader::bind() is not on the DX
+// path at all), so it returns immediately and light_position[]/
+// light_direction[]/light_attenuation[]/light_diffuse[]/ambient/sun_up_factor
+// never reach a shader - leaving forward-lit alpha surfaces (avatar hair,
+// alpha-blend/cutout clothing) unlit. This is that same upload against the
+// shader that actually is bound under DX_RENDER. Kept as a separate member
+// rather than a DX_RENDER branch inside syncLightState() itself so the GL
+// function is left byte-for-byte alone; it reads the same private
+// mLightState/mAmbientLightColor, hence a member rather than a file-static.
+void LLRender::syncLightStateDX()
+{
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+    if (!shader)
+    {
+        return;
+    }
+
+    if (shader->mLightHash != mLightHash)
+    {
+        shader->mLightHash = mLightHash;
+
+        LLVector4 position[LL_NUM_LIGHT_UNITS];
+        LLVector3 direction[LL_NUM_LIGHT_UNITS];
+        LLVector4 attenuation[LL_NUM_LIGHT_UNITS];
+        LLVector3 diffuse[LL_NUM_LIGHT_UNITS];
+        LLVector3 diffuse_b[LL_NUM_LIGHT_UNITS];
+        bool      sun_primary[LL_NUM_LIGHT_UNITS];
+        LLVector2 size[LL_NUM_LIGHT_UNITS];
+
+        for (U32 i = 0; i < LL_NUM_LIGHT_UNITS; i++)
+        {
+            LLLightState *light = &mLightState[i];
+
+            position[i]  = light->mPosition;
+            direction[i] = light->mSpotDirection;
+            attenuation[i].set(light->mLinearAtten, light->mQuadraticAtten, light->mSpecular.mV[2], light->mSpecular.mV[3]);
+            diffuse[i].set(light->mDiffuse.mV);
+            diffuse_b[i].set(light->mDiffuseB.mV);
+            sun_primary[i] = light->mSunIsPrimary;
+            size[i].set(light->mSize, light->mFalloff);
+        }
+
+        shader->uniform4fv(LLShaderMgr::LIGHT_POSITION, LL_NUM_LIGHT_UNITS, position[0].mV);
+        shader->uniform3fv(LLShaderMgr::LIGHT_DIRECTION, LL_NUM_LIGHT_UNITS, direction[0].mV);
+        shader->uniform4fv(LLShaderMgr::LIGHT_ATTENUATION, LL_NUM_LIGHT_UNITS, attenuation[0].mV);
+        shader->uniform2fv(LLShaderMgr::LIGHT_DEFERRED_ATTENUATION, LL_NUM_LIGHT_UNITS, size[0].mV);
+        shader->uniform3fv(LLShaderMgr::LIGHT_DIFFUSE, LL_NUM_LIGHT_UNITS, diffuse[0].mV);
+        shader->uniform3fv(LLShaderMgr::LIGHT_AMBIENT, 1, mAmbientLightColor.mV);
+        shader->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_primary[0] ? 1 : 0);
+
+        if (sClassicMode)
+        {
+            shader->uniform3fv(LLShaderMgr::AMBIENT, 1, mAmbientLightColor.mV);
+            shader->uniform3fv(LLShaderMgr::SUNLIGHT_COLOR, 1, diffuse[0].mV);
+            shader->uniform3fv(LLShaderMgr::MOONLIGHT_COLOR, 1, diffuse_b[0].mV);
+        }
+    }
+}
+#endif
 
 void LLRender::translatef(const GLfloat& x, const GLfloat& y, const GLfloat& z)
 {

@@ -55,6 +55,13 @@ include(LLPrimitive)
 include(Growl)
 include(ColladaDom)
 include(jemalloc)
+# S24: DX_RENDER backend. include() is guarded on the option alone (matching
+# indra/llrender/CMakeLists.txt:11-16): DXRender.cmake only sets two variables
+# and has its own include guard, so it is inert and harmless on a non-Windows
+# host. WIN32 arrives with the block further down.
+if(DX_RENDER)
+  include(DXRender)
+endif()
 include(Discord)
 
 if (HAVOK)
@@ -2376,6 +2383,70 @@ endif()
 
 list(APPEND viewer_SOURCE_FILES ${viewer_HEADER_FILES})
 
+# S24: the 10 DX-only newview translation units (T4). Appended from a separate
+# list rather than inlined into the two lists above, so that with DX_RENDER=OFF
+# these files are not part of the build at all - not compiled, not listed, no
+# ${DXRENDER_INCLUDE_DIRS} on the include path. The generated DX_RENDER=OFF
+# build is therefore identical to the plain OpenGL one.
+#
+# Guarded on WIN32 as well as DX_RENDER, matching DXRender.cmake's own stated
+# contract ("only reachable when DX_RENDER is ON *and* the host is Windows"),
+# indra/CMakeLists.txt's add_subdirectory(dxrender) guard, and the
+# indra/llrender/CMakeLists.txt:93 equivalent. The DX_RENDER=1 preprocessor
+# macro is likewise only defined in the Windows block of 00-Common.cmake, so on
+# a non-Windows host the option stays completely inert instead of compiling ten
+# sources that can never see it.
+#
+# Must stay above list(APPEND viewer_SOURCE_FILES ${viewer_HEADER_FILES}) and
+# add_executable() below, and above include_directories()/target_link_libraries()
+# which also have to run only in this configuration.
+if(DX_RENDER AND WIN32)
+  set(dxviewer_SOURCE_FILES
+      dxpipeline.cpp
+      dxdrawpoolsimple.cpp
+      dxdrawpoolmaterials.cpp
+      dxdrawpoolalpha.cpp
+      dxdrawpoolbump.cpp
+      dxdrawpoolwlsky.cpp
+      dxdrawpoolterrain.cpp
+      dxdrawpoolwater.cpp
+      dxbc7compressor.cpp
+      dxbc7uploadmanager.cpp
+      )
+
+  set(dxviewer_HEADER_FILES
+      dxpipeline.h
+      dxdrawpoolsimple.h
+      dxdrawpoolmaterials.h
+      dxdrawpoolalpha.h
+      dxdrawpoolbump.h
+      dxdrawpoolwlsky.h
+      dxdrawpoolterrain.h
+      dxdrawpoolwater.h
+      dxbc7compressor.h
+      dxbc7uploadmanager.h
+      )
+
+  list(APPEND viewer_SOURCE_FILES
+      ${dxviewer_SOURCE_FILES}
+      ${dxviewer_HEADER_FILES}
+      )
+  list(APPEND viewer_HEADER_FILES ${dxviewer_HEADER_FILES})
+
+  # Only the 20 names in dxviewer_HEADER_FILES are marked, deliberately not
+  # ${viewer_HEADER_FILES} - that variable also holds every pre-existing viewer
+  # header, and the rest of this file marks HEADER_FILE_ONLY group by group
+  # rather than in one sweep.
+  set_source_files_properties(${dxviewer_HEADER_FILES}
+                              PROPERTIES HEADER_FILE_ONLY TRUE)
+
+  # DXDevice.h / DXTexture.h / DXShader.h / DXUIBatch.h etc. live in
+  # dxrender. Note this is directory-scoped, like llrender's own copy at
+  # indra/llrender/CMakeLists.txt:110 - it deliberately does not reach
+  # llrender, which is why that project needs its own.
+  include_directories(${DXRENDER_INCLUDE_DIRS})
+endif()
+
 add_executable(${VIEWER_BINARY_NAME}
     WIN32
     MACOSX_BUNDLE
@@ -2765,6 +2836,20 @@ endif()
 if ( TARGET llconvexdecomposition )
     target_link_libraries(${VIEWER_BINARY_NAME} llconvexdecomposition )
 endif ()
+
+# S24: additive, not an either/or. The donor drops OpenGL entirely when
+# DX_RENDER is on, but that only works there because its llgl.cpp/
+# llgltexture.cpp/llglslshader.cpp/llimagegl.cpp were rewritten to contain no
+# raw gl*() calls. Those files are still the untouched GL originals here and
+# still call gl*(), so OpenGL has to stay linked - it comes in through
+# llrender's own target_link_libraries(OpenGL::GL) above - or the final link
+# would break with unresolved externals. Guarded on WIN32 as well, because
+# dxrender is only added as a subdirectory when DX_RENDER AND WIN32 (see
+# indra/CMakeLists.txt): linking a target that was never defined is a hard
+# configure error.
+if(DX_RENDER AND WIN32)
+  target_link_libraries(${VIEWER_BINARY_NAME} ${DXRENDER_LIBRARIES})
+endif()
 
 if (LINUX)
     # <FS:Zi> put these additional libraries in the viewer build target here as it didn't

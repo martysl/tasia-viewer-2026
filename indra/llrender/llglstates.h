@@ -49,6 +49,23 @@ private:
     static GLboolean sDepthEnabled; // defaults to GL_FALSE
     static GLenum sDepthFunc; // defaults to GL_LESS
     static GLboolean sWriteEnabled; // defaults to GL_TRUE
+
+#ifdef DX_RENDER
+    // D3D11 bundles depth-enable, depth-write and the comparison function into
+    // one ID3D11DepthStencilState (see DXStateCache.h), so anything that
+    // changes one of them from outside this class has to read the other two to
+    // rebuild the state object. LLGLEnable/LLGLDisable(GL_DEPTH_TEST) is such
+    // a caller - llgl.cpp's applyDXState() reads these two to reach
+    // applyDXDepthStencilState() when GL_DEPTH_TEST is toggled through
+    // DXState's sStateMap rather than through an LLGLDepthTest instance.
+    // sDepthEnabled is deliberately not exposed: LLGLState::isEnabled()
+    // (llgl.h) already tracks GL_DEPTH_TEST's enable/disable, and having two
+    // independent trackers for the same toggle is exactly what made this a
+    // no-op in the first place. Plain accessors, not friend declarations.
+public:
+    static GLenum getDepthFunc() { return sDepthFunc; }
+    static GLboolean getWriteEnabled() { return sWriteEnabled; }
+#endif
 };
 
 //----------------------------------------------------------------------------
