@@ -220,7 +220,8 @@ jobs:
           $stage = Join-Path $env:GITHUB_WORKSPACE 'build-vc170-64/packages/ffmpeg'
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
           Copy-Item (Join-Path $root.FullName 'bin/ffmpeg.exe') (Join-Path $stage 'tasia-ffmpeg.exe') -Force
-          Copy-Item (Join-Path $root.FullName 'LICENSE') (Join-Path $stage 'tasia-ffmpeg-license.txt') -Force
+          # This archive ships LICENSE.txt, not LICENSE.
+          Copy-Item (Join-Path $root.FullName 'LICENSE.txt') (Join-Path $stage 'tasia-ffmpeg-license.txt') -Force
           & (Join-Path $stage 'tasia-ffmpeg.exe') -version | Select-Object -First 1
 
       - name: Build Windows with FMOD
