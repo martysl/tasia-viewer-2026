@@ -141,6 +141,12 @@ add_subdirectory(${LIBS_OPEN_PREFIX}llquic)
 add_subdirectory(${LIBS_OPEN_PREFIX}llphysicsextensionsos)
 add_subdirectory(${LIBS_OPEN_PREFIX}llprimitive)
 add_subdirectory(${LIBS_OPEN_PREFIX}llrender)
+# Direct3D 11 backend. Guarded on both the option and the host OS: the
+# dxrender target links d3d11/dxgi/d3dcompiler/dcomp unconditionally, so
+# adding it on a non-Windows host would break configuration outright.
+if (DX_RENDER AND WIN32)
+  add_subdirectory(dxrender)
+endif()
 add_subdirectory(${LIBS_OPEN_PREFIX}llfilesystem)
 add_subdirectory(${LIBS_OPEN_PREFIX}llwebrtc)
 add_subdirectory(${LIBS_OPEN_PREFIX}llwindow)
