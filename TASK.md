@@ -88,12 +88,43 @@ lines), `dxbc7compressor.*` (438), `dxbc7uploadmanager.*` (210) and six
 **Done when:** `viewer` compiles and links with `DX_RENDER=ON`.
 
 ### T5 — call-site renames in llappearance / llui / llwindow
-**Why:** donor renamed `gGL`→`gDX`, `LLImageGL`→`LLImageDX`, `LLFontGL`→`LLFontDX`,
-`LLGLTexture`→`LLDXTexture`. ~20 newview files call `gUIProgram.bind()`, which now
-resolves to `LLHLSLShader` objects that nothing initialises.
-**Do:** additive, guarded. `llappearance` needs the `gGL`→`gDX` swap; `llwindow`
-loses `wglCreateContextAttribsARB` version negotiation; `llui` uses the DX font path.
-**Done when:** no DX build references an uninitialised program.
+**Partly done:** the ~336 shader program sites now use `LLViewerShaderProgram`,
+which resolves to `LLHLSLShader` under DX_RENDER, so programs are constructed and
+`D3DCompile` runs. What remains is the surrounding subsystems.
+**Still to do:** `llappearance` `gGL`→`gDX`; `llwindow` loses
+`wglCreateContextAttribsARB` negotiation; `llui` DX font path; and the
+`LLEnvironment::updateShaderUniformsDX` declaration (`llenvironment.h:138`) —
+without it sky/water uniforms never reach the DX shaders.
+**Done when:** no DX build references an uninitialised program or a dead uniform path.
+
+### T7a — `LLRenderTarget` DX forwarders  ← new, blocking
+**Why:** 11 errors. `dxpipeline` calls `LLRenderTarget::getColorSRV`,
+`bindTarget(bool,bool)`, `clearColor`, `rebindWithDepth`, which exist only in the
+donor. All five are one-line inline forwarders to `mDXRenderTarget`.
+**Do:** port additively under `#ifdef DX_RENDER` in `llrender/llrendertarget.h`.
+**Done when:** those five resolve.
+
+### T7b — `gDXViewport` is never written  ← new, correctness
+**Why:** it is defined but no DX code writes it, and `dxdrawpoolwlsky.cpp:362-363`
+reads it, so the WLSky pass will read 0 for origin and size. The donor's
+`llrendertarget.cpp:329-336` does the GL bottom-left → DX top-left flip
+(`TopLeftY = height - (y + h)`). The target's `llrendertarget.cpp` has zero
+`DX_RENDER` occurrences, so `glViewport` reaches nothing under DX.
+**Do:** port the viewport flip, writing `gDXViewport`.
+**Done when:** `gDXViewport` is written where `glViewport` is called.
+
+### T7c — `pipeline.h` DX signatures  ← new, the real gate
+**Why:** 26 errors, the largest single group. The donor renamed
+`LLGLSLShader`→`LLHLSLShader` in shared headers; we deliberately kept the GL
+names and typedef'd instead, so `LLPipeline::bindDeferredShader`,
+`bindDeferredShaderFast`, `unbindDeferredShader`, `setEnvMat`,
+`bindReflectionProbes`, `unbindReflectionProbes`, `bindShadowMaps`,
+`bindLightFunc`, `setupSpotLight` and `LLRenderPass::uploadMatrixPalette` still
+take `LLGLSLShader&`. Donor refs: `pipeline.h:330,331,334`, `lldrawpool.h:392`.
+**Do:** take `LLViewerShaderProgram&` under DX_RENDER, plus `getPools()`,
+`mStereoEyeL/R`, `mSSAOHistory`, `getNearbyLights()`, `getMaskMode`,
+`updateUniformsPerFrame()`, `getLightScale()`, `getDetailTexture`.
+**Done when:** dxpipeline compiles.
 
 ### T6 — gate: viewer links
 Extend the CI gate to build the `viewer` target with `DX_RENDER=ON`. A static
@@ -106,12 +137,33 @@ this machine (`wine64`, Vulkan 1.4 + NVIDIA already verified working) and screen
 Compare against the native GL Linux build.
 **Done when:** a screenshot shows a rendered region through the DX path.
 
+### T7d — small accessor gaps  ← new
+`llreflectionmapmanager.h` `updateUniformsPerFrame`/`getLightScale`;
+`llvlcomposition.h` `getDetailTexture`/`getDetailRenderMaterials` (members exist
+but are `protected`); `lldrawpoolwater.h:43` needs `friend class DXDrawPoolWater`
+for `mWaterNormp`; `llvosky.h` `getCubeMap()` return type; `llspatialpartition.h`
+`LLDrawInfo::mAttachedToAvatar`.
+
+### T7e — donor-only features to decide on
+`kveffects`/OpenCL post-fx (already excluded — no OpenCL in this tree);
+WLSky galactic band, constellation lines and shooting stars (donor-only sky
+feature, 7 errors); `DXBC7UploadManager` (46 errors, needs the excluded
+OpenCL block). All three are donor extras, not port regressions.
+
 ## Known accepted regressions
 
 - Tabular figures in `LLFontDX` — needs `EFontHinting` in shared GL font classes.
   DX text uses proportional digit advances, same as this tree's GL path.
 - `LLTexUnit::bind(DXTexture&,…)` and `syncDXBindState()` not ported; no call site
   needs them yet.
+- **BC7 texture compression unavailable** — needs OpenCL, which this tree lacks.
+- **WLSky galactic band / constellations / shooting stars absent** — donor-only.
+- **Scissor unimplemented under DX in both trees** — no `RSSetScissorRects`
+  exists in donor or target; `DXStateCache.cpp` is byte-identical between them.
+- **Polygon-offset sign is a shared donor limitation** — `DXStateCache.cpp:179`
+  passes GL's positive offset straight through, which is wrong under reversed-Z.
+  Left matching the donor deliberately rather than diverging on a shadow-path
+  value that cannot be tested here.
 
 ## Review protocol
 
