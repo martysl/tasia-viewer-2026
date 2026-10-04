@@ -11,6 +11,11 @@ on:
         options:
           - "false"
           - "true"
+      dx_render:
+        description: "Build with the Direct3D 11 renderer (DX_RENDER=ON)"
+        required: true
+        default: "false"
+        type: boolean
 
 permissions:
   contents: write
@@ -175,6 +180,12 @@ jobs:
           LOCAL_DIST_DIR="$(pwd)/build-vc170-64/newview/unpacked"
           mkdir -p "$LOCAL_DIST_DIR"
 
+          DX_ARGS=""
+          if [ "${{ inputs.dx_render }}" = "true" ]; then
+            DX_ARGS="-DDX_RENDER=ON"
+            echo "Building with the Direct3D 11 renderer enabled."
+          fi
+
           autobuild configure \
             -c ReleaseFS_open \
             -A ${{ env.AUTOBUILD_ADDRSIZE }} \
@@ -182,6 +193,7 @@ jobs:
             --fmodstudio \
             --no-package \
             --jobs 2 \
+            ${DX_ARGS} \
             "-DLOCAL_DIST_DIR:PATH=$LOCAL_DIST_DIR"
 
       - name: Stage verified FFmpeg converter
