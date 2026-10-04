@@ -99,7 +99,9 @@ target_link_libraries(dxrender
 )
 
 # core/ and resources/ include each other (e.g. DXShader.cpp -> DXDevice.h).
-target_include_directories(dxrender INTERFACE
+# PUBLIC, not INTERFACE: INTERFACE only applies to consumers of this target,
+# not to dxrender's own sources, which then cannot resolve "DXDevice.h".
+target_include_directories(dxrender PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/core
     ${CMAKE_CURRENT_SOURCE_DIR}/resources
 )
