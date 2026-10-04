@@ -77,6 +77,13 @@ bool gHeadlessClient = false;
 bool gNonInteractive = false;
 bool gGLActive = false;
 
+#ifdef DX_RENDER
+// Added alongside gGLActive rather than in place of it, so every existing GL
+// writer of gGLActive is untouched and still compiles unchanged. Not yet
+// written by anything - the DX_RENDER port of llappviewer.cpp is what flips it.
+bool gDXActive = false;
+#endif
+
 static const std::string HEADLESS_VENDOR_STRING("Linden Lab");
 static const std::string HEADLESS_RENDERER_STRING("Headless");
 static const std::string HEADLESS_VERSION_STRING("1.0");
@@ -2459,6 +2466,13 @@ void clear_glerror()
 
 // Static members
 boost::unordered_map<LLGLenum, LLGLboolean> LLGLState::sStateMap;
+
+#ifdef DX_RENDER
+// GL's own default, matching the only glCullFace(GL_BACK) LLRender::initClass()
+// ever issues - so a DX_RENDER build that never calls setCullFace() still culls
+// back faces the same way the GL build does.
+LLGLenum LLGLState::sCullFace = GL_BACK; // OpenGL default
+#endif
 
 GLboolean LLGLDepthTest::sDepthEnabled = GL_FALSE; // OpenGL default
 GLenum LLGLDepthTest::sDepthFunc = GL_LESS; // OpenGL default

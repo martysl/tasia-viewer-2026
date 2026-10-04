@@ -248,6 +248,29 @@ public:
     //  writeAlpha - whether or not writing to alpha channel is expected
     static void checkStates(GLboolean writeAlpha = GL_TRUE);
 
+#ifdef DX_RENDER
+    // Needed to know "is GL_BLEND currently enabled" from outside this class
+    // (LLRender::applyDXBlendState()/applyDXRasterizerState(), llrender.cpp) -
+    // D3D11 bundles blend-enable with the blend function into one state object,
+    // unlike GL's two independent toggles, so whichever changes needs to read
+    // the other to rebuild the combined state. sStateMap is kept accurate (see
+    // setEnabled()); this is a plain accessor, not a friend declaration.
+    static bool isEnabled(LLGLenum state) { return sStateMap[state] == GL_TRUE; }
+
+    // GL's glCullFace(GL_FRONT/GL_BACK) direction, tracked the same way
+    // sStateMap tracks GL_CULL_FACE's enable/disable - D3D11 bundles cull
+    // direction into the same rasterizer-state object as everything else
+    // applyDXRasterizerState() gathers, so whoever changes it needs this
+    // readable from outside. Defaults to GL_BACK, matching GL's own default
+    // and this codebase's prior assumption (glCullFace() was only ever called
+    // with GL_BACK, in LLRender::initClass()) - see
+    // DXStateCache::getRasterizerState()'s cull_front parameter.
+    static LLGLenum getCullFace() { return sCullFace; }
+    static void setCullFace(LLGLenum face) { sCullFace = face; }
+
+    static LLGLenum sCullFace;
+#endif
+
 protected:
     static boost::unordered_map<LLGLenum, LLGLboolean> sStateMap;
 

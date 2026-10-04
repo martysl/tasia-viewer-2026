@@ -38,6 +38,16 @@
 #include "hbxxh.h"
 #include "glm/gtc/type_ptr.hpp"
 
+#ifdef DX_RENDER
+#include "DXSampler.h"
+#include "DXStateCache.h"
+#include "DXTexture.h"
+#include "DXDevice.h"
+#include "DXUIBatch.h"
+#include "DXCubeMap.h"
+#include "DXCubeMapArray.h"
+#endif
+
 #if LL_WINDOWS
 extern void APIENTRY gl_debug_callback(GLenum source,
                                 GLenum type,
@@ -51,6 +61,14 @@ extern void APIENTRY gl_debug_callback(GLenum source,
 
 thread_local LLRender gGL;
 
+#ifdef DX_RENDER
+// The DX_RENDER render context, alongside (never in place of) gGL above - see
+// llrender.h's own comment on the pair. Only the DX_RENDER llrender files
+// reference it; nothing in the GL path does, so a DX_RENDER=OFF build neither
+// declares nor instantiates it.
+thread_local LLRender gDX;
+#endif
+
 // Handy copies of last good GL matrices
 F32 gGLModelView[16];
 F32 gGLLastModelView[16];
@@ -62,6 +80,16 @@ glm::mat4 gGLDeltaModelView;
 glm::mat4 gGLInverseDeltaModelView;
 
 S32 gGLViewport[4];
+
+#ifdef DX_RENDER
+// DX_RENDER counterpart of gGLViewport above. Defined (not just declared in
+// llrender.h) here because that header is included by GL-only translation units
+// too; guarding the definition keeps the symbol out of a DX_RENDER=OFF
+// llrender.lib entirely. llrendertarget.cpp's glViewport() restore and
+// newview/llviewerwindow.cpp both read/write the GL array only, so the two can
+// never alias.
+S32 gDXViewport[4];
+#endif
 
 
 U32 LLRender::sUICalls = 0;
@@ -115,6 +143,50 @@ static const GLenum sGLBlendFactor[] =
 
     GL_ZERO // 'BF_UNDEF'
 };
+
+#ifdef DX_RENDER
+// Same order/indexing as sGLBlendFactor above - LLRender::eBlendFactor maps onto
+// D3D11_BLEND 1:1 (see DXStateCache.h), so this table is a straight translation
+// of the same eleven slots rather than a separate mapping.
+static const D3D11_BLEND sDXBlendFactor[] =
+{
+    D3D11_BLEND_ONE,
+    D3D11_BLEND_ZERO,
+    D3D11_BLEND_DEST_COLOR,
+    D3D11_BLEND_SRC_COLOR,
+    D3D11_BLEND_INV_DEST_COLOR,
+    D3D11_BLEND_INV_SRC_COLOR,
+    D3D11_BLEND_DEST_ALPHA,
+    D3D11_BLEND_SRC_ALPHA,
+    D3D11_BLEND_INV_DEST_ALPHA,
+    D3D11_BLEND_INV_SRC_ALPHA,
+
+    D3D11_BLEND_ZERO // 'BF_UNDEF'
+};
+
+namespace
+{
+    // DX_RENDER stand-in for GL's LLTexUnit::sWhiteTexture. Shaders such as
+    // interface/uiF.hlsl unconditionally do
+    // `vertex_color * diffuseMap.Sample(...)` for every 2D UI draw, textured or
+    // not (solid-colour rects, borders and highlights included), and a null SRV
+    // samples as (0,0,0,0) in HLSL rather than as a neutral no-op - so the DX
+    // bind paths below must always bind *something*. A real 1x1 white
+    // DXTexture, created once and reused, mirrors GL's sWhiteTexture role
+    // exactly.
+    ID3D11ShaderResourceView* getWhiteTextureSRV()
+    {
+        static DXTexture sWhiteDXTexture;
+        static bool sInitialized = false;
+        if (!sInitialized)
+        {
+            const uint8_t white_rgba[4] = { 255, 255, 255, 255 };
+            sInitialized = sWhiteDXTexture.create(white_rgba, 1, 1, 4);
+        }
+        return sWhiteDXTexture.getSRV();
+    }
+}
+#endif
 
 LLTexUnit::LLTexUnit(S32 index)
     : mCurrTexType(TT_NONE),
@@ -369,6 +441,129 @@ bool LLTexUnit::bind(LLCubeMap* cubeMap)
     }
     return true;
 }
+
+#ifdef DX_RENDER
+// A unit's mIndex is derived from the GL enableTexture() bookkeeping on the GL
+// path, which reports -1 (and getTexUnit() maps out-of-range indices onto
+// mDummyTexUnit, whose index is also -1) for any texture-enabled channel DX has
+// no equivalent of. A *hardcoded* valid index - e.g. gDX.getTexUnit(0)->bind(),
+// used by converted pools that have no per-material channel registration yet -
+// bypasses that guard, so mIndex must be checked here rather than relied upon.
+bool LLTexUnit::bind(LLImageDX* texture, bool for_rendering, bool forceBind, S32 usename)
+{
+    if (mIndex < 0 || !texture) return false;
+
+    // bound_image_changed catches SRV-address reuse from
+    // LLImageDX::scaleDown() that mCurrDXSRV alone would miss, and a null SRV
+    // falls back to white rather than sampling as (0,0,0,0).
+    bool bound_image_changed = (mCurrBoundImageDX != texture);
+    ID3D11ShaderResourceView* srv = texture->mDXTexture.getSRV();
+    if (!srv)
+    {
+        srv = getWhiteTextureSRV();
+    }
+    bool srv_changed = bound_image_changed || mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        // Flush BEFORE updating mCurrBoundImageDX/mCurrDXSRV, not after -
+        // otherwise LLRender::flush()'s mDXImage capture would tag
+        // still-queued vertices (e.g. from LLFontVertexBuffer's
+        // beginList()/endList() recording) with the NEW texture instead of the
+        // one they were queued under.
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    mCurrBoundImageDX = texture;
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate(
+        (int)texture->getAddressMode(), (int)texture->getFilteringOption());
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // Sampler slots cap at 16, SRV slots do not.
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+    return true;
+}
+
+bool LLTexUnit::bind(DXCubeMap* cubeMap)
+{
+    if (mIndex < 0 || !cubeMap || !DXCubeMap::sUseCubeMaps) return false;
+
+    // cubeMap->getDXSRV() is null until init() has assembled all six faces, in
+    // which case fall back to white rather than sampling as (0,0,0,0).
+    ID3D11ShaderResourceView* srv = cubeMap->getDXSRV();
+    if (!srv)
+    {
+        srv = getWhiteTextureSRV();
+    }
+    bool srv_changed = mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    // CLAMP + TRILINEAR - avoids seams at face edges - over the full mip chain
+    // DXCubeTexture::create() always generates.
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate(2, 2);
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // Sampler slots cap at 16, SRV slots do not.
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+    return true;
+}
+
+// Sibling of bind(DXCubeMap*) above for the array resource type
+// (DXCubeArrayTexture) rather than the single-cubemap one, so there is no
+// sUseCubeMaps-style static gate to check.
+bool LLTexUnit::bind(DXCubeMapArray* cubeMapArray)
+{
+    if (mIndex < 0 || !cubeMapArray) return false;
+
+    ID3D11ShaderResourceView* srv = cubeMapArray->getDXSRV();
+    if (!srv)
+    {
+        srv = getWhiteTextureSRV();
+    }
+    bool srv_changed = mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    // CLAMP + TRILINEAR - same convention as bind(DXCubeMap*) above.
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate(2, 2);
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // Sampler slots cap at 16, SRV slots do not.
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+    return true;
+}
+#endif
 
 // LLRenderTarget is unavailible on the mapserver since it uses FBOs.
 bool LLTexUnit::bind(LLRenderTarget* renderTarget, bool bindDepth)
@@ -1448,6 +1643,15 @@ void LLRender::blendFunc(eBlendFactor sfactor, eBlendFactor dfactor)
         flush();
         glBlendFunc(sGLBlendFactor[sfactor], sGLBlendFactor[dfactor]);
     }
+
+#ifdef DX_RENDER
+    // D3D11 has no separate glBlendFunc(): the enable toggle, both factor pairs
+    // and the color write mask are all one state object, so it has to be rebuilt
+    // from every contributing input whenever any of them changes. This overload
+    // sets the alpha factors equal to the color ones, so one call covers all
+    // four - see applyDXBlendState()'s definition below.
+    applyDXBlendState();
+#endif
 }
 
 void LLRender::blendFunc(eBlendFactor color_sfactor, eBlendFactor color_dfactor,
@@ -1470,7 +1674,49 @@ void LLRender::blendFunc(eBlendFactor color_sfactor, eBlendFactor color_dfactor,
         glBlendFuncSeparate(sGLBlendFactor[color_sfactor], sGLBlendFactor[color_dfactor],
                            sGLBlendFactor[alpha_sfactor], sGLBlendFactor[alpha_dfactor]);
     }
+
+#ifdef DX_RENDER
+    applyDXBlendState();
+#endif
 }
+
+#ifdef DX_RENDER
+void LLRender::applyDXBlendState()
+{
+    uint8_t write_mask = 0;
+    if (mCurrColorMask[0]) write_mask |= D3D11_COLOR_WRITE_ENABLE_RED;
+    if (mCurrColorMask[1]) write_mask |= D3D11_COLOR_WRITE_ENABLE_GREEN;
+    if (mCurrColorMask[2]) write_mask |= D3D11_COLOR_WRITE_ENABLE_BLUE;
+    if (mCurrColorMask[3]) write_mask |= D3D11_COLOR_WRITE_ENABLE_ALPHA;
+
+    bool enabled = DXState::isEnabled(GL_BLEND);
+    D3D11_BLEND src = sDXBlendFactor[mCurrBlendColorSFactor];
+    D3D11_BLEND dst = sDXBlendFactor[mCurrBlendColorDFactor];
+    // Passed through for real, not silently dropped - see
+    // DXStateCache::getBlendState(). A no-op for the 2-factor blendFunc()
+    // overload (which sets these equal to src/dst); it matters for the 4-factor
+    // blendFuncSeparate() overload, which needs its own alpha factors.
+    D3D11_BLEND alpha_src = sDXBlendFactor[mCurrBlendAlphaSFactor];
+    D3D11_BLEND alpha_dst = sDXBlendFactor[mCurrBlendAlphaDFactor];
+
+    ID3D11BlendState* bs = DXStateCache::getBlendState(enabled, src, dst, alpha_src, alpha_dst, write_mask);
+    gDXDevice.getContext()->OMSetBlendState(bs, nullptr, 0xFFFFFFFF);
+}
+
+void LLRender::applyDXRasterizerState()
+{
+    bool offset_enabled = DXState::isEnabled(GL_POLYGON_OFFSET_FILL) || DXState::isEnabled(GL_POLYGON_OFFSET_LINE);
+    ID3D11RasterizerState* rs = DXStateCache::getRasterizerState(
+        DXState::isEnabled(GL_CULL_FACE),
+        DXState::isEnabled(GL_SCISSOR_TEST),
+        DXState::isEnabled(GL_DEPTH_CLAMP),
+        offset_enabled ? mCurrPolygonOffsetFactor : 0.f,
+        offset_enabled ? mCurrPolygonOffsetUnits : 0.f,
+        DXStateCache::sWireframeScopeActive,
+        DXState::getCullFace() == GL_FRONT);
+    gDXDevice.getContext()->RSSetState(rs);
+}
+#endif
 
 LLTexUnit* LLRender::getTexUnit(U32 index)
 {
@@ -1567,6 +1813,11 @@ void LLRender::endList()
     {
         llassert(false); // endList called without an open list
     }
+}
+
+bool LLRender::isRecording() const
+{
+    return sBufferDataList != nullptr;
 }
 
 void LLRender::begin(const GLuint& mode)

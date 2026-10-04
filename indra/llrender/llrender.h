@@ -262,6 +262,37 @@ protected:
     U32                 mCurrTexture;
     eTextureType        mCurrTexType;
     bool                mHasMipMaps;
+#ifdef DX_RENDER
+    // Mirrors mCurrTexture's role for the GL path: lets the DX bind()
+    // overloads detect an actual texture change and flush pending batched
+    // vertices (drawn with whatever was bound previously) before switching the
+    // pixel-shader SRV - without this, vertices pushed under one texture but not
+    // yet flushed get drawn with whatever texture a later bind() switched to.
+    // Untyped (void*, holds an ID3D11ShaderResourceView*) so this header
+    // doesn't need to pull in d3d11.h; cast at the call sites in llrender.cpp.
+    void* mCurrDXSRV = nullptr;
+
+    // DXStateCache::getRTVGeneration() as of the last real
+    // PSSetShaderResources() for mCurrDXSRV. D3D11 auto-unbinds an SRV slot
+    // when the same resource is later bound as a render target (the post-fx
+    // ping-pong does this every frame), so comparing mCurrDXSRV alone would
+    // wrongly skip a rebind after such a hazard - if this stamp doesn't match
+    // the current generation, always rebind. Deliberately coarse: invalidates
+    // all units on any RTV bind anywhere.
+    uint64_t mDXSRVGeneration = 0;
+
+    // Mirrors mCurrDXSRV's role but for PSSetSamplers() - samplers are
+    // deduplicated-by-value state objects, not affected by the RTV-unbind
+    // hazard, so a plain last-value pointer compare is enough here.
+    void* mCurrDXSampler = nullptr;
+
+    // The LLImageDX actually bound, so bind() can tell an SRV *address* change
+    // caused by LLImageDX::scaleDown() (VRAM-pressure downscaling releases the
+    // old SRV, so a freed COM address can be reused by an unrelated texture)
+    // apart from a genuine rebind. scaleDown() never destroys the LLImageDX
+    // itself, making this the stable identity to compare against.
+    LLImageDX* mCurrBoundImageDX = nullptr;
+#endif
 
     void debugTextureUnit(void);
     GLint getTextureSource(eTextureBlendSrc src);
@@ -455,11 +486,9 @@ public:
     // fast gDXUIBatch path and falling back to
     // begin()/vertexBatchPreTransformed()/end() so flush()'s capture logic can
     // build a replayable LLVertexBufferData, as for GL.
-    // Declaration only for now: llrender.cpp still has the GL implementation
-    // and no isRecording(), so nothing defines this yet - llfontdx.cpp's two
-    // call sites (llfontdx.cpp:198, llfontdx.cpp:249) will not link until the
-    // llrender.cpp port adds
-    // "bool LLRender::isRecording() const { return sBufferDataList != nullptr; }".
+    // Not DX-guarded: it reads sBufferDataList, which llrender.cpp defines
+    // unconditionally (beginList()/endList() above are shared with GL), and it
+    // is pure bookkeeping with no GL side effect.
     bool isRecording() const;
 
     void begin(const GLuint& mode);
@@ -607,6 +636,20 @@ private:
     eBlendFactor mCurrBlendColorDFactor;
     eBlendFactor mCurrBlendAlphaSFactor;
     eBlendFactor mCurrBlendAlphaDFactor;
+
+#ifdef DX_RENDER
+    // Polygon-offset depth bias, as glPolygonOffset() would have set it.
+    // D3D11 folds this into the rasterizer-state object alongside cull/scissor/
+    // wireframe rather than exposing it as a separate call, so
+    // applyDXRasterizerState() reads them back out whenever that object is
+    // rebuilt. No GL code writes these - the GL path has no
+    // LLRender::setPolygonOffset() member at all (LLRenderTarget is the only
+    // GL polygon-offset user and it calls glPolygonOffsetClamp() directly), so
+    // under DX_RENDER they stay at their 0.f initial value until a DX_RENDER
+    // LLRender::setPolygonOffset() is added.
+    F32 mCurrPolygonOffsetFactor = 0.f;
+    F32 mCurrPolygonOffsetUnits = 0.f;
+#endif
 
     std::vector<LLVector4a, boost::alignment::aligned_allocator<LLVector4a, 16> > mUIOffset;
     std::vector<LLVector4a, boost::alignment::aligned_allocator<LLVector4a, 16> > mUIScale;
