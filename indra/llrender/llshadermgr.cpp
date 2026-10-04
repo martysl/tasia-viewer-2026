@@ -459,7 +459,13 @@ void LLShaderMgr::dumpObjectLog(GLuint ret, bool warns, const std::string& filen
     }
  }
 
-GLuint LLShaderMgr::loadShaderFile(const std::string& filename, S32 & shader_level, GLenum type, std::map<std::string, std::string>* defines, S32 texture_index_channels)
+// S24: type is DXenum (== GLenum == U32 == unsigned int, see llgltypes.h) to
+// match the declaration in llshadermgr.h - same type, no behavioural change.
+// attaches_deferred_util is only consumed by the DX_RENDER HLSL branch that
+// is not ported yet; the GL body below deliberately ignores it, so every
+// existing GL call site (which relies on the default of false) behaves
+// exactly as before.
+GLuint LLShaderMgr::loadShaderFile(const std::string& filename, S32 & shader_level, DXenum type, std::map<std::string, std::string>* defines, S32 texture_index_channels, bool attaches_deferred_util)
 {
 
 // endsure work-around for missing GLSL funcs gets propogated to feature shader files (e.g. srgbF.glsl)

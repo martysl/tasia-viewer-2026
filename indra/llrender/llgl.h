@@ -305,6 +305,17 @@ public:
     LLGLDisable(LLGLenum state) : LLGLState(state, DISABLED_STATE) {}
 };
 
+// S24: donor-side DX port renamed LLGLState to DXState. Deliberately NOT
+// reproduced as a rename - the GL build keeps LLGLState everywhere, and
+// mass-renaming it would touch every GL call site in the tree. A typedef
+// gives the DX code the exact same type under its new name for every use
+// the donor has: a member declaration (lllocalcliprect.h's
+// "DXState mScissorState;"), a base-class specifier, an enum/static-member
+// access (DXState::ENABLED_STATE), and a constructor call. One type, one
+// sStateMap, one initClass() - no second, divergent copy of the GL enable
+// state tracking.
+typedef LLGLState DXState;
+
 /*
   Store and modify projection matrix to create an oblique
   projection that clips to the specified plane.  Oblique
@@ -420,6 +431,13 @@ extern bool gClothRipple;
 extern bool gHeadlessClient;
 extern bool gNonInteractive;
 extern bool gGLActive;
+// S24: donor renamed gGLActive to gDXActive; kept additive here rather than
+// renamed, so every existing GL writer of gGLActive (llappviewer.cpp,
+// llappviewerwin32.cpp) is untouched and still compiles unchanged. Not yet
+// written by anything - the DX_RENDER port of llappviewer.cpp is what flips
+// it, and llgl.cpp needs its own "bool gDXActive = false;" definition (see
+// the report) before that first write can link.
+extern bool gDXActive;
 
 // Deal with changing glext.h definitions for newer SDK versions, specifically
 // with MAC OSX 10.5 -> 10.6

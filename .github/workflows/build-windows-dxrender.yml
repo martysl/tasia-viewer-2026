@@ -130,16 +130,16 @@ jobs:
           echo "dxrender project found:"
           find build-* -name 'dxrender*.vcxproj'
 
-      - name: Compile the dxrender target
+      - name: Compile the dxrender and llrender targets
         shell: bash
         run: |
           set -euo pipefail
           BUILD_DIR=$(ls -d build-*/ | head -1)
-          cmake --build "${BUILD_DIR%/}" --config Release --target dxrender -- -m
+          cmake --build "${BUILD_DIR%/}" --config Release --target dxrender llrender -- -m
 
       - name: Report compiled objects
         shell: bash
         run: |
           set -euo pipefail
           BUILD_DIR=$(ls -d build-*/ | head -1)
-          find "${BUILD_DIR}" -name 'DX*.obj' | wc -l
+          find "${BUILD_DIR}" -name 'DX*.obj' -o -name 'llhlslshader.obj' -o -name 'llimagedx.obj' | wc -l

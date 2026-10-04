@@ -373,7 +373,28 @@ public:
     void dumpShaderSource(U32 shader_code_count, GLchar** shader_code_text);
     bool    linkProgramObject(GLuint obj, bool suppress_errors = false);
     bool    validateProgramObject(GLuint obj);
-    GLuint loadShaderFile(const std::string& filename, S32 & shader_level, GLenum type, std::map<std::string, std::string>* defines = NULL, S32 texture_index_channels = -1);
+    // S24: type is DXenum rather than GLenum in the donor's DX port. Not a
+    // behaviour change and not even an ABI change on its own: llgltypes.h
+    // defines DXenum as U32, and U32 is "unsigned int" (stdtypes.h), which is
+    // exactly what GLenum is - so DXenum and GLenum are the same type, and the
+    // mangled name is unchanged. Only the vocabulary in the signature changes,
+    // so DX code can pass one without naming a GL type. Existing GL callers
+    // (llviewershadermgr.cpp) are unaffected: they pass GL_VERTEX_SHADER /
+    // GL_FRAGMENT_SHADER, which are unchanged macros of that same type.
+    //
+    // attaches_deferred_util should be true whenever this call's shader
+    // instance will cause deferredUtil.glsl/deferredUtil.hlsl to be attached
+    // - i.e. mFeatures.isDeferred || mFeatures.hasReflectionProbes (the real
+    // attachShaderFeatures() gate for that file, not isDeferred alone - see
+    // loadShaderFile()'s HLSL indexed-texture-channel register-base comment
+    // for why this distinction matters). Defaulted, so every existing GL call
+    // site is source-compatible and unaffected.
+    // S24: type branches HLSL compile-target selection but never reaches a
+    // real GL call under DX_RENDER.
+    // The GLuint return type is deliberately NOT changed to the donor's bool:
+    // llviewershadermgr.cpp uses the value as a GL program object, and
+    // "bool ok = loadShaderFile(...)" converts implicitly anyway.
+    GLuint loadShaderFile(const std::string& filename, S32 & shader_level, DXenum type, std::map<std::string, std::string>* defines = NULL, S32 texture_index_channels = -1, bool attaches_deferred_util = false);
 
     // Implemented in the application to actually point to the shader directory.
     virtual std::string getShaderDirPrefix(void) = 0; // Pure Virtual
@@ -392,6 +413,17 @@ public:
     // Map of shader names to compiled
     std::map<std::string, GLuint> mVertexShaderObjects;
     std::map<std::string, GLuint> mFragmentShaderObjects;
+
+#ifdef DX_RENDER
+    // DX_RENDER has no separately-compiled/linkable shader objects (unlike
+    // GL, HLSL is one source blob per stage) - loadShaderFile() caches raw,
+    // extension-swapped HLSL source text here instead, keyed the same way
+    // (by the file's original .glsl name) so attachVertexObject()/
+    // attachFragmentObject() (llhlslshader.cpp) can look it up unchanged.
+    // Read by llhlslshader.cpp at lines 540, 544, 647-648 and 661-662.
+    std::map<std::string, std::string> mVertexShaderSourceText;
+    std::map<std::string, std::string> mFragmentShaderSourceText;
+#endif
 
     //global (reserved slot) shader parameters
     std::vector<std::string> mReservedAttribs;

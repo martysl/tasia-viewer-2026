@@ -93,6 +93,15 @@ if (WINDOWS)
       _CRT_NONSTDC_NO_DEPRECATE       # Allow use of sprintf etc
       _CRT_OBSOLETE_NO_WARNINGS
       _WINSOCK_DEPRECATED_NO_WARNINGS # Disable deprecated WinSock API warnings
+      # S24: DX_RENDER backend. DX_RENDER is a CMake cache variable
+      # (Variables.cmake), which the preprocessor cannot see - without this
+      # every #ifdef DX_RENDER in the tree silently evaluates to false, even
+      # in a DX_RENDER=ON build. Same mechanism (and same placement inside the
+      # Windows-only block) as the donor. Generator expression on the cache
+      # value, so with the option OFF - the default, and every current build -
+      # this expands to nothing and the compile command lines are byte-for-byte
+      # what they are today.
+      $<$<BOOL:${DX_RENDER}>:DX_RENDER=1>
       )
   add_compile_options(
           /Zo

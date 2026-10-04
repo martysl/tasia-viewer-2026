@@ -420,6 +420,18 @@ public:
     // if list is set, will store buffers in list for later use, if list isn't set, will use cache
     void beginList(std::list<LLVertexBufferData> *list);
     void endList();
+    // S24: lets a caller check whether a beginList()/endList() recording is
+    // active without direct access to sBufferDataList (which is a file-static
+    // in llrender.cpp, not a member) - used by LLFontDX to choose between the
+    // fast gDXUIBatch path and falling back to
+    // begin()/vertexBatchPreTransformed()/end() so flush()'s capture logic can
+    // build a replayable LLVertexBufferData, as for GL.
+    // Declaration only for now: llrender.cpp still has the GL implementation
+    // and no isRecording(), so nothing defines this yet - llfontdx.cpp's two
+    // call sites (llfontdx.cpp:198, llfontdx.cpp:249) will not link until the
+    // llrender.cpp port adds
+    // "bool LLRender::isRecording() const { return sBufferDataList != nullptr; }".
+    bool isRecording() const;
 
     void begin(const GLuint& mode);
     void end();
@@ -470,6 +482,32 @@ public:
     // applies separate blend functions to color and alpha
     void blendFunc(eBlendFactor color_sfactor, eBlendFactor color_dfactor,
                eBlendFactor alpha_sfactor, eBlendFactor alpha_dfactor);
+
+#ifdef DX_RENDER
+    // Gathers the *current* combination of blend-enabled (DXState's
+    // sStateMap, via the small public accessor), blend factors
+    // (mCurrBlendColorSFactor/DFactor), and color write mask
+    // (mCurrColorMask) into one DXStateCache::getBlendState() call + binds
+    // it - D3D11 needs all three together in one ID3D11BlendState, unlike
+    // GL's independent glEnable(GL_BLEND)/glBlendFunc()/glColorMask() calls.
+    // Called from blendFunc()/setColorMask() (whichever piece changed) and
+    // from DXState's GL_BLEND toggle (llgl.cpp) - public so that cross-
+    // class call is a plain accessor, not a friend declaration.
+    // Declaration only for now: llrender.cpp still has the GL implementation
+    // and no DX branch, so nothing defines these yet. No definition is needed
+    // to compile or link until the llrender.cpp port calls them.
+    void applyDXBlendState();
+
+    // S24: same shape as applyDXBlendState() above, for the rasterizer
+    // state's polygon-offset dimension - gathers cull/scissor/depth-clamp
+    // plus mCurrPolygonOffsetFactor/Units into one
+    // DXStateCache::getRasterizerState() call + binds it. Also reads
+    // DXStateCache::sWireframeScopeActive (Develop > Rendering > Wireframe) -
+    // see that flag's own comment for why this chokepoint, not gUseWireframe
+    // directly, is what decides wireframe here.
+    // Declaration only for now - see applyDXBlendState() above.
+    void applyDXRasterizerState();
+#endif
 
     LLLightState* getLight(U32 index);
     void setAmbientLightColor(const LLColor4& color);
@@ -550,8 +588,22 @@ extern F32 gGLLastModelView[16];
 extern F32 gGLLastProjection[16];
 extern F32 gGLProjection[16];
 extern S32 gGLViewport[4];
+// S24: donor renamed gGLViewport to gDXViewport. Kept additive: gGLViewport
+// stays declared and stays defined in llrender.cpp for the GL path, and
+// gDXViewport is the separate DX_RENDER viewport array (still undefined -
+// llrender.cpp's DX port owns its definition).
+extern S32 gDXViewport[4];
 extern glm::mat4 gGLDeltaModelView;
 extern glm::mat4 gGLInverseDeltaModelView;
+
+// S24: the DX_RENDER render context. Added alongside, not in place of, gGL:
+// every DX-only llrender file (llhlslshader, llimagedx, llfontdx,
+// DXCubeMap, DXCubeMapArray, ...) is written against gDX, while the GL files
+// are all written against gGL. Same type, two distinct thread_local instances,
+// so a DX file cannot disturb the GL context's state (or vice versa) by
+// writing vertex data. Both are declared here for symmetry with llrender.cpp,
+// which defines each.
+extern thread_local LLRender gDX;
 
 extern thread_local LLRender gGL;
 
