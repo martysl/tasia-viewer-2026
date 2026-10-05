@@ -310,22 +310,22 @@ public:
     void renderGeomDeferred(LLCamera& camera, bool do_occlusion = false);
     void renderGeomPostDeferred(LLCamera& camera);
     void renderGeomShadow(LLCamera& camera);
-    void bindLightFunc(LLGLSLShader& shader);
+    void bindLightFunc(LLViewerShaderProgram& shader);
 
     // bind shadow maps
     // if setup is true, wil lset texture compare mode function and filtering options
-    void bindShadowMaps(LLGLSLShader& shader);
-    void bindDeferredShaderFast(LLGLSLShader& shader);
-    void bindDeferredShader(LLGLSLShader& shader, LLRenderTarget* light_target = nullptr, LLRenderTarget* depth_target = nullptr);
-    void setupSpotLight(LLGLSLShader& shader, LLDrawable* drawablep);
+    void bindShadowMaps(LLViewerShaderProgram& shader);
+    void bindDeferredShaderFast(LLViewerShaderProgram& shader);
+    void bindDeferredShader(LLViewerShaderProgram& shader, LLRenderTarget* light_target = nullptr, LLRenderTarget* depth_target = nullptr);
+    void setupSpotLight(LLViewerShaderProgram& shader, LLDrawable* drawablep);
 
-    void unbindDeferredShader(LLGLSLShader& shader);
+    void unbindDeferredShader(LLViewerShaderProgram& shader);
 
     // set env_mat parameter in given shader
-    void setEnvMat(LLGLSLShader& shader);
+    void setEnvMat(LLViewerShaderProgram& shader);
 
-    void bindReflectionProbes(LLGLSLShader& shader);
-    void unbindReflectionProbes(LLGLSLShader& shader);
+    void bindReflectionProbes(LLViewerShaderProgram& shader);
+    void unbindReflectionProbes(LLViewerShaderProgram& shader);
 
     void renderDeferredLighting();
 
@@ -764,6 +764,23 @@ public:
     LLRenderTarget          mPostPingMap;
     LLRenderTarget          mPostPongMap;
 
+#ifdef DX_RENDER
+    // Anaglyph 3D: each eye's fully composited post-fx result is captured
+    // here instead of relying on left/right tint surviving as ambient GPU
+    // colormask state across the frame. Allocated unconditionally alongside
+    // mPostPingMap/mPostPongMap, not gated on StereoMode, so toggling stereo
+    // at runtime never depends on catching a settings-change path that would
+    // trigger reallocation.
+    LLRenderTarget          mStereoEyeL;
+    LLRenderTarget          mStereoEyeR;
+
+    // Last frame's fully-resolved AO/shadow lightmap, reprojected and blended
+    // with this frame's raw value to remove per-frame screen-locked-noise
+    // flicker. Same history-buffer pattern as mLastExposure below (see
+    // generateExposure()).
+    LLRenderTarget          mSSAOHistory;
+#endif
+
     // FXAA helper target
     LLRenderTarget          mFXAAMap;
     LLRenderTarget          mSMAABlendBuffer;
@@ -1003,6 +1020,22 @@ protected:
 
 public:
     std::vector<LLFace*>        mHighlightFaces;    // highlight faces on physical objects
+
+#ifdef DX_RENDER
+    // read-only access to mPools for DXPipeline - kept as an ordinary
+    // accessor rather than a friend declaration, so it costs nothing on the
+    // GL build and doesn't require DXPipeline to name the protected
+    // pool_set_t/compare_pools types explicitly (range-based for + auto
+    // never need to spell them out).
+    const pool_set_t& getPools() const { return mPools; }
+
+    // same reasoning as getPools() above - DXPipeline::
+    // renderDeferredLighting()'s local-lights pass needs read-only access to
+    // mNearbyLights (protected), the already-culled/distance-sorted
+    // "lights near camera" list GL's own local-lights loop iterates.
+    const light_set_t& getNearbyLights() const { return mNearbyLights; }
+#endif
+
 protected:
     std::vector<LLFace*>        mSelectedFaces;
 

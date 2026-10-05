@@ -201,6 +201,15 @@ public:
         INVERSE_MODELVIEW_DELTA_MATRIX,     //  "inv_modelview_delta"
         CUBE_SNAPSHOT,                      //  "cube_snapshot"
 
+#ifdef DX_RENDER
+        // S24: reprojection uniform for the temporal-resolve pass
+        // (dxpipeline.cpp); used with inv_modelview_delta to reproject a
+        // current-frame eye-space position into last frame's screen UV.
+        LAST_PROJECTION_MATRIX,             //  "last_projection_matrix"
+        // History-buffer texture channel for the same pass (mSSAOHistory).
+        DEFERRED_SSAO_HISTORY_MAP,          //  "history_map"
+#endif
+
         FXAA_TC_SCALE,                      //  "tc_scale"
         FXAA_RCP_SCREEN_RES,                //  "rcp_screen_res"
         FXAA_RCP_FRAME_OPT,                 //  "rcp_frame_opt"

@@ -1,5 +1,13 @@
 #include "llviewerprecompiledheaders.h"
 
+// This is the threading/orchestration half of the BC7 upgrade path and its
+// only encoder is DXBC7Compressor::encodeMip(), which is OpenCL-only and so
+// compiles to nothing here (see dxbc7compressor.cpp). Same guard, same
+// reason: the upload manager is worthless without the encoder, and leaving it
+// compiled would leave a dangling encodeMip() reference for the next caller
+// to trip over.
+#if __has_include("kvopencl.h")
+
 #include "dxbc7uploadmanager.h"
 #include "dxbc7compressor.h"
 #include "llimagedx.h"
@@ -208,3 +216,5 @@ void DXBC7UploadManager::update()
         result.tex->upgradeToCompressedMips(mips, DXGI_FORMAT_BC7_UNORM, result.generation);
     }
 }
+
+#endif

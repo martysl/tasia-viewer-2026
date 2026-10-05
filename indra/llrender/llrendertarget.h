@@ -32,6 +32,14 @@
 #include "llgl.h"
 #include "llrender.h"
 
+#ifdef DX_RENDER
+// DX_RENDER's equivalent of the FBO/mTex/mDepth state LLRenderTarget holds
+// (see DXRenderTarget.h). DXRenderTarget itself has no bind-stack of its own -
+// LLRenderTarget's mPreviousRT/sBoundTarget stay the single stack for both
+// backends.
+#include "DXRenderTarget.h"
+#endif
+
 /*
  Wrapper around OpenGL framebuffer objects for use in render-to-texture
 
@@ -126,12 +134,29 @@ public:
     //  If an LLRenderTarget is currently bound, stores a reference to that LLRenderTarget
     //  and restores previous binding on flush() (maintains a stack of Render Targets)
     //  Asserts that this target is not currently bound in the stack
+#ifdef DX_RENDER
+    // bind_depth=false (DX_RENDER only - see DXRenderTarget::bindTarget()'s
+    // comment) binds color attachments without the depth-stencil view, for
+    // passes that need to sample this target's (possibly shared) depth as an
+    // SRV in the same draw. No effect under GL - a bound FBO's depth
+    // attachment is fixed at allocate()/shareDepthBuffer() time, not
+    // per-bindTarget() call, and GL doesn't hazard-check this the way
+    // D3D11 does.
+    void bindTarget(bool bind_depth = true, bool read_only_depth = false);
+#else
     void bindTarget();
+#endif
 
     //clear render targer, clears depth buffer if present,
     //uses scissor rect if in copy-to-texture mode
     // asserts that this target is currently bound
     void clear(U32 mask = 0xFFFFFFFF);
+
+#ifdef DX_RENDER
+    // DX_RENDER only - see DXRenderTarget::clearColor()'s comment. No GL
+    // equivalent needed yet (nothing on the GL side has hit this gap).
+    void clearColor(float r, float g, float b, float a);
+#endif
 
     //get applied viewport
     void getViewport(S32* viewport);
@@ -150,6 +175,36 @@ public:
     U32 getDepth(void) const { return mDepth; }
 
     void bindTexture(U32 index, S32 channel, LLTexUnit::eTextureFilterOptions filter_options = LLTexUnit::TFO_BILINEAR);
+
+#ifdef DX_RENDER
+    // Narrow read-side accessor for DXPipeline's minimal present blit - see
+    // DXRenderTarget's class comment for the larger "sampling a render target
+    // as input texture" gap this doesn't attempt to close (that's
+    // bindTexture()/getTexture()'s job, still unconverted - needed for real
+    // once the lighting pass reads the G-buffer).
+    ID3D11ShaderResourceView* getColorSRV(size_t index) const { return mDXRenderTarget.getColorSRV(index); }
+
+    // depth counterpart to getColorSRV() - needed by LLViewerWindow's
+    // depth-snapshot path.
+    ID3D11ShaderResourceView* getDepthSRV() const { return mDXRenderTarget.getDepthSRV(); }
+
+    // raw texture accessors for direct CPU<->GPU transfer, not shader sampling.
+    ID3D11Texture2D* getDXColorTexture(size_t index) const { return mDXRenderTarget.getColorTexture(index); }
+    ID3D11Texture2D* getDXDepthTexture() const { return mDXRenderTarget.getDepthTexture(); }
+
+    // re-issues OMSetRenderTargets on an already-bound target to flip whether
+    // its depth-stencil view is attached, without going through bindTarget()'s
+    // already-bound assert. DXPipeline::renderDeferredLighting() binds
+    // mRT->screen with bind_depth=false for its ambient/local-lights draws,
+    // but the alpha/fullbright/glow geometry drawn afterward needs real depth
+    // testing to be occluded correctly. No GL equivalent needed - GL's FBO
+    // depth attachment is fixed at allocate() time, not per-bind.
+    //
+    // read_only_depth: local lights need to depth-test against already-written
+    // scene depth while ALSO sampling that same depth as an SRV for
+    // world-position reconstruction - see DXRenderTarget::bindTarget().
+    void rebindWithDepth(bool bind_depth, bool read_only_depth = false) { mDXRenderTarget.bindTarget(bind_depth, read_only_depth); }
+#endif
 
     //flush rendering operations
     //must be called when rendering is complete
@@ -181,6 +236,12 @@ protected:
     std::vector<U32> mInternalFormat;
     U32 mFBO;
     LLRenderTarget* mPreviousRT = nullptr;
+#ifdef DX_RENDER
+    // DX_RENDER's equivalent of mFBO/mTex/mDepth - see DXRenderTarget.h.
+    // Populated through the DX_RENDER branches in llrendertarget.cpp
+    // (allocate/resize/addColorAttachment/allocateDepth/shareDepthBuffer).
+    DXRenderTarget mDXRenderTarget;
+#endif
 
     U32 mDepth;
     bool mUseDepth;

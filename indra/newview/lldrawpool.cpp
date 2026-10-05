@@ -719,19 +719,19 @@ bool LLRenderPass::uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo*
 
 // Returns true if rendering should proceed
 //static
-bool LLRenderPass::uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo* skinInfo, const LLVOAvatar*& lastAvatar, U64& lastMeshId, const LLGLSLShader*& lastAvatarShader, bool& skipLastSkin)// <FS:Beq/> be defensive about UAF with skinInfo during LocalMesh
+bool LLRenderPass::uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo* skinInfo, const LLVOAvatar*& lastAvatar, U64& lastMeshId, const LLViewerShaderProgram*& lastAvatarShader, bool& skipLastSkin)// <FS:Beq/> be defensive about UAF with skinInfo during LocalMesh
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_AVATAR;
 
     llassert(skinInfo);
-    llassert(LLGLSLShader::sCurBoundShaderPtr);
+    llassert(LLViewerShaderProgram::sCurBoundShaderPtr);
 
     if (!avatar)
     {
         return false;
     }
 
-    if (avatar == lastAvatar && skinInfo->mHash == lastMeshId && lastAvatarShader == LLGLSLShader::sCurBoundShaderPtr)
+    if (avatar == lastAvatar && skinInfo->mHash == lastMeshId && lastAvatarShader == LLViewerShaderProgram::sCurBoundShaderPtr)
     {
         return !skipLastSkin;
     }
@@ -742,11 +742,11 @@ bool LLRenderPass::uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo*
     skipLastSkin = !bool(count);
     lastAvatar = avatar;
     lastMeshId = skinInfo->mHash;
-    lastAvatarShader = LLGLSLShader::sCurBoundShaderPtr;
+    lastAvatarShader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
     if (!skipLastSkin)
     {
-        LLGLSLShader::sCurBoundShaderPtr->uniformMatrix3x4fv(LLViewerShaderMgr::AVATAR_MATRIX,
+        LLViewerShaderProgram::sCurBoundShaderPtr->uniformMatrix3x4fv(LLViewerShaderMgr::AVATAR_MATRIX,
             count,
             false,
             (GLfloat*)&(mpc.mGLMp[0]));

@@ -48,6 +48,24 @@ class alignas(16) LLReflectionMapManager
 {
     LL_ALIGN_NEW
 public:
+#ifdef DX_RENDER
+    // mLightScale is private - its own comment says it is "set during
+    // updateProbeFace and used by LLPipeline", and the only friends are
+    // LLPipeline/LLHeroProbeManager - neither of which is DXPipeline.
+    // DXPipeline needs to read it to darken local lights during probe capture
+    // the same way GL's LLPipeline::renderDeferredLighting() does. A scoped
+    // getter is a smaller surface area than adding DXPipeline as a third full
+    // friend class.
+    F32 getLightScale() const { return mLightScale; }
+
+    // updateUniforms() is private too (same two friends) - DXPipeline needs to
+    // trigger the same once-per-frame rebuild GL's own
+    // LLPipeline::renderGeomDeferred() does (pipeline.cpp), which it can't reach
+    // under DX_RENDER (early-returns before that point). Same scoped-forwarder
+    // pattern as getLightScale() rather than a third full friend.
+    void updateUniformsPerFrame() { updateUniforms(); }
+#endif
+
     enum class DetailLevel
     {
         STATIC_ONLY = 0,

@@ -5804,6 +5804,13 @@ void LLVolumeGeometryManager::registerFace(LLSpatialGroup* group, LLFace* facep,
         draw_info->mGLTFMaterial = gltf_mat;
         draw_info->mShaderMask = shader_mask;
         draw_info->mAvatar = facep->mAvatar;
+#ifdef DX_RENDER
+        // Broader than mAvatar above - see LLDrawInfo::mAttachedToAvatar's own
+        // comment. pObj is the same viewer object this face was built from, so
+        // this is the same value the face-level equivalent would carry; derived
+        // here directly so no extra per-face state is needed for it.
+        draw_info->mAttachedToAvatar = pObj->isAttachment() ? pObj->getAvatar() : nullptr;
+#endif
         draw_info->mSkinInfo = facep->mSkinInfo;
 
         if (gltf_mat)

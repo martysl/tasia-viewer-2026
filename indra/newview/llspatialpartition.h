@@ -116,6 +116,16 @@ public:
     const LLMatrix4* mModelMatrix = nullptr;
 
     LLPointer<LLVOAvatar> mAvatar = nullptr;
+#ifdef DX_RENDER
+    // Broader than mAvatar above: mAvatar is only set for genuinely rigged/
+    // skinned content (llvovolume.cpp's `rigged` condition, requires skinInfo).
+    // This captures ANY object attached to an avatar, rigged or not (e.g. a
+    // rigid prim attachment like eyelash/jewelry has no skinInfo and never sets
+    // mAvatar, but is still isAttachment()==true), which is what DXDrawPoolAlpha
+    // needs to split attachment and non-attachment alpha draws into separate
+    // sub-passes. Populated in llvovolume.cpp from facep->getViewerObject().
+    LLPointer<LLVOAvatar> mAttachedToAvatar = nullptr;
+#endif
     LLConstPointer<LLMeshSkinInfo> mSkinInfo;// <FS:Beq/> be defensive about UAF with skinInfo during LocalMesh
 
     // Material pointer here is likely for debugging only and are immaterial (zing!)

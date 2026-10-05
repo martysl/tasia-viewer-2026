@@ -640,59 +640,10 @@ namespace
     // (depth-aware noise dithering, same permutation GL's renderFinalize()
     // tail uses); the placeholder VS/PS pair is kept only as a fallback if
     // that shader failed to compile.
-    //
-    // Selects which offscreen eye target (if any) this frame's world-scene
-    // composite should land in, via LLViewerWindow::mMaskMode/getMaskMode()
-    // (same enum LLViewerCamera's stereo frustum math reads).
-    LLRenderTarget* getCurrentStereoEyeTarget(LLPipeline& pipeline)
-    {
-        S32 mode = gViewerWindow->getMaskMode();
-        if (mode == MASK_MODE_LEFT) { return &pipeline.mStereoEyeL; }
-        if (mode == MASK_MODE_RIGHT) { return &pipeline.mStereoEyeR; }
-        return nullptr;
-    }
-
-    void presentFinal(LLPipeline& pipeline, LLRenderTarget* src, LLRenderTarget* dest = nullptr)
+    void presentFinal(LLPipeline& pipeline, LLRenderTarget* src)
     {
         if (!src || !src->getColorSRV(0))
         {
-            return;
-        }
-
-        // When dest is given (stereo mode, one eye's pass), capture this
-        // eye's final composited frame into its own offscreen target
-        // instead of the swap chain - see stereoAnaglyphF.hlsl's comment.
-        // dest is exactly world_rect-sized (LLPipeline::mStereoEyeL/R, the
-        // WORLD VIEW resolution not the full chrome-included window), so no
-        // world_rect viewport offset is needed here, unlike the swap-chain
-        // case below. A real LLRenderTarget::bindTarget() call already
-        // manages LLRenderTarget::sBoundTarget bookkeeping on its own.
-        if (dest)
-        {
-            dest->bindTarget(false);
-
-            if (gDeferredPostNoDoFNoiseProgram.isComplete())
-            {
-                gDeferredPostNoDoFNoiseProgram.bind();
-                gDeferredPostNoDoFNoiseProgram.bindTexture(LLShaderMgr::DEFERRED_DIFFUSE, src);
-                gDeferredPostNoDoFNoiseProgram.bindTexture(LLShaderMgr::DEFERRED_DEPTH, &pipeline.mRT->deferredScreen, true);
-                gDeferredPostNoDoFNoiseProgram.uniform2f(LLShaderMgr::DEFERRED_SCREEN_RES,
-                    (F32)src->getWidth(), (F32)src->getHeight());
-
-                {
-                    LLGLDepthTest depth_test(GL_TRUE, GL_TRUE, GL_ALWAYS);
-                    pipeline.mScreenTriangleVB->setBuffer();
-                    pipeline.mScreenTriangleVB->drawArrays(LLRender::TRIANGLES, 0, 3);
-                }
-
-                gDeferredPostNoDoFNoiseProgram.unbind();
-            }
-            // Deliberately no raw-placeholder fallback here (unlike the
-            // swap-chain path below) - this exact shader already backs the
-            // ordinary non-stereo present path too, so if it ever failed to
-            // compile the whole viewer would already be in far worse shape
-            // than a stereo-only gap.
-            dest->flush();
             return;
         }
 
@@ -969,7 +920,7 @@ void DXPipeline::presentDeferredScreen(LLPipeline& pipeline)
             }
 
             gLastCompositedPostTarget = sourceBuffer;
-            presentFinal(pipeline, sourceBuffer, getCurrentStereoEyeTarget(pipeline));
+            presentFinal(pipeline, sourceBuffer);
             return;
         }
         // gamma_shader failed to compile - fall through to the raw
@@ -983,81 +934,7 @@ void DXPipeline::presentDeferredScreen(LLPipeline& pipeline)
     // meaningful to operate on either) - keep this path exactly as simple
     // as it always was.
     gLastCompositedPostTarget = diffuse_rt;
-    presentFinal(pipeline, diffuse_rt, getCurrentStereoEyeTarget(pipeline));
-}
-
-// static
-void DXPipeline::presentStereoComposite(LLPipeline& pipeline)
-{
-    if (!pipeline.mStereoEyeL.getColorSRV(0) || !pipeline.mStereoEyeR.getColorSRV(0))
-    {
-        // One or both eyes never actually captured anything this frame
-        // (e.g. very first frame(s) during startup) - nothing to compose,
-        // leave the back buffer as DXContext::beginFrame() left it, same
-        // convention as presentDeferredScreen()'s own early-out.
-        return;
-    }
-
-    DXRenderTarget::bindSwapChainBackBuffer();
-    // See presentFinal()'s matching comment - a raw DXRenderTarget bind
-    // bypasses LLRenderTarget::bindTarget()'s own sBoundTarget bookkeeping.
-    LLRenderTarget::sBoundTarget = nullptr;
-    setPresentViewport();
-
-    if (!gStereoAnaglyphProgram.isComplete())
-    {
-        // Shader failed to compile - nothing sane to present in this case
-        // (unlike presentFinal()'s raw-placeholder fallback, there's no
-        // single-eye image to fall back to that wouldn't just look like a
-        // half-broken mono frame) - leave the back buffer as-is rather than
-        // guess.
-        return;
-    }
-
-    gStereoAnaglyphProgram.bind();
-    // Bound via LLShaderMgr's existing DIFFUSE_MAP/ALTERNATE_DIFFUSE_MAP
-    // reserved-uniform slots (LLHLSLShader::bindTexture(S32,...)) rather
-    // than a custom texture name - see stereoAnaglyphF.hlsl's comment for
-    // why the string-keyed overload doesn't work under DX_RENDER.
-    gStereoAnaglyphProgram.bindTexture(LLShaderMgr::DIFFUSE_MAP, &pipeline.mStereoEyeL);
-    gStereoAnaglyphProgram.bindTexture(LLShaderMgr::ALTERNATE_DIFFUSE_MAP, &pipeline.mStereoEyeR);
-
-    // True-color red/cyan default - see stereoAnaglyphF.hlsl's comment.
-    // Both diagonal, so row-vs-column-major layout is a non-issue (a
-    // diagonal matrix is its own transpose) - verify this before ever
-    // shipping a non-diagonal preset. 4x4, not 3x3: uniformMatrix4fv's
-    // name-based overload is the only one with a real DX_RENDER upload path.
-    static const F32 s_left_eye_matrix[16] = {
-        1.f, 0.f, 0.f, 0.f,
-        0.f, 0.f, 0.f, 0.f,
-        0.f, 0.f, 0.f, 0.f,
-        0.f, 0.f, 0.f, 0.f,
-    };
-    static const F32 s_right_eye_matrix[16] = {
-        0.f, 0.f, 0.f, 0.f,
-        0.f, 1.f, 0.f, 0.f,
-        0.f, 0.f, 1.f, 0.f,
-        0.f, 0.f, 0.f, 0.f,
-    };
-    static LLStaticHashedString s_left_matrix_name("left_eye_matrix");
-    static LLStaticHashedString s_right_matrix_name("right_eye_matrix");
-
-    gStereoAnaglyphProgram.uniformMatrix4fv(s_left_matrix_name, 1, false, s_left_eye_matrix);
-    gStereoAnaglyphProgram.uniformMatrix4fv(s_right_matrix_name, 1, false, s_right_eye_matrix);
-
-    {
-        // No depth test/write - this target has no meaningful depth of its
-        // own (each eye's real depth stayed in its own offscreen pass, not
-        // carried into the composite). Known limitation: 3D-in-UI-space
-        // content (manipulator gizmos etc.) won't depth-test correctly
-        // against the composited result yet in stereo mode - see task
-        // #220's memory for the full list of deferred follow-up work.
-        LLGLDepthTest depth_test(GL_FALSE, GL_FALSE);
-        pipeline.mScreenTriangleVB->setBuffer();
-        pipeline.mScreenTriangleVB->drawArrays(LLRender::TRIANGLES, 0, 3);
-    }
-
-    gStereoAnaglyphProgram.unbind();
+    presentFinal(pipeline, diffuse_rt);
 }
 
 // static

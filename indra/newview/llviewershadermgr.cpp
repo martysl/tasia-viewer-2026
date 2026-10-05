@@ -163,6 +163,9 @@ LLViewerShaderProgram gDeferredSunProbeProgram;
 LLViewerShaderProgram gHazeProgram;
 LLViewerShaderProgram gHazeWaterProgram;
 LLViewerShaderProgram gDeferredBlurLightProgram;
+#ifdef DX_RENDER
+LLViewerShaderProgram gDeferredTemporalResolveSSAOProgram;
+#endif
 LLViewerShaderProgram gDeferredSoftenProgram;
 LLViewerShaderProgram gDeferredShadowProgram;
 LLViewerShaderProgram gDeferredSkinnedShadowProgram;
@@ -1119,6 +1122,9 @@ bool LLViewerShaderMgr::loadShadersDeferred()
         gDeferredMultiSpotLightProgram.unload();
         gDeferredSunProgram.unload();
         gDeferredBlurLightProgram.unload();
+#ifdef DX_RENDER
+        gDeferredTemporalResolveSSAOProgram.unload();
+#endif
         gDeferredSoftenProgram.unload();
         gDeferredShadowProgram.unload();
         gDeferredSkinnedShadowProgram.unload();
@@ -1777,6 +1783,27 @@ bool LLViewerShaderMgr::loadShadersDeferred()
         success = gDeferredBlurLightProgram.createShader();
         llassert(success);
     }
+
+#ifdef DX_RENDER
+    if (success)
+    {
+        // Temporal AO: reprojects and blends last frame's AO history with this frame's
+        // spatially-blurred AO to remove screen-locked-noise flicker during camera movement.
+        // Reuses blurLightV.hlsl unchanged; see dxpipeline.cpp's renderDeferredLighting().
+        gDeferredTemporalResolveSSAOProgram.mName = "Deferred Temporal Resolve SSAO Shader";
+        gDeferredTemporalResolveSSAOProgram.mFeatures.isDeferred = true;
+
+        gDeferredTemporalResolveSSAOProgram.mShaderFiles.clear();
+        gDeferredTemporalResolveSSAOProgram.mShaderFiles.push_back(make_pair("deferred/blurLightV.glsl", GL_VERTEX_SHADER));
+        gDeferredTemporalResolveSSAOProgram.mShaderFiles.push_back(make_pair("deferred/temporalResolveSSAOF.glsl", GL_FRAGMENT_SHADER));
+        gDeferredTemporalResolveSSAOProgram.mShaderLevel = mShaderLevel[SHADER_DEFERRED];
+
+        add_common_permutations(&gDeferredTemporalResolveSSAOProgram);
+
+        success = gDeferredTemporalResolveSSAOProgram.createShader();
+        llassert(success);
+    }
+#endif
 
     if (success)
     {

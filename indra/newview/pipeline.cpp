@@ -1031,6 +1031,30 @@ bool LLPipeline::allocateScreenBufferInternal(U32 resX, U32 resY)
         mPostPingMap.allocate(resX, resY, GL_RGBA);
         mPostPongMap.allocate(resX, resY, GL_RGBA);
         } // <FS:Beq/> improve Tracy scoping 
+
+#ifdef DX_RENDER
+        mStereoEyeL.allocate(resX, resY, GL_RGBA);
+        mStereoEyeR.allocate(resX, resY, GL_RGBA);
+
+        // Persistent AO history buffer, same format as deferredLight since
+        // it's a full-channel copy of it. Seeded to (1,1,1,1) ("fully lit /
+        // no occlusion") immediately after allocation, matching mExposureMap's
+        // own seeding and the "SSAO off" neutral fallback used for
+        // deferred_light_target, so the first frame's blend needs no
+        // first-frame flag.
+        if (ssao)
+        {
+            mSSAOHistory.allocate(resX, resY, screenFormat);
+            mSSAOHistory.bindTarget();
+            mSSAOHistory.clearColor(1.f, 1.f, 1.f, 1.f);
+            mSSAOHistory.flush();
+        }
+        else
+        {
+            mSSAOHistory.release();
+        }
+#endif
+
         // The water exclusion mask needs its own depth buffer so we can take care of the problem of multiple water planes.
         // Should we ever make water not just a plane, it also aids with that as well as the water planes will be rendered into the mask.
         // Why do we do this? Because it saves us some janky logic in the exclusion shader when we generate the mask.
@@ -1332,6 +1356,12 @@ void LLPipeline::releaseGLBuffers()
 
     mPostPingMap.release();
     mPostPongMap.release();
+
+#ifdef DX_RENDER
+    mStereoEyeL.release();
+    mStereoEyeR.release();
+    mSSAOHistory.release();
+#endif
 
     mFXAAMap.release();
 
@@ -9079,7 +9109,7 @@ void LLPipeline::renderFinalize()
     recordTrianglesDrawn();
 }
 
-void LLPipeline::bindLightFunc(LLGLSLShader& shader)
+void LLPipeline::bindLightFunc(LLViewerShaderProgram& shader)
 {
     S32 channel = shader.enableTexture(LLShaderMgr::DEFERRED_LIGHTFUNC);
     if (channel > -1)
@@ -9094,7 +9124,7 @@ void LLPipeline::bindLightFunc(LLGLSLShader& shader)
     }
 }
 
-void LLPipeline::bindShadowMaps(LLGLSLShader& shader)
+void LLPipeline::bindShadowMaps(LLViewerShaderProgram& shader)
 {
     for (U32 i = 0; i < 4; i++)
     {
@@ -9123,7 +9153,7 @@ void LLPipeline::bindShadowMaps(LLGLSLShader& shader)
     }
 }
 
-void LLPipeline::bindDeferredShaderFast(LLGLSLShader& shader)
+void LLPipeline::bindDeferredShaderFast(LLViewerShaderProgram& shader)
 {
     if (shader.mCanBindFast)
     { // was previously fully bound, use fast path
@@ -9139,7 +9169,7 @@ void LLPipeline::bindDeferredShaderFast(LLGLSLShader& shader)
     }
 }
 
-void LLPipeline::bindDeferredShader(LLGLSLShader& shader, LLRenderTarget* light_target, LLRenderTarget* depth_target)
+void LLPipeline::bindDeferredShader(LLViewerShaderProgram& shader, LLRenderTarget* light_target, LLRenderTarget* depth_target)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     LLRenderTarget* deferred_target       = &mRT->deferredScreen;
@@ -9195,6 +9225,7 @@ void LLPipeline::bindDeferredShader(LLGLSLShader& shader, LLRenderTarget* light_
         gGL.getTexUnit(channel)->bind(&mExposureMap);
     }
 
+#ifndef DX_RENDER
     if (shader.getUniformLocation(LLShaderMgr::VIEWPORT) != -1)
     {
         shader.uniform4f(LLShaderMgr::VIEWPORT, (F32) gGLViewport[0],
@@ -9207,6 +9238,7 @@ void LLPipeline::bindDeferredShader(LLGLSLShader& shader, LLRenderTarget* light_
     {
         shader.uniformMatrix4fv(LLShaderMgr::MODELVIEW_MATRIX, 1, false, glm::value_ptr(mReflectionModelView));
     }
+#endif
 
     channel = shader.enableTexture(LLShaderMgr::DEFERRED_NOISE);
     if (channel > -1)
@@ -9336,11 +9368,13 @@ void LLPipeline::bindDeferredShader(LLGLSLShader& shader, LLRenderTarget* light_
 
     shader.uniform1i(LLShaderMgr::CUBE_SNAPSHOT, gCubeSnapshot ? 1 : 0);
 
+#ifndef DX_RENDER
     if (shader.getUniformLocation(LLShaderMgr::DEFERRED_NORM_MATRIX) >= 0)
     {
         glm::mat4 norm_mat = glm::transpose(glm::inverse(get_current_modelview()));
         shader.uniformMatrix4fv(LLShaderMgr::DEFERRED_NORM_MATRIX, 1, false, glm::value_ptr(norm_mat));
     }
+#endif
 
     // auto adjust legacy sun color if needed
     static LLCachedControl<bool> should_auto_adjust(gSavedSettings, "RenderSkyAutoAdjustLegacy", false);
@@ -9432,7 +9466,7 @@ void LLPipeline::renderDeferredLighting()
             {  // paint shadow/SSAO light map (direct lighting lightmap)
                 LL_PROFILE_ZONE_NAMED_CATEGORY_PIPELINE("renderDeferredLighting - sun shadow");
 
-                LLGLSLShader& sun_shader = gCubeSnapshot ? gDeferredSunProbeProgram : gDeferredSunProgram;
+                LLViewerShaderProgram& sun_shader = gCubeSnapshot ? gDeferredSunProbeProgram : gDeferredSunProgram;
                 bindDeferredShader(sun_shader, deferred_light_target);
                 mScreenTriangleVB->setBuffer();
                 glClearColor(1, 1, 1, 1);
@@ -9523,7 +9557,7 @@ void LLPipeline::renderDeferredLighting()
 
         if (RenderDeferredAtmospheric)
         {  // apply sunlight contribution
-            LLGLSLShader &soften_shader = gDeferredSoftenProgram;
+            LLViewerShaderProgram &soften_shader = gDeferredSoftenProgram;
 
             LL_PROFILE_ZONE_NAMED_CATEGORY_PIPELINE("renderDeferredLighting - atmospherics");
             LL_PROFILE_GPU_ZONE("atmospherics");
@@ -9915,7 +9949,7 @@ void LLPipeline::doAtmospherics()
         gGL.setColorMask(true, true);
 
         // apply haze
-        LLGLSLShader& haze_shader = gHazeProgram;
+        LLViewerShaderProgram& haze_shader = gHazeProgram;
 
         LL_PROFILE_GPU_ZONE("haze");
         bindDeferredShader(haze_shader, nullptr, &mWaterDis);
@@ -9980,7 +10014,7 @@ void LLPipeline::doWaterHaze()
         gGL.setColorMask(true, true);
 
         // apply haze
-        LLGLSLShader& haze_shader = gHazeWaterProgram;
+        LLViewerShaderProgram& haze_shader = gHazeWaterProgram;
 
         LL_PROFILE_GPU_ZONE("haze");
         bindDeferredShader(haze_shader, nullptr, &mWaterDis);
@@ -10033,7 +10067,7 @@ void LLPipeline::doWaterExclusionMask()
     glClearColor(0, 0, 0, 0);
 }
 
-void LLPipeline::setupSpotLight(LLGLSLShader& shader, LLDrawable* drawablep)
+void LLPipeline::setupSpotLight(LLViewerShaderProgram& shader, LLDrawable* drawablep)
 {
     //construct frustum
     LLVOVolume* volume = drawablep->getVOVolume();
@@ -10179,7 +10213,7 @@ void LLPipeline::setupSpotLight(LLGLSLShader& shader, LLDrawable* drawablep)
 
 }
 
-void LLPipeline::unbindDeferredShader(LLGLSLShader &shader)
+void LLPipeline::unbindDeferredShader(LLViewerShaderProgram &shader)
 {
     LLRenderTarget* deferred_target       = &mRT->deferredScreen;
     LLRenderTarget* deferred_light_target = &mRT->deferredLight;
@@ -10235,7 +10269,7 @@ void LLPipeline::unbindDeferredShader(LLGLSLShader &shader)
     shader.unbind();
 }
 
-void LLPipeline::setEnvMat(LLGLSLShader& shader)
+void LLPipeline::setEnvMat(LLViewerShaderProgram& shader)
 {
     F32* m = gGLModelView;
 
@@ -10246,7 +10280,7 @@ void LLPipeline::setEnvMat(LLGLSLShader& shader)
     shader.uniformMatrix3fv(LLShaderMgr::DEFERRED_ENV_MAT, 1, true, mat);
 }
 
-void LLPipeline::bindReflectionProbes(LLGLSLShader& shader)
+void LLPipeline::bindReflectionProbes(LLViewerShaderProgram& shader)
 {
     if (!sReflectionProbesEnabled)
     {
@@ -10316,7 +10350,7 @@ void LLPipeline::bindReflectionProbes(LLGLSLShader& shader)
 
 }
 
-void LLPipeline::unbindReflectionProbes(LLGLSLShader& shader)
+void LLPipeline::unbindReflectionProbes(LLViewerShaderProgram& shader)
 {
     S32 channel = shader.disableTexture(LLShaderMgr::REFLECTION_PROBES, LLTexUnit::TT_CUBE_MAP);
     if (channel > -1 && mReflectionMapManager.mTexture.notNull())

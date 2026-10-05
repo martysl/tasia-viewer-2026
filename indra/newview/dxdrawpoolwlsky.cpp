@@ -50,7 +50,7 @@ namespace
 {
     LLStaticHashedString sCamPosLocal("camPosLocal");
     LLStaticHashedString sCustomAlpha("custom_alpha");
-    // Nebula/shooting-star daylight gate uses real sun elevation
+    // Nebula daylight gate uses real sun elevation
     // (LLSettingsSky::getSunDirection().mV[2], 0 at horizon) rather than the
     // Star Brightness curve (custom_alpha), which a bright moon can push low
     // enough to hide them while the sun is still below the horizon. Point
@@ -58,11 +58,9 @@ namespace
     LLStaticHashedString sSunElevation("sun_elevation");
 
     // KVTweaks-exposed night-sky controls - see starsF.hlsl for consumption
-    // and settings.xml for the RenderStar*/RenderNebula*/RenderShootingStar*
-    // keys these read.
+    // and settings.xml for the RenderStar*/RenderNebula* keys these read.
     LLStaticHashedString sStarGlow("star_glow");
     LLStaticHashedString sStarDensity("star_density");
-    LLStaticHashedString sStarDustIntensity("star_dust_intensity");
     LLStaticHashedString sNebulaEnabled("nebula_enabled");
     LLStaticHashedString sNebulaIntensity("nebula_intensity");
     // 0=Default, 1=Real Constellations (llvowlsky.cpp placement only),
@@ -74,14 +72,6 @@ namespace
     // renderSkyCloudsDeferred().
     LLStaticHashedString sCloudLayerTint("cloud_layer_tint");
     LLStaticHashedString sCloudLayerAlphaMult("cloud_layer_alpha_mult");
-
-    // Galactic band basis, view-space - see renderGalacticBandDeferred()'s comment. Rotated from
-    // fixed world-space constants every frame (cheap - 3 vectors) since "inv_modelview" isn't
-    // among the reserved uniforms llrender.cpp actually auto-syncs (only inv_proj is), so the
-    // shader can't recover world space from view space on its own.
-    LLStaticHashedString sGalacticNormalView("galactic_normal_view");
-    LLStaticHashedString sBandUView("band_u_view");
-    LLStaticHashedString sBandVView("band_v_view");
 
     LLHLSLShader* cloud_shader = nullptr;
     LLHLSLShader* sky_shader   = nullptr;
@@ -216,86 +206,6 @@ namespace
         }
     }
 
-    // Procedural galactic-dust band. Deliberately NOT drawn on the shared sky-dome mesh
-    // (haze/clouds/stars all use it via renderDome()) - that mesh's buildStripsBuffer() only
-    // spans a small local angle near its own zenith and relies on a perspective illusion (camera
-    // pinned just inside a huge-radius dome) to APPEAR to cover the whole sky; haze/clouds get
-    // away with that because their color comes from a smooth texture/gradient with no real
-    // large-scale geometric meaning, but this band's large-scale dot-product shape needs true
-    // angular correctness - on the dome mesh it came out skimming the horizon instead of arching
-    // overhead, and got mutilated on the mesh's below-horizon "skirt" (see git history for both).
-    // Instead this is a full-screen pass: reconstruct each pixel's real camera-ray direction via
-    // inv_proj (same idea stars/constellations already get right by using true unit-sphere
-    // positions instead of the dome mesh). inv_proj gives a VIEW-space ray, and "inv_modelview"
-    // isn't among the reserved uniforms llrender.cpp actually auto-syncs (only inv_proj is) - so
-    // the band's fixed world-space basis is rotated into view-space here, once a frame, and the
-    // shader dots the view-space ray against that directly instead. depth-tests against the
-    // already-rendered scene (far-plane-pinned output, see galacticBandV.hlsl) so it never paints
-    // over terrain/water/objects - no dome geometry, so no skirt to fight either.
-    void renderGalacticBandDeferred()
-    {
-        if (!gSky.mVOSkyp || use_hdri_sky())
-        {
-            return;
-        }
-
-        static LLCachedControl<F32> dust_intensity(gSavedSettings, "RenderStarDustIntensity", 1.0f);
-        if (dust_intensity < 0.01f)
-        {
-            return;
-        }
-
-        F32 sun_elevation = LLEnvironment::instance().getCurrentSky()->getSunDirection().mV[2];
-        if (LLPipeline::sReflectionRender)
-        {
-            sun_elevation = -1.0f;
-        }
-        if (sun_elevation >= 0.15f) // matches the fade's own upper bound - see galacticBandF.hlsl
-        {
-            return;
-        }
-
-        // Fixed world-space band orientation - arbitrary but fixed, matching how the (retired)
-        // dome-mesh version and the star field's own constellation placement both pick a fixed
-        // world direction rather than anything tied to the camera.
-        LLVector3 galactic_normal(1.0f, 0.4f, 0.12f);
-        galactic_normal.normVec();
-        LLVector3 band_u = galactic_normal % LLVector3(0.f, 0.f, 1.f);
-        band_u.normVec();
-        LLVector3 band_v = galactic_normal % band_u;
-
-        LLMatrix4a modelview;
-        modelview.loadu(gGLModelView);
-
-        LLVector4a gn_v, bu_v, bv_v;
-        modelview.rotate(LLVector4a(galactic_normal.mV[0], galactic_normal.mV[1], galactic_normal.mV[2]), gn_v);
-        modelview.rotate(LLVector4a(band_u.mV[0], band_u.mV[1], band_u.mV[2]), bu_v);
-        modelview.rotate(LLVector4a(band_v.mV[0], band_v.mV[1], band_v.mV[2]), bv_v);
-
-        // Deliberately NOT LLGLSPipelineBlendSkyBox here (unlike every other sky element) - its
-        // LLGLSquashToFarClip pins the PROJECTION MATRIX to the far plane, which this pass's
-        // vertex shader has no use for (it outputs SV_Position.z=0.0 itself, no dome-mesh MVP
-        // involved) and which would corrupt the "inv_proj" this pass's pixel shader relies on for
-        // camera-ray reconstruction (auto-synced from whatever the CURRENT projection matrix is
-        // at bind time - squashed would silently reconstruct the wrong rays).
-        LLGLEnable blend(GL_BLEND);
-        LLGLDisable cull(GL_CULL_FACE);
-        LLGLDepthTest depth(GL_TRUE, GL_FALSE, GL_LEQUAL);
-        gDX.setSceneBlendType(LLRender::BT_ADD_WITH_ALPHA);
-
-        gDeferredGalacticBandProgram.bind();
-        gDeferredGalacticBandProgram.uniform1f(sStarDustIntensity, dust_intensity);
-        gDeferredGalacticBandProgram.uniform1f(sSunElevation, sun_elevation);
-        gDeferredGalacticBandProgram.uniform1f(LLShaderMgr::WATER_TIME, (F32)LLFrameTimer::getElapsedSeconds() * 0.5f);
-        gDeferredGalacticBandProgram.uniform3fv(sGalacticNormalView, 1, gn_v.getF32ptr());
-        gDeferredGalacticBandProgram.uniform3fv(sBandUView, 1, bu_v.getF32ptr());
-        gDeferredGalacticBandProgram.uniform3fv(sBandVView, 1, bv_v.getF32ptr());
-
-        gSky.mVOWLSkyp->drawGalacticBandQuad();
-
-        gDeferredGalacticBandProgram.unbind();
-    }
-
     void renderStarsDeferred(const LLVector3& camPosLocal)
     {
         if (!gSky.mVOSkyp || use_hdri_sky())
@@ -393,76 +303,6 @@ namespace
         gDX.getTexUnit(1)->unbind(LLTexUnit::TT_TEXTURE);
 
         gDeferredStarProgram.unbind();
-
-        // Optional constellation connector lines (RenderConstellationLines) - gDeferredSkyLineProgram,
-        // not gUIProgram: this immediate-mode line geometry sits at the star dome's distance, which
-        // uiV.hlsl's plain transform (no far-clip pin) would silently clip away whenever the dome
-        // radius exceeds RenderFarClip - see skyLineV.hlsl's comment. Drawn inside the same pushed/
-        // translated/rotated matrix as the stars above so it tracks the star field's slow drift.
-        if (gSavedSettings.getS32("RenderSkyStyle") == 1 && gSavedSettings.getBOOL("RenderConstellationLines"))
-        {
-            gDeferredSkyLineProgram.bind();
-            gSky.mVOWLSkyp->drawConstellationLines();
-            gDeferredSkyLineProgram.unbind();
-        }
-
-        gDX.popMatrix();
-    }
-
-    void renderShootingStarsDeferred(const LLVector3& camPosLocal)
-    {
-        // Small dedicated program + dynamic buffer - see
-        // LLVOWLSky::drawShootingStars()/updateShootingStarGeometry(). Gated
-        // the same way as the main star field (skip during HDRI sky / no
-        // VOSky).
-        if (!gSky.mVOSkyp || use_hdri_sky())
-        {
-            return;
-        }
-
-        // Spawn/age/expire is driven from here, NOT LLVOWLSky::idleUpdate() -
-        // that override is dead code (LLVOWLSky::isActive() hardcodes false,
-        // so the engine's active-object idle dispatch never calls it).
-        // updateShootingStars() itself checks
-        // RenderShootingStars/RenderShootingStarFrequency internally.
-        //
-        // Kept unconditional even though the draw below is gated on
-        // daylight (see star_alpha) so the spawn timer/pool keeps ticking
-        // through daylight hours rather than accumulating one huge dt and
-        // bursting streaks when night falls again.
-        static LLFrameTimer shooting_star_timer;
-        F32 dt = shooting_star_timer.getElapsedTimeF32();
-        shooting_star_timer.reset();
-        gSky.mVOWLSkyp->updateShootingStars(dt);
-
-        // Daylight gate mirrors renderStarsDeferred()'s star_alpha/
-        // sun_elevation logic (draw-only; the update above stays
-        // unconditional) - see sSunElevation's comment.
-        F32 sun_elevation = LLEnvironment::instance().getCurrentSky()->getSunDirection().mV[2];
-
-        if (LLPipeline::sReflectionRender)
-        {
-            sun_elevation = -1.0f; // always show for reflection-probe captures
-        }
-
-        if (sun_elevation >= 0.15f) // matches starsShootingF.hlsl's own upper fade threshold
-        {
-            return;
-        }
-
-        LLGLSPipelineBlendSkyBox gls_sky(true, false);
-        gDX.setSceneBlendType(LLRender::BT_ADD_WITH_ALPHA);
-
-        gDeferredStarShootingProgram.bind();
-
-        gDX.pushMatrix();
-        gDX.translatef(camPosLocal.mV[0], camPosLocal.mV[1], camPosLocal.mV[2]);
-
-        gDeferredStarShootingProgram.uniform1f(sSunElevation, sun_elevation);
-
-        gSky.mVOWLSkyp->drawShootingStars();
-
-        gDeferredStarShootingProgram.unbind();
         gDX.popMatrix();
     }
 
@@ -484,8 +324,8 @@ namespace
             // LLGLSPipelineBlendSkyBox only toggles blending ON; it doesn't
             // select the blend function (LLRender::blendFunc() only
             // re-applies when the factors change from the cached value).
-            // Clouds draw right after the star/shooting-star passes, which
-            // set BT_ADD_WITH_ALPHA - must set BT_ALPHA explicitly here or
+            // Clouds draw right after the star pass, which sets
+            // BT_ADD_WITH_ALPHA - must set BT_ALPHA explicitly here or
             // clouds inherit additive blend, which corrupts the data2
             // G-buffer "is a star" flag under opaque clouds.
             gDX.setSceneBlendType(LLRender::BT_ALPHA);
@@ -769,9 +609,7 @@ void DXDrawPoolWLSky::renderDeferred(LLDrawPoolWLSky& pool, S32 pass)
 
         if (!gCubeSnapshot)
         {
-            renderGalacticBandDeferred();
             renderStarsDeferred(origin);
-            renderShootingStarsDeferred(origin);
         }
 
         if (!gCubeSnapshot || gPipeline.mReflectionMapManager.isRadiancePass())

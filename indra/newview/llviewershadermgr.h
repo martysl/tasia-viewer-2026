@@ -253,6 +253,9 @@ extern LLViewerShaderProgram gDeferredSunProbeProgram;
 extern LLViewerShaderProgram gHazeProgram;
 extern LLViewerShaderProgram gHazeWaterProgram;
 extern LLViewerShaderProgram gDeferredBlurLightProgram;
+#ifdef DX_RENDER
+extern LLViewerShaderProgram gDeferredTemporalResolveSSAOProgram;
+#endif
 extern LLViewerShaderProgram gDeferredAvatarProgram;
 extern LLViewerShaderProgram gDeferredSoftenProgram;
 extern LLViewerShaderProgram gDeferredShadowProgram;

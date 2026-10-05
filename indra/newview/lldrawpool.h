@@ -41,6 +41,19 @@ class LLVOAvatar;
 class LLGLSLShader;
 class LLMeshSkinInfo;
 
+#ifdef DX_RENDER
+class LLHLSLShader;
+#endif
+
+// Same one-class-per-backend alias llviewershadermgr.h declares, repeated here
+// so the declarations below stay backend-agnostic without pulling the shader
+// manager into every draw pool.
+#ifdef DX_RENDER
+typedef LLHLSLShader LLViewerShaderProgram;
+#else
+typedef LLGLSLShader LLViewerShaderProgram;
+#endif
+
 class LLDrawPool
 {
 public:
@@ -394,7 +407,7 @@ public:
     // </FS:Beq>
     static bool uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo* skinInfo);
     static bool uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo* skinInfo, const LLVOAvatar*& lastAvatar, U64& lastMeshId, bool& skipLastSkin);
-    static bool uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo* skinInfo, const LLVOAvatar*& lastAvatar, U64& lastMeshId, const LLGLSLShader*& lastAvatarShader, bool& skipLastSkin);
+    static bool uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo* skinInfo, const LLVOAvatar*& lastAvatar, U64& lastMeshId, const LLViewerShaderProgram*& lastAvatarShader, bool& skipLastSkin);
     virtual void renderGroup(LLSpatialGroup* group, U32 type, bool texture = true);
     virtual void renderRiggedGroup(LLSpatialGroup* group, U32 type, bool texture = true);
 };

@@ -68,6 +68,9 @@
 // llrender.cpp's applyDXBlendState()/applyDXRasterizerState() already use.
 #include "DXStateCache.h"
 #include "DXDevice.h"
+// DXContext for llSetDXViewport()'s gDXContext.setViewport() below. The header
+// is self-contained (no includes at all), so this adds no new dependency.
+#include "DXContext.h"
 #endif
 
 #if LL_SDL
@@ -2680,6 +2683,23 @@ namespace
     }
 }
 
+#endif // DX_RENDER
+
+#ifdef DX_RENDER
+// The single place a DX_RENDER viewport is established. Every GL glViewport()
+// call site is inert under DX_RENDER (there is no GL context behind the D3D11
+// device), so each of them needs this instead - gDXViewport is defined in
+// llrender.cpp and read back by LLViewerCamera's pickMatrix()/unProject(),
+// DXPipeline, LLRenderTarget::flush()'s back-buffer restore and
+// dxdrawpoolwlsky, none of which would see a viewport at all otherwise.
+void llSetDXViewport(int x, int y, int width, int height, bool flip_y)
+{
+    gDXViewport[0] = x;
+    gDXViewport[1] = y;
+    gDXViewport[2] = width;
+    gDXViewport[3] = height;
+    gDXContext.setViewport(x, y, width, height, flip_y);
+}
 #endif // DX_RENDER
 
 LLGLState::LLGLState(LLGLenum state, S32 enabled) :

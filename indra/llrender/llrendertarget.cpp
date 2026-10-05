@@ -30,6 +30,42 @@
 #include "llrender.h"
 #include "llgl.h"
 
+#ifdef DX_RENDER
+#include "DXDevice.h"
+#include "DXSwapChain.h"
+
+namespace
+{
+    // Covers every color_fmt this codebase actually passes to allocate()/
+    // addColorAttachment() (confirmed by grepping pipeline.cpp's call sites),
+    // not a speculative full GL-format table. DXGI has no 3-channel 8-bit or
+    // float format, so GL_RGB/GL_RGB16F pad in an unused alpha channel - same
+    // reasoning as DXTexture's format repack.
+    DXGI_FORMAT glColorFormatToDX(U32 color_fmt)
+    {
+        switch (color_fmt)
+        {
+        case GL_RGBA:      return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case GL_RGBA16:    return DXGI_FORMAT_R16G16B16A16_UNORM;
+        case GL_RGBA16F:   return DXGI_FORMAT_R16G16B16A16_FLOAT;
+        case GL_RGB16F:    return DXGI_FORMAT_R16G16B16A16_FLOAT;
+        case GL_RGB10_A2:  return DXGI_FORMAT_R10G10B10A2_UNORM;
+        case GL_RGB:       return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case GL_R8:        return DXGI_FORMAT_R8_UNORM;
+        case GL_RG16F:     return DXGI_FORMAT_R16G16_FLOAT;
+        case GL_R16F:      return DXGI_FORMAT_R16_FLOAT;
+        case GL_RGBA8:     return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case GL_RGB8:      return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case GL_R11F_G11F_B10F: return DXGI_FORMAT_R11G11B10_FLOAT;
+        case GL_BGRA:      return DXGI_FORMAT_B8G8R8A8_UNORM;
+        default:
+            LL_WARNS("RenderTarget") << "glColorFormatToDX: unmapped GL format 0x" << std::hex << color_fmt << std::dec << ", defaulting to RGBA8" << LL_ENDL;
+            return DXGI_FORMAT_R8G8B8A8_UNORM;
+        }
+    }
+}
+#endif
+
 LLRenderTarget* LLRenderTarget::sBoundTarget = NULL;
 U32 LLRenderTarget::sBytesAllocated = 0;
 
@@ -56,6 +92,13 @@ U32 LLRenderTarget::sCurFBO = 0;
 
 extern S32 gGLViewport[4];
 
+#ifdef DX_RENDER
+// The GL array above stays the one GL code reads; the DX_RENDER viewport is a
+// separate array written by DX branches (llgl.cpp's llSetDXViewport() and
+// flush() below), so the two can never alias.
+extern S32 gDXViewport[4];
+#endif
+
 U32 LLRenderTarget::sCurResX = 0;
 U32 LLRenderTarget::sCurResY = 0;
 
@@ -76,6 +119,19 @@ LLRenderTarget::~LLRenderTarget()
 
 void LLRenderTarget::resize(U32 resx, U32 resy)
 {
+#ifdef DX_RENDER
+    // mTex/mDepth stay empty/0 under DX_RENDER (no GL resources are ever
+    // created), so the GL attachment loop below has nothing to resize.
+    if (resx == mResX && resy == mResY)
+    {
+        return;
+    }
+    mDXRenderTarget.resize(resx, resy);
+    mResX = resx;
+    mResY = resy;
+    return;
+#endif
+
     //for accounting, get the number of pixels added/subtracted
     S32 pix_diff = (resx*resy)-(mResX*mResY);
 
@@ -107,6 +163,35 @@ bool LLRenderTarget::allocate(U32 resx, U32 resy, U32 color_fmt, bool depth, LLT
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DISPLAY;
     llassert(usage == LLTexUnit::TT_TEXTURE);
     llassert(!isBoundInStack());
+
+#ifdef DX_RENDER
+    if(mResX == resx && mResY == resy && mUsage == usage && depth == mUseDepth && mGenerateMipMaps == generateMipMaps)
+    {
+        return true;
+    }
+
+    release();
+
+    mResX = resx;
+    mResY = resy;
+
+    mUsage = usage;
+    mUseDepth = depth;
+
+    mGenerateMipMaps = generateMipMaps;
+
+    if (mGenerateMipMaps != LLTexUnit::TMG_NONE) {
+        // Calculate the number of mip levels based upon resolution that we should have.
+        mMipLevels = 1 + (U32)floor(log10((float)llmax(mResX, mResY)) / log10(2.0));
+    }
+
+    // color_fmt==0 is an established "no color attachment, depth-only"
+    // convention (pipeline.cpp's shadow[i]/mSpotShadow[i] allocations) - route
+    // it straight to DXGI_FORMAT_UNKNOWN rather than through
+    // glColorFormatToDX(), which has no case for 0. DXRenderTarget::allocate()
+    // skips creating a color attachment when it sees DXGI_FORMAT_UNKNOWN.
+    return mDXRenderTarget.allocate(resx, resy, color_fmt == 0 ? DXGI_FORMAT_UNKNOWN : glColorFormatToDX(color_fmt), depth);
+#endif
 
     if(mResX == resx && mResY == resy && mUsage == usage && depth == mUseDepth && mGenerateMipMaps == generateMipMaps)
     {
@@ -155,6 +240,21 @@ bool LLRenderTarget::allocate(U32 resx, U32 resy, U32 color_fmt, bool depth, LLT
 
 void LLRenderTarget::setColorAttachment(LLImageGL* img, LLGLuint use_name)
 {
+#ifdef DX_RENDER
+    // Real gap, not yet closed - DXRenderTarget can't render into an arbitrary
+    // externally-owned texture, only its own. Only known caller
+    // (LLDrawPoolBump's bump-map to normal-map conversion) already skips this
+    // under DX_RENDER. Kept as a loud one-time warning rather than a silent
+    // no-op, in case a future caller reaches this without the same care.
+    static bool warned = false;
+    if (!warned)
+    {
+        warned = true;
+        LL_WARNS("RenderTarget") << "LLRenderTarget::setColorAttachment: not supported under DX_RENDER - caller must skip this render target under DX_RENDER instead." << LL_ENDL;
+    }
+    return;
+#endif
+
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     llassert(img != nullptr); // img must not be null
     llassert(sUseFBO); // FBO support must be enabled
@@ -190,6 +290,11 @@ void LLRenderTarget::setColorAttachment(LLImageGL* img, LLGLuint use_name)
 
 void LLRenderTarget::releaseColorAttachment()
 {
+#ifdef DX_RENDER
+    // Mirrors setColorAttachment()'s DX_RENDER no-op - see its comment.
+    return;
+#endif
+
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     llassert(!isBoundInStack());
     llassert(mTex.size() == 1); //cannot use releaseColorAttachment with LLRenderTarget managed color targets
@@ -204,6 +309,14 @@ void LLRenderTarget::releaseColorAttachment()
 
 bool LLRenderTarget::addColorAttachment(U32 color_fmt)
 {
+#ifdef DX_RENDER
+    if (color_fmt == 0)
+    {
+        return true;
+    }
+    return mDXRenderTarget.addColorAttachment(glColorFormatToDX(color_fmt));
+#endif
+
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DISPLAY;
     llassert(!isBoundInStack());
 
@@ -297,6 +410,10 @@ bool LLRenderTarget::addColorAttachment(U32 color_fmt)
 
 bool LLRenderTarget::allocateDepth()
 {
+#ifdef DX_RENDER
+    return mDXRenderTarget.allocateDepth();
+#endif
+
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DISPLAY;
     LLImageGL::generateTextures(1, &mDepth);
     gGL.getTexUnit(0)->bindManual(mUsage, mDepth);
@@ -321,6 +438,14 @@ bool LLRenderTarget::allocateDepth()
 void LLRenderTarget::shareDepthBuffer(LLRenderTarget& target)
 {
     llassert(!isBoundInStack());
+
+#ifdef DX_RENDER
+    // mFBO/mDepth stay 0 under DX_RENDER (no GL resources are ever created),
+    // so the GL preconditions below would misfire - check the real DX state.
+    mDXRenderTarget.shareDepthBuffer(target.mDXRenderTarget);
+    target.mUseDepth = mUseDepth;
+    return;
+#endif
 
     if (!mFBO || !target.mFBO)
     {
@@ -353,6 +478,22 @@ void LLRenderTarget::shareDepthBuffer(LLRenderTarget& target)
 
 void LLRenderTarget::release()
 {
+#ifdef DX_RENDER
+    llassert(!isBoundInStack());
+
+    // mUseDepth must be reset here - isComplete() returns
+    // `mDXRenderTarget.getNumColorAttachments() > 0 || mUseDepth`, so leaving
+    // it stale-true after release() makes isComplete() lie "still complete"
+    // even though the color texture is gone, and any caller gated on
+    // `if (!isComplete()) allocate(...)` never reallocates again.
+    mUseDepth = false;
+    mDXRenderTarget.release();
+    mTex.clear();
+    mInternalFormat.clear();
+    mResX = mResY = 0;
+    return;
+#endif
+
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DISPLAY;
     llassert(!isBoundInStack());
 
@@ -417,6 +558,7 @@ void LLRenderTarget::release()
     mResX = mResY = 0;
 }
 
+#ifndef DX_RENDER
 void LLRenderTarget::bindTarget()
 {
     LL_PROFILE_GPU_ZONE("bindTarget");
@@ -451,9 +593,30 @@ void LLRenderTarget::bindTarget()
     mPreviousRT = sBoundTarget;
     sBoundTarget = this;
 }
+#endif
+
+#ifdef DX_RENDER
+void LLRenderTarget::bindTarget(bool bind_depth, bool read_only_depth)
+{
+    llassert(!isBoundInStack());
+
+    // mFBO stays 0 under DX_RENDER (no GL FBO is ever created) - the
+    // mPreviousRT/sBoundTarget stack bookkeeping is shared/backend-agnostic
+    // (DXRenderTarget deliberately has no bind-stack of its own - see its
+    // header comment), so it's still updated here.
+    mDXRenderTarget.bindTarget(bind_depth, read_only_depth);
+    mPreviousRT = sBoundTarget;
+    sBoundTarget = this;
+}
+#endif
 
 void LLRenderTarget::clear(U32 mask_in)
 {
+#ifdef DX_RENDER
+    mDXRenderTarget.clear((mask_in & GL_COLOR_BUFFER_BIT) != 0, mUseDepth && (mask_in & GL_DEPTH_BUFFER_BIT) != 0);
+    return;
+#endif
+
     LL_PROFILE_GPU_ZONE("clear");
     llassert(mFBO);
     U32 mask = GL_COLOR_BUFFER_BIT;
@@ -477,6 +640,13 @@ void LLRenderTarget::clear(U32 mask_in)
         glClear(mask & mask_in);
     }
 }
+
+#ifdef DX_RENDER
+void LLRenderTarget::clearColor(float r, float g, float b, float a)
+{
+    mDXRenderTarget.clearColor(r, g, b, a);
+}
+#endif
 
 U32 LLRenderTarget::getTexture(U32 attachment) const
 {
@@ -502,6 +672,46 @@ void LLRenderTarget::bindTexture(U32 index, S32 channel, LLTexUnit::eTextureFilt
 
 void LLRenderTarget::flush()
 {
+#ifdef DX_RENDER
+    gDX.flush();
+
+    // Mip generation (mGenerateMipMaps == TMG_AUTO) has no DX_RENDER
+    // equivalent yet - matches DXTexture's "no mip chain" scoping; not
+    // exercised by the targets allocated with TMG_NONE.
+    llassert(sBoundTarget == this);
+
+    if (mPreviousRT)
+    {
+        // Restore previous render target in stack - shared/backend-agnostic
+        // bookkeeping (see bindTarget()'s comment).
+        sBoundTarget = mPreviousRT->mPreviousRT;
+        mPreviousRT->bindTarget();
+    }
+    else
+    {
+        sBoundTarget = nullptr;
+        DXRenderTarget::bindSwapChainBackBuffer();
+
+        // bindSwapChainBackBuffer() always sets a viewport covering the full
+        // swap chain, with no idea LLViewerWindow::mWorldViewRectRaw carves
+        // out a smaller area below the menu/location bar chrome - restore
+        // gDXViewport explicitly here, or any RT stack unwind to the back
+        // buffer mid-frame widens the live D3D11 viewport back to the full
+        // window. gDXViewport holds GL bottom-left coordinates (same
+        // convention as gGLViewport), so D3D11's top-left Y is the flip:
+        // TopLeftY = height - (y + h).
+        D3D11_VIEWPORT vp = {};
+        vp.TopLeftX = (float)gDXViewport[0];
+        vp.TopLeftY = (float)(gDXSwapChain.getHeight() - (gDXViewport[1] + gDXViewport[3]));
+        vp.Width = (float)gDXViewport[2];
+        vp.Height = (float)gDXViewport[3];
+        vp.MinDepth = 0.0f;
+        vp.MaxDepth = 1.0f;
+        gDXDevice.getContext()->RSSetViewports(1, &vp);
+    }
+    return;
+#endif
+
     LL_PROFILE_GPU_ZONE("rt flush");
     gGL.flush();
     llassert(mFBO);
@@ -537,6 +747,12 @@ void LLRenderTarget::flush()
 
 bool LLRenderTarget::isComplete() const
 {
+#ifdef DX_RENDER
+    // mTex/mDepth stay empty/0 under DX_RENDER (no GL resources are ever
+    // created) - check the real DX-side state instead.
+    return mDXRenderTarget.getNumColorAttachments() > 0 || mUseDepth;
+#endif
+
     return !mTex.empty() || mDepth;
 }
 
@@ -561,6 +777,25 @@ bool LLRenderTarget::isBoundInStack() const
 
 void LLRenderTarget::swapFBORefs(LLRenderTarget& other)
 {
+#ifdef DX_RENDER
+    // Preconditions: both unbound and compatible
+    llassert(!isBoundInStack() && !other.isBoundInStack());
+    llassert(mResX == other.mResX && mResY == other.mResY);
+    llassert(mUsage == other.mUsage);
+
+    // mFBO/mTex are vestigial GL-era fields, always 0/empty under DX_RENDER
+    // (see release()) - swapping only those would be a no-op on the real GPU
+    // resources. The actual D3D11 attachments live in mDXRenderTarget (real
+    // RTV/SRV/DSV pointers, no user-declared copy/move so std::swap exchanges
+    // them safely), so callers depending on this actually exchanging content
+    // need those swapped, not just the dead fields.
+    std::swap(mDXRenderTarget, other.mDXRenderTarget);
+    std::swap(mUseDepth, other.mUseDepth);
+    std::swap(mFBO, other.mFBO);
+    std::swap(mTex, other.mTex);
+    return;
+#endif
+
     // Must be initialized
     llassert(mFBO);
     llassert(other.mFBO);

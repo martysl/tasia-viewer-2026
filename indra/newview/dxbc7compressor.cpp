@@ -1,5 +1,15 @@
 #include "llviewerprecompiledheaders.h"
 
+// Everything below is an OpenCL compute kernel driven through KVOpenCL
+// (kvopencl.h), including the kernel source it hands to the runtime. This
+// tree carries no OpenCL at all - no kvopencl.*, no cmake/OpenCL.cmake, no CL
+// headers anywhere under indra/ - so guard on the wrapper's presence and
+// compile the translation unit empty instead of failing on the missing
+// include. Nothing calls DXBC7Compressor (BC7 upload needs OpenCL, see
+// TASK.md's donor-only list), so an empty object is a link no-op. It starts
+// building again, unchanged, the moment kvopencl.* is ported.
+#if __has_include("kvopencl.h")
+
 #include "dxbc7compressor.h"
 #include "kvopencl.h"
 #include "llerror.h"
@@ -436,3 +446,5 @@ DXBC7Compressor::CompressedMip DXBC7Compressor::encodeMip(const uint8_t* rgba8, 
 
     return result;
 }
+
+#endif

@@ -150,6 +150,47 @@ WLSky galactic band, constellation lines and shooting stars (donor-only sky
 feature, 7 errors); `DXBC7UploadManager` (46 errors, needs the excluded
 OpenCL block). All three are donor extras, not port regressions.
 
+#### Resolved in the 16-error sweep (`dxchecknewview.sh` now 10/10 OK)
+Each symbol below was judged by *does this tree have the feature*, not by *does
+the donor have the code*. The HLSL set landed by T2 is an asset drop and is
+**not** evidence that a feature exists — every "ported" entry below also has
+its CPU-side implementation, its settings key and its driver in this tree.
+
+**Ported** (real capability, half-present, finished additively under
+`#ifdef DX_RENDER`):
+
+| symbol | evidence the tree has it |
+|---|---|
+| `LLShaderMgr::LAST_PROJECTION_MATRIX`, `LLShaderMgr::DEFERRED_SSAO_HISTORY_MAP` | `LLPipeline::RenderDeferredSSAO` is stock (HEAD `pipeline.h:1091`); `mSSAOHistory` already allocated/released DX-only (`pipeline.cpp:1043-1055`); `temporalResolveSSAOF.hlsl` shipped by T2; the pass body was already written in `dxpipeline.cpp` |
+| `gDeferredTemporalResolveSSAOProgram` | same — declaration in `llviewershadermgr.h`, definition + `unload()` + registration (`deferred/blurLightV` + `deferred/temporalResolveSSAOF`) in `llviewershadermgr.cpp` |
+
+**Excluded** (donor-only; call site removed from a DX-only file, nothing stubbed):
+
+| symbol(s) | why it is donor-only |
+|---|---|
+| `LLViewerWindow::getMaskMode`, `MASK_MODE_LEFT/RIGHT` | the whole mask-mode concept is the donor's "S24 3D" feature and lives in `llviewerwindow.h:79-81,264-265,511` **plus** `llviewerdisplay.cpp` (the `render_anaglyph` state machine + stereo camera math, 13 references). This tree has zero of it outside the one call site, and `llviewerdisplay.cpp` is out of scope, so a ported `getMaskMode()` could only ever return `MASK_MODE_NONE` — a stub. Removed `getCurrentStereoEyeTarget()` and `presentFinal()`'s per-eye capture path |
+| `gStereoAnaglyphProgram`, `DXPipeline::presentStereoComposite()` | anaglyph has no driver here: its only caller in the donor is `llviewerdisplay.cpp:1506`, and there is no UI setting or camera math. Removed the definition; **`dxpipeline.h:86` still declares it** and that header was out of scope — a declared-but-undefined static member is legal and nothing calls it, but delete the declaration together with the rest of the stereo driver if 3D is ever ported |
+| `gDeferredGalacticBandProgram`, `LLVOWLSky::drawGalacticBandQuad` | `grep -rn -i 'galactic' indra/newview/llvowlsky.{h,cpp}` = 0 hits in this tree vs 113 in the donor; needs a procedural quad VB that only exists in the donor |
+| `gDeferredSkyLineProgram`, `LLVOWLSky::drawConstellationLines` | same — 0 hits in this tree's `llvowlsky.*`; no `RenderConstellationLines` setting |
+| `gDeferredStarShootingProgram`, `LLVOWLSky::updateShootingStars`/`drawShootingStars` | same — 0 hits; the shooting-star pool, geometry builder and `RenderShootingStar*` settings are all donor-only |
+| `kvopencl.h` (whole `dxbc7compressor.cpp`) | zero OpenCL anywhere: `find indra -iname 'kvopencl*' -o -iname 'cl.h' -o -iname 'opencl*'` = 0, `grep -rn ImageProcessor indra/` = 0, no `cmake/OpenCL.cmake`. Guarded the TU on `#if __has_include("kvopencl.h")` so it self-enables the day `kvopencl.*` is ported. `dxbc7uploadmanager.cpp` got the **same** guard: its only encoder is `DXBC7Compressor::encodeMip()`, so leaving it compiled would have left a dangling reference for the first real caller |
+
+Also stale-reference cleanups in the survivors (`dxdrawpoolwlsky.cpp`):
+`sStarDustIntensity`/`sGalacticNormalView`/`sBandUView`/`sBandVView` went with
+their only users, and four comments no longer mention shooting stars.
+
+**Verification:** `dxchecknewview.sh` 10/10 OK, `dxcheck.sh` 8/8 OK,
+`x86_64-w64-mingw32-g++ -fsyntax-only -DDX_RENDER=1` clean on
+`indra/llrender/llshadermgr.cpp`. With `-DDX_RENDER` **absent**, the
+preprocessed output of `llshadermgr.cpp` and `llviewershadermgr.cpp` is
+identical to HEAD (path/`__LINE__`-normalised), and the native Linux build is
+`BUILD_EXIT=0`. Zero deletions in any shared GL file.
+
+`llviewershadermgr.cpp` cannot be `-fsyntax-only` checked under mingw at all:
+`llversioninfo.h:103` needs the Windows-SDK-only `ADDRESS_SIZE` macro
+(`netmon.h`), which mingw-w64 lacks. Pre-existing, reproduces with
+`-DDX_RENDER=0`, and unrelated to these edits.
+
 ## Known accepted regressions
 
 - Tabular figures in `LLFontDX` — needs `EFontHinting` in shared GL font classes.
@@ -157,7 +198,13 @@ OpenCL block). All three are donor extras, not port regressions.
 - `LLTexUnit::bind(DXTexture&,…)` and `syncDXBindState()` not ported; no call site
   needs them yet.
 - **BC7 texture compression unavailable** — needs OpenCL, which this tree lacks.
+  Both BC7 newview TUs now compile to nothing under `#if __has_include("kvopencl.h")`.
 - **WLSky galactic band / constellations / shooting stars absent** — donor-only.
+  Call sites removed from `dxdrawpoolwlsky.cpp`; see T7e's table.
+- **S24 3D / anaglyph stereo absent** — donor-only. `LLViewerWindow::mMaskMode`,
+  `llviewerdisplay.cpp`'s `render_anaglyph` state machine and
+  `DXPipeline::presentStereoComposite()` are not ported. `LLPipeline::mStereoEyeL/R`
+  are still allocated DX-only (`pipeline.cpp`) for a driver that does not exist here.
 - **Scissor unimplemented under DX in both trees** — no `RSSetScissorRects`
   exists in donor or target; `DXStateCache.cpp` is byte-identical between them.
 - **Polygon-offset sign is a shared donor limitation** — `DXStateCache.cpp:179`

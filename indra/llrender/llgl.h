@@ -417,6 +417,24 @@ public:
 
 const U32 FENCE_WAIT_TIME_NANOSECONDS = 1000;  //1 ms
 
+#ifdef DX_RENDER
+// DX_RENDER's counterpart of glViewport(): records the requested rectangle in
+// gDXViewport and pushes it to D3D11.
+//
+// gDXViewport holds GL bottom-left-origin coordinates - the same convention
+// gGLViewport uses - so every DX_RENDER reader of it (LLViewerCamera's
+// pickMatrix/unProject, DXPipeline, dxdrawpoolwlsky's viewport width/height)
+// sees the same numbers GL would have had. The GL->D3D11 origin difference is
+// applied here, at the push, rather than baked into the stored array.
+//
+// flip_y is an explicit per-call-site decision because the two backends do not
+// agree uniformly: GL's world view rect (the smaller area below the UI chrome)
+// and its cube-face captures come out vertically mirrored, while a full-window
+// or full-render-target rectangle is flip-invariant either way (y==0,
+// h==target height). See DXContext::setViewport() for the flip itself.
+void llSetDXViewport(int x, int y, int width, int height, bool flip_y = false);
+#endif
+
 class LLGLFence
 {
 public:
