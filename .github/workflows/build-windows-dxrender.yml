@@ -135,7 +135,7 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_DIR=$(ls -d build-*/ | head -1)
-          cmake --build "${BUILD_DIR%/}" --config Release --target dxrender llrender -- -m
+          cmake --build "${BUILD_DIR%/}" --config Release --target dxrender llrender firestorm-bin -- -m
 
       - name: Report compiled objects
         shell: bash
@@ -143,3 +143,4 @@ jobs:
           set -euo pipefail
           BUILD_DIR=$(ls -d build-*/ | head -1)
           find "${BUILD_DIR}" -name 'DX*.obj' -o -name 'llhlslshader.obj' -o -name 'llimagedx.obj' | wc -l
+          test -f "${BUILD_DIR}/newview/Release/firestorm-bin.exe" && echo "viewer linked"
