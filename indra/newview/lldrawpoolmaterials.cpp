@@ -148,10 +148,20 @@ void LLDrawPoolMaterials::renderDeferred(S32 pass)
     F32 lastMinimumAlpha = 0.f;
     LLVector4 lastSpecular = LLVector4(0, 0, 0, 0);
 
+    #ifndef DX_RENDER
     GLint intensity = mShader->getUniformLocation(LLShaderMgr::ENVIRONMENT_INTENSITY);
     GLint brightness = mShader->getUniformLocation(LLShaderMgr::EMISSIVE_BRIGHTNESS);
     GLint minAlpha = mShader->getUniformLocation(LLShaderMgr::MINIMUM_ALPHA);
     GLint specular = mShader->getUniformLocation(LLShaderMgr::SPECULAR_COLOR);
+#else
+    // LLHLSLShader has no getUniformLocation(). Every raw glUniform*() call below
+    // is guarded on its location, so -1 disables them and leaves the body of the
+    // loop compiling unchanged.
+    GLint intensity = -1;
+    GLint brightness = -1;
+    GLint minAlpha = -1;
+    GLint specular = -1;
+#endif
 
     GLint diffuseChannel = mShader->enableTexture(LLShaderMgr::DIFFUSE_MAP);
     GLint specChannel = mShader->enableTexture(LLShaderMgr::SPECULAR_MAP);

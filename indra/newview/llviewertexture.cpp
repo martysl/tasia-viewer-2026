@@ -3227,7 +3227,7 @@ void LLViewerLODTexture::processTextureStats()
     }
 }
 
-extern LLGLSLShader gCopyProgram;
+extern LLViewerShaderProgram gCopyProgram;
 
 bool LLViewerLODTexture::scaleDown()
 {

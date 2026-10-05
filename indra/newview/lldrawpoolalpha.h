@@ -71,14 +71,14 @@ public:
     static bool sShowDebugAlphaRigged;
 
 private:
-    LLGLSLShader* target_shader;
+    LLViewerShaderProgram* target_shader;
 
     // setup by beginFooPass, [0] is static variant, [1] is rigged variant
-    LLGLSLShader* simple_shader = nullptr;
-    LLGLSLShader* fullbright_shader = nullptr;
-    LLGLSLShader* emissive_shader = nullptr;
-    LLGLSLShader* pbr_emissive_shader = nullptr;
-    LLGLSLShader* pbr_shader = nullptr;
+    LLViewerShaderProgram* simple_shader = nullptr;
+    LLViewerShaderProgram* fullbright_shader = nullptr;
+    LLViewerShaderProgram* emissive_shader = nullptr;
+    LLViewerShaderProgram* pbr_emissive_shader = nullptr;
+    LLViewerShaderProgram* pbr_shader = nullptr;
 
     void drawEmissive(LLDrawInfo* draw);
     void renderEmissives(std::vector<LLDrawInfo*>& emissives);

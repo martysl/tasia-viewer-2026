@@ -41,7 +41,7 @@
 #include "llenvironment.h"
 
 S32 LLDrawPoolTree::sDiffTex = 0;
-static LLGLSLShader* shader = NULL;
+static LLViewerShaderProgram* shader = NULL;
 
 LLDrawPoolTree::LLDrawPoolTree(LLViewerTexture *texturep) :
     LLFacePool(POOL_TREE),

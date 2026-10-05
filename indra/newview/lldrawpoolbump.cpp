@@ -38,6 +38,9 @@
 #include "llrender.h"
 
 #include "llcubemap.h"
+#ifdef DX_RENDER
+#include "DXCubeMap.h"
+#endif
 #include "lldrawable.h"
 #include "llface.h"
 #include "llsky.h"
@@ -71,7 +74,7 @@ const U32 VERTEX_MASK_BUMP = LLVertexBuffer::MAP_VERTEX |LLVertexBuffer::MAP_TEX
 U32 LLDrawPoolBump::sVertexMask = VERTEX_MASK_SHINY;
 
 
-static LLGLSLShader* shader = NULL;
+static LLViewerShaderProgram* shader = NULL;
 static S32 cube_channel = -1;
 static S32 diffuse_channel = -1;
 static S32 bump_channel = -1;
@@ -211,9 +214,9 @@ S32 LLDrawPoolBump::numBumpPasses()
 
 
 //static
-void LLDrawPoolBump::bindCubeMap(LLGLSLShader* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel)
+void LLDrawPoolBump::bindCubeMap(LLViewerShaderProgram* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel)
 {
-    LLCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
+    LLVOSkyCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
     if( cube_map && !LLPipeline::sReflectionProbesEnabled )
     {
         if (shader )
@@ -258,9 +261,9 @@ void LLDrawPoolBump::bindCubeMap(LLGLSLShader* shader, S32 shader_level, S32& di
 }
 
 //static
-void LLDrawPoolBump::unbindCubeMap(LLGLSLShader* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel)
+void LLDrawPoolBump::unbindCubeMap(LLViewerShaderProgram* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel)
 {
-    LLCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
+    LLVOSkyCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
     if( cube_map && !LLPipeline::sReflectionProbesEnabled)
     {
         if (shader_level > 1)
@@ -308,7 +311,7 @@ void LLDrawPoolBump::beginFullbrightShiny()
         gGL.getTexUnit(channel)->bind(&gPipeline.mExposureMap);
     }
 
-    LLCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
+    LLVOSkyCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
 
     if (cube_map && !LLPipeline::sReflectionProbesEnabled)
     {
@@ -389,7 +392,7 @@ void LLDrawPoolBump::endFullbrightShiny()
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DRAWPOOL; //LL_RECORD_BLOCK_TIME(FTM_RENDER_SHINY);
 
-    LLCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
+    LLVOSkyCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
     if( cube_map && !LLPipeline::sReflectionProbesEnabled )
     {
         cube_map->disable();
@@ -531,7 +534,7 @@ void LLDrawPoolBump::renderBump(U32 pass)
 //static
 void LLDrawPoolBump::endBump(U32 pass)
 {
-    LLGLSLShader::unbind();
+    LLViewerShaderProgram::unbind();
 
     gGL.setSceneBlendType(LLRender::BT_ALPHA);
 }
@@ -550,8 +553,8 @@ void LLDrawPoolBump::renderDeferred(S32 pass)
     {
         bool rigged = i == 1;
         gDeferredBumpProgram.bind(rigged);
-        diffuse_channel = LLGLSLShader::sCurBoundShaderPtr->enableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
-        bump_channel = LLGLSLShader::sCurBoundShaderPtr->enableTexture(LLViewerShaderMgr::BUMP_MAP);
+        diffuse_channel = LLViewerShaderProgram::sCurBoundShaderPtr->enableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
+        bump_channel = LLViewerShaderProgram::sCurBoundShaderPtr->enableTexture(LLViewerShaderMgr::BUMP_MAP);
         gGL.getTexUnit(diffuse_channel)->unbind(LLTexUnit::TT_TEXTURE);
         gGL.getTexUnit(bump_channel)->unbind(LLTexUnit::TT_TEXTURE);
 
@@ -569,7 +572,7 @@ void LLDrawPoolBump::renderDeferred(S32 pass)
 
             LLCullResult::increment_iterator(i, end);
 
-            LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(params.mAlphaMaskCutoff);
+            LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(params.mAlphaMaskCutoff);
             LLDrawPoolBump::bindBumpMap(params, bump_channel);
 
             if (rigged)
@@ -585,9 +588,9 @@ void LLDrawPoolBump::renderDeferred(S32 pass)
             }
         }
 
-        LLGLSLShader::sCurBoundShaderPtr->disableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
-        LLGLSLShader::sCurBoundShaderPtr->disableTexture(LLViewerShaderMgr::BUMP_MAP);
-        LLGLSLShader::sCurBoundShaderPtr->unbind();
+        LLViewerShaderProgram::sCurBoundShaderPtr->disableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
+        LLViewerShaderProgram::sCurBoundShaderPtr->disableTexture(LLViewerShaderMgr::BUMP_MAP);
+        LLViewerShaderProgram::sCurBoundShaderPtr->unbind();
         gGL.getTexUnit(0)->activate();
     }
 
@@ -927,7 +930,7 @@ void LLBumpImageList::onSourceUpdated(LLViewerTexture* src, EBumpEffect bump_cod
             LLGLDisable blend(GL_BLEND);
             gGL.setColorMask(true, true);
 
-            LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+            LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
             gNormalMapGenProgram.bind();
 
             static LLStaticHashedString sNormScale("norm_scale");

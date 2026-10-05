@@ -67,8 +67,8 @@ public:
     void renderBump(U32 pass = LLRenderPass::PASS_BUMP);
     void endBump(U32 pass = LLRenderPass::PASS_BUMP);
 
-    static void bindCubeMap(LLGLSLShader* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel);
-    static void unbindCubeMap(LLGLSLShader* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel);
+    static void bindCubeMap(LLViewerShaderProgram* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel);
+    static void unbindCubeMap(LLViewerShaderProgram* shader, S32 shader_level, S32& diffuse_channel, S32& cube_channel);
 
     virtual S32 getNumDeferredPasses() override;
     /*virtual*/ void renderDeferred(S32 pass) override;

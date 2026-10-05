@@ -57,7 +57,7 @@ int DebugDetailMap = 0;
 S32 LLDrawPoolTerrain::sPBRDetailMode = 0;
 F32 LLDrawPoolTerrain::sDetailScale = DETAIL_SCALE;
 F32 LLDrawPoolTerrain::sPBRDetailScale = DETAIL_SCALE;
-static LLGLSLShader* sShader = NULL;
+static LLViewerShaderProgram* sShader = NULL;
 static LLTrace::BlockTimerStatHandle FTM_SHADOW_TERRAIN("Terrain Shadow");
 
 
@@ -105,7 +105,7 @@ U32 LLDrawPoolTerrain::getVertexDataMask()
     {
         return LLVertexBuffer::MAP_VERTEX;
     }
-    else if (LLGLSLShader::sCurBoundShaderPtr)
+    else if (LLViewerShaderProgram::sCurBoundShaderPtr)
     {
         return VERTEX_DATA_MASK & ~(LLVertexBuffer::MAP_TEXCOORD2 | LLVertexBuffer::MAP_TEXCOORD3);
     }
@@ -275,7 +275,7 @@ void LLDrawPoolTerrain::renderFullShaderTextures()
     gGL.getTexUnit(detail0)->setTextureAddressMode(LLTexUnit::TAM_WRAP);
     gGL.getTexUnit(detail0)->activate();
 
-    LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
     llassert(shader);
 
     shader->uniform4fv(LLShaderMgr::OBJECT_PLANE_S, 1, tp0.mV);
@@ -455,7 +455,7 @@ void LLDrawPoolTerrain::renderFullShaderPBR(bool use_local_materials)
         }
     }
 
-    LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
     llassert(shader);
 
     // Like for PBR materials, PBR terrain texture transforms are defined by
@@ -642,7 +642,7 @@ void LLDrawPoolTerrain::renderFullShaderPBR(bool use_local_materials)
 void LLDrawPoolTerrain::hilightParcelOwners()
 {
     { //use fullbright shader for highlighting
-        LLGLSLShader* old_shader = sShader;
+        LLViewerShaderProgram* old_shader = sShader;
         sShader->unbind();
         sShader = &gDeferredHighlightProgram;
         sShader->bind();

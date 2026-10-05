@@ -121,7 +121,7 @@ typedef enum
     static S32 sDiffuseChannel;
     static F32 sMinimumAlpha;
 
-    static LLGLSLShader* sVertexProgram;
+    static LLViewerShaderProgram* sVertexProgram;
 };
 
 extern S32 AVATAR_OFFSET_POS;

@@ -63,7 +63,7 @@
 
 static U32 sShaderLevel = 0;
 
-LLGLSLShader* LLDrawPoolAvatar::sVertexProgram = NULL;
+LLViewerShaderProgram* LLDrawPoolAvatar::sVertexProgram = NULL;
 bool    LLDrawPoolAvatar::sSkipOpaque = false;
 bool    LLDrawPoolAvatar::sSkipTransparent = false;
 S32     LLDrawPoolAvatar::sShadowPass = -1;
@@ -305,12 +305,18 @@ void LLDrawPoolAvatar::beginShadowPass(S32 pass)
         sVertexProgram = &gDeferredAvatarAlphaShadowProgram;
 
         // bind diffuse tex so we can reference the alpha channel...
+#ifndef DX_RENDER
         S32 loc = sVertexProgram->getUniformLocation(LLViewerShaderMgr::DIFFUSE_MAP);
         sDiffuseChannel = 0;
         if (loc != -1)
         {
             sDiffuseChannel = sVertexProgram->enableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
         }
+#else
+        // LLHLSLShader has no getUniformLocation() to precheck, and DX has no
+        // notion of a uniform the program variant does not declare.
+        sDiffuseChannel = sVertexProgram->enableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
+#endif
 
         if ((sShaderLevel > 0))  // for hardware blending
         {
@@ -325,12 +331,18 @@ void LLDrawPoolAvatar::beginShadowPass(S32 pass)
         sVertexProgram = &gDeferredAvatarAlphaMaskShadowProgram;
 
         // bind diffuse tex so we can reference the alpha channel...
+#ifndef DX_RENDER
         S32 loc = sVertexProgram->getUniformLocation(LLViewerShaderMgr::DIFFUSE_MAP);
         sDiffuseChannel = 0;
         if (loc != -1)
         {
             sDiffuseChannel = sVertexProgram->enableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
         }
+#else
+        // LLHLSLShader has no getUniformLocation() to precheck, and DX has no
+        // notion of a uniform the program variant does not declare.
+        sDiffuseChannel = sVertexProgram->enableTexture(LLViewerShaderMgr::DIFFUSE_MAP);
+#endif
 
         if ((sShaderLevel > 0))  // for hardware blending
         {
@@ -721,7 +733,7 @@ void LLDrawPoolAvatar::renderAvatars(LLVOAvatar* single_avatar, S32 pass)
         LL_PROFILE_ZONE_NAMED_CATEGORY_AVATAR("render_hitbox");
 
         // load the debug output shader
-        LLGLSLShader* current_shader_program = LLGLSLShader::sCurBoundShaderPtr;
+        LLViewerShaderProgram* current_shader_program = LLViewerShaderProgram::sCurBoundShaderPtr;
         gDebugProgram.bind();
 
         // set up drawing mode and remove any textures used

@@ -37,6 +37,9 @@
 #include "lldrawable.h"
 #include "llface.h"
 #include "llcubemap.h"
+#ifdef DX_RENDER
+#include "DXCubeMap.h"
+#endif
 #include "lldrawpoolsky.h"
 #include "lldrawpoolwater.h"
 #include "llglheaders.h"
@@ -541,9 +544,13 @@ void LLVOSky::initCubeMap()
         images.push_back(mShinyTex[side].getImageRaw());
     }
 
-    if (!mCubeMap && gSavedSettings.getBOOL("RenderWater") && LLCubeMap::sUseCubeMaps)
+    if (!mCubeMap && gSavedSettings.getBOOL("RenderWater") && LLVOSkyCubeMap::sUseCubeMaps)
     {
+#ifdef DX_RENDER
+        mCubeMap = new DXCubeMap();
+#else
         mCubeMap = new LLCubeMap(false);
+#endif
     }
 
     if (mCubeMap)
@@ -564,7 +571,11 @@ void LLVOSky::cleanupGL()
     }
     if (getCubeMap())
     {
+#ifdef DX_RENDER
+        getCubeMap()->destroy();
+#else
         getCubeMap()->destroyGL();
+#endif
     }
 }
 

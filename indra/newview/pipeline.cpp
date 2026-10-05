@@ -97,6 +97,9 @@
 #include "llvopartgroup.h"
 #include "llworld.h"
 #include "llcubemap.h"
+#ifdef DX_RENDER
+#include "DXCubeMap.h"
+#endif
 #include "llviewershadermgr.h"
 #include "llviewerstats.h"
 #include "llviewerjoystick.h"
@@ -1661,7 +1664,7 @@ void LLPipeline::createLUTBuffers()
     if (gDeferredGenBrdfLutProgram.isComplete())
     {
         gDeferredGenBrdfLutProgram.bind();
-        llassert_always(LLGLSLShader::sCurBoundShaderPtr != nullptr);
+        llassert_always(LLViewerShaderProgram::sCurBoundShaderPtr != nullptr);
 
         gGL.begin(LLRender::TRIANGLE_STRIP);
         gGL.vertex2f(-1, -1);
@@ -4113,7 +4116,7 @@ void render_hud_elements()
     gUIProgram.unbind();
 }
 
-static inline void bindHighlightProgram(LLGLSLShader& program)
+static inline void bindHighlightProgram(LLViewerShaderProgram& program)
 {
     if ((LLViewerShaderMgr::instance()->getShaderLevel(LLViewerShaderMgr::SHADER_INTERFACE) > 0))
     {
@@ -4122,7 +4125,7 @@ static inline void bindHighlightProgram(LLGLSLShader& program)
     }
 }
 
-static inline void unbindHighlightProgram(LLGLSLShader& program)
+static inline void unbindHighlightProgram(LLViewerShaderProgram& program)
 {
     if (LLViewerShaderMgr::instance()->getShaderLevel(LLViewerShaderMgr::SHADER_INTERFACE) > 0)
     {
@@ -4249,7 +4252,7 @@ void LLPipeline::renderGeomDeferred(LLCamera& camera, bool do_occlusion)
         gGLInverseDeltaModelView = n;
     }
 
-    bool occlude = LLPipeline::sUseOcclusion > 1 && do_occlusion && !LLGLSLShader::sProfileEnabled;
+    bool occlude = LLPipeline::sUseOcclusion > 1 && do_occlusion && !LLViewerShaderProgram::sProfileEnabled;
 
     setupHWLights();
 
@@ -4636,7 +4639,7 @@ void LLPipeline::renderSnapshotGuidesOverlay()
     LLGLEnable blend(GL_BLEND);
     gGL.setSceneBlendType(LLRender::BT_ALPHA);
 
-    LLGLSLShader* ui_shader = &gUIProgram;
+    LLViewerShaderProgram* ui_shader = &gUIProgram;
     ui_shader->bind();
 
     if (!LLViewerFetchedTexture::sWhiteImagep.isNull())
@@ -7539,17 +7542,17 @@ void LLPipeline::renderAlphaObjects(bool rigged)
             if (pparams->mGLTFMaterial)
             {
                 gDeferredShadowGLTFAlphaBlendProgram.bind(rigged);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
-                LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
+                LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
                 LLRenderPass::pushRiggedGLTFBatch(*pparams, lastAvatarGLTF, lastMeshIdGLTF, skipLastSkinGLTF);
             }
             else
             {
                 gDeferredShadowAlphaMaskProgram.bind(rigged);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
-                LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
+                LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
                 if (mSimplePool->uploadMatrixPalette(pparams->mAvatar, pparams->mSkinInfo, lastAvatar, lastMeshId, skipLastSkin))
                 {
                     mSimplePool->pushBatch(*pparams, true, true);
@@ -7561,17 +7564,17 @@ void LLPipeline::renderAlphaObjects(bool rigged)
             if (pparams->mGLTFMaterial)
             {
                 gDeferredShadowGLTFAlphaBlendProgram.bind(rigged);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
-                LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
+                LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
                 LLRenderPass::pushGLTFBatch(*pparams);
             }
             else
             {
                 gDeferredShadowAlphaMaskProgram.bind(rigged);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
-                LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
+                LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
                 mSimplePool->pushBatch(*pparams, true, true);
             }
         }
@@ -7766,7 +7769,7 @@ void LLPipeline::generateExposure(LLRenderTarget* src, LLRenderTarget* dst, bool
 
         LLGLDepthTest depth(GL_FALSE, GL_FALSE);
 
-        LLGLSLShader* shader;
+        LLViewerShaderProgram* shader;
         if (use_history)
         {
             shader = &gExposureProgram;
@@ -7877,7 +7880,7 @@ void LLPipeline::tonemap(LLRenderTarget* src, LLRenderTarget* dst, bool gamma_co
         LLSettingsSky::ptr_t psky = LLEnvironment::instance().getCurrentSky();
 
         bool no_post = gSnapshotNoPost || psky->getReflectionProbeAmbiance(should_auto_adjust) == 0.f || (buildNoPost && gFloaterTools && gFloaterTools->isAvailable());
-        LLGLSLShader* shader = nullptr;
+        LLViewerShaderProgram* shader = nullptr;
         if(gamma_correct)
         {
             bool legacy_gamma = psky->getReflectionProbeAmbiance(should_auto_adjust) == 0.f;
@@ -7941,7 +7944,7 @@ void LLPipeline::gammaCorrect(LLRenderTarget* src, LLRenderTarget* dst)
         static LLCachedControl<bool> should_auto_adjust(gSavedSettings, "RenderSkyAutoAdjustLegacy", false);
 
         LLSettingsSky::ptr_t psky = LLEnvironment::instance().getCurrentSky();
-        LLGLSLShader& shader = psky->getReflectionProbeAmbiance(should_auto_adjust) == 0.f ? gLegacyPostGammaCorrectProgram :
+        LLViewerShaderProgram& shader = psky->getReflectionProbeAmbiance(should_auto_adjust) == 0.f ? gLegacyPostGammaCorrectProgram :
             gDeferredPostGammaCorrectProgram;
 
         shader.bind();
@@ -8103,7 +8106,7 @@ void LLPipeline::applyCAS(LLRenderTarget* src, LLRenderTarget* dst)
         return;
     }
 
-    LLGLSLShader* sharpen_shader = &gCASProgram;
+    LLViewerShaderProgram* sharpen_shader = &gCASProgram;
     static LLCachedControl<bool> should_auto_adjust(gSavedSettings, "RenderSkyAutoAdjustLegacy", false);
 
     LLSettingsSky::ptr_t psky = LLEnvironment::instance().getCurrentSky();
@@ -8165,7 +8168,7 @@ void LLPipeline::applyFXAA(LLRenderTarget* src, LLRenderTarget* dst)
             mFXAAMap.bindTarget();
             mFXAAMap.clear(GL_COLOR_BUFFER_BIT);
 
-            LLGLSLShader* shader = &gGlowCombineFXAAProgram;
+            LLViewerShaderProgram* shader = &gGlowCombineFXAAProgram;
             shader->bind();
 
             S32 channel = shader->enableTexture(LLShaderMgr::DEFERRED_DIFFUSE, src->getUsage());
@@ -8259,7 +8262,7 @@ void LLPipeline::generateSMAABuffers(LLRenderTarget* src)
 
             // Bind setup:
             LLRenderTarget& dest = mFXAAMap;
-            LLGLSLShader& edge_shader = gSMAAEdgeDetectProgram[fsaa_quality];
+            LLViewerShaderProgram& edge_shader = gSMAAEdgeDetectProgram[fsaa_quality];
 
             dest.bindTarget();
             dest.clear(GL_COLOR_BUFFER_BIT);
@@ -8302,7 +8305,7 @@ void LLPipeline::generateSMAABuffers(LLRenderTarget* src)
 
             // Bind setup:
             LLRenderTarget& dest = mSMAABlendBuffer;
-            LLGLSLShader& blend_weights_shader = gSMAABlendWeightsProgram[fsaa_quality];
+            LLViewerShaderProgram& blend_weights_shader = gSMAABlendWeightsProgram[fsaa_quality];
 
             dest.bindTarget();
             dest.clear(GL_COLOR_BUFFER_BIT);
@@ -8378,7 +8381,7 @@ void LLPipeline::applySMAA(LLRenderTarget* src, LLRenderTarget* dst)
 
             // Bind setup:
             LLRenderTarget* bound_target = dst;
-            LLGLSLShader& blend_shader = gSMAANeighborhoodBlendProgram[fsaa_quality];
+            LLViewerShaderProgram& blend_shader = gSMAANeighborhoodBlendProgram[fsaa_quality];
 
             bound_target->bindTarget();
             bound_target->clear(GL_COLOR_BUFFER_BIT);
@@ -8463,7 +8466,7 @@ bool LLPipeline::renderVignette(LLRenderTarget* src, LLRenderTarget* dst)
     {
         LL_PROFILE_GPU_ZONE("Vignette");
         dst->bindTarget();
-        LLGLSLShader *shader = &gPostVignetteProgram;
+        LLViewerShaderProgram *shader = &gPostVignetteProgram;
 
         // bind the progam and output to screentriangle VBO
         shader->bind();
@@ -8633,7 +8636,7 @@ bool LLPipeline::renderSnapshotFrame(LLRenderTarget* src, LLRenderTarget* dst)
     }
     LL_PROFILE_GPU_ZONE("Snapshot Frame");
     dst->bindTarget();
-    LLGLSLShader *shader = &gPostSnapshotFrameProgram;
+    LLViewerShaderProgram *shader = &gPostSnapshotFrameProgram;
 
     // bind the program and output to screentriangle VBO
     shader->bind();
@@ -9291,7 +9294,7 @@ void LLPipeline::bindDeferredShader(LLViewerShaderProgram& shader, LLRenderTarge
         channel = shader.enableTexture(LLShaderMgr::ENVIRONMENT_MAP, LLTexUnit::TT_CUBE_MAP);
         if (channel > -1)
         {
-            LLCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
+            LLVOSkyCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
             if (cube_map)
             {
                 cube_map->enable(channel);
@@ -10254,7 +10257,7 @@ void LLPipeline::unbindDeferredShader(LLViewerShaderProgram &shader)
         S32 channel = shader.disableTexture(LLShaderMgr::ENVIRONMENT_MAP, LLTexUnit::TT_CUBE_MAP);
         if (channel > -1)
         {
-            LLCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
+            LLVOSkyCubeMap* cube_map = gSky.mVOSkyp ? gSky.mVOSkyp->getCubeMap() : NULL;
             if (cube_map)
             {
                 cube_map->disable();
@@ -10540,8 +10543,8 @@ void LLPipeline::renderShadow(const glm::mat4& view, const glm::mat4& proj, LLCa
                 LL_PROFILE_ZONE_NAMED_CATEGORY_PIPELINE("shadow alpha masked");
                 LL_PROFILE_GPU_ZONE("shadow alpha masked");
                 gDeferredShadowAlphaMaskProgram.bind(rigged);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
                 renderMaskedObjects(LLRenderPass::PASS_ALPHA_MASK, true, true, rigged);
             }
 
@@ -10555,8 +10558,8 @@ void LLPipeline::renderShadow(const glm::mat4& view, const glm::mat4& proj, LLCa
                 LL_PROFILE_ZONE_NAMED_CATEGORY_PIPELINE("shadow fullbright alpha masked");
                 LL_PROFILE_GPU_ZONE("shadow alpha masked");
                 gDeferredShadowFullbrightAlphaMaskProgram.bind(rigged);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
-                LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
                 renderFullbrightMaskedObjects(LLRenderPass::PASS_FULLBRIGHT_ALPHA_MASK, true, true, rigged);
             }
 
@@ -10564,7 +10567,7 @@ void LLPipeline::renderShadow(const glm::mat4& view, const glm::mat4& proj, LLCa
                 LL_PROFILE_ZONE_NAMED_CATEGORY_PIPELINE("shadow alpha grass");
                 LL_PROFILE_GPU_ZONE("shadow alpha grass");
                 gDeferredTreeShadowProgram.bind(rigged);
-                LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
+                LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(ALPHA_BLEND_CUTOFF);
 
                 if (i == 0)
                 {
@@ -10586,8 +10589,8 @@ void LLPipeline::renderShadow(const glm::mat4& view, const glm::mat4& proj, LLCa
         {
             bool rigged = i == 1;
             gDeferredShadowGLTFAlphaMaskProgram.bind(rigged);
-            LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
-            LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
+            LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::SUN_UP_FACTOR, sun_up);
+            LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::DEFERRED_SHADOW_TARGET_WIDTH, (float)target_width);
 
             gGL.loadMatrix(gGLModelView);
             gGLLastMatrix = NULL;
@@ -11681,7 +11684,7 @@ void LLPipeline::profileAvatar(LLVOAvatar* avatar, bool profile_attachments)
     // don't continue to profile an avatar that is known to be too slow
     llassert(!avatar->isTooSlow());
 
-    LLGLSLShader* cur_shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* cur_shader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
     mRT->deferredScreen.bindTarget();
     mRT->deferredScreen.clear();

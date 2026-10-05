@@ -191,7 +191,7 @@ void LLDrawPoolWater::renderPostDeferred(S32 pass)
 
     LLColor4      specular(sun_up ? psky->getSunlightColor() : psky->getMoonlightColor());
     F32           phase_time = (F32) LLFrameTimer::getElapsedSeconds() * 0.5f;
-    LLGLSLShader *shader     = nullptr;
+    LLViewerShaderProgram *shader     = nullptr;
 
     // One pass, one of two shaders.  Void water and region water share state.
     // There isn't a good reason anymore to really have void water run in a separate pass.

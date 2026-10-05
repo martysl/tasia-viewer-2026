@@ -1050,7 +1050,7 @@ F32 gpu_benchmark()
         return -1.f;
     }
 
-    if (gBenchmarkProgram.mProgramObject == 0)
+    if (!gBenchmarkProgram.isComplete())
     {
         LLViewerShaderMgr::instance()->initAttribsAndUniforms();
 

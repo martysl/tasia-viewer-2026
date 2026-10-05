@@ -45,7 +45,7 @@ static LLTrace::BlockTimerStatHandle FTM_RENDER_GRASS_DEFERRED("Deferred Grass")
 void LLDrawPoolGlow::renderPostDeferred(S32 pass)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DRAWPOOL;
-    LLGLSLShader* shader = &gDeferredEmissiveProgram;
+    LLViewerShaderProgram* shader = &gDeferredEmissiveProgram;
 
     LLGLEnable blend(GL_BLEND);
     gGL.flush();
@@ -116,7 +116,7 @@ static LLTrace::BlockTimerStatHandle FTM_RENDER_ALPHA_MASK_DEFERRED("Deferred Al
 void LLDrawPoolAlphaMask::renderDeferred(S32 pass)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DRAWPOOL; //LL_RECORD_BLOCK_TIME(FTM_RENDER_ALPHA_MASK_DEFERRED);
-    LLGLSLShader* shader = &gDeferredDiffuseAlphaMaskProgram;
+    LLViewerShaderProgram* shader = &gDeferredDiffuseAlphaMaskProgram;
 
     //render static
     shader->bind();
@@ -157,7 +157,7 @@ void LLDrawPoolFullbright::renderPostDeferred(S32 pass)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_DRAWPOOL; //LL_RECORD_BLOCK_TIME(FTM_RENDER_FULLBRIGHT);
 
-    LLGLSLShader* shader = nullptr;
+    LLViewerShaderProgram* shader = nullptr;
     if (LLPipeline::sRenderingHUDs)
     {
         shader = &gHUDFullbrightProgram;
@@ -189,7 +189,7 @@ void LLDrawPoolFullbrightAlphaMask::renderPostDeferred(S32 pass)
     LL::GLTFSceneManager::instance().render(true, false, true);
     LL::GLTFSceneManager::instance().render(true, true, true);
 
-    LLGLSLShader* shader = nullptr;
+    LLViewerShaderProgram* shader = nullptr;
     if (LLPipeline::sRenderingHUDs)
     {
         shader = &gHUDFullbrightAlphaMaskProgram;

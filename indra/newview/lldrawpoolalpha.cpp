@@ -56,7 +56,7 @@
 bool LLDrawPoolAlpha::sShowDebugAlpha = false;
 bool LLDrawPoolAlpha::sShowDebugAlphaRigged = false;
 
-#define current_shader (LLGLSLShader::sCurBoundShaderPtr)
+#define current_shader (LLViewerShaderProgram::sCurBoundShaderPtr)
 
 LLVector4 LLDrawPoolAlpha::sWaterPlane;
 
@@ -90,7 +90,7 @@ S32 LLDrawPoolAlpha::getNumPostDeferredPasses()
 }
 
 // set some common parameters on the given shader to prepare for alpha rendering
-static void prepare_alpha_shader(LLGLSLShader* shader, bool deferredEnvironment, F32 water_sign)
+static void prepare_alpha_shader(LLViewerShaderProgram* shader, bool deferredEnvironment, F32 water_sign)
 {
     static LLCachedControl<F32> displayGamma(gSavedSettings, "RenderDeferredDisplayGamma");
     F32 gamma = displayGamma;
@@ -183,7 +183,7 @@ void LLDrawPoolAlpha::renderPostDeferred(S32 pass)
 
     prepare_alpha_shader(simple_shader, true, water_sign); //prime simple shader (loads shadow relevant uniforms)
 
-    LLGLSLShader* materialShader = gDeferredMaterialProgram;
+    LLViewerShaderProgram* materialShader = gDeferredMaterialProgram;
     for (int i = 0; i < LLMaterial::SHADER_COUNT*2; ++i)
     {
         prepare_alpha_shader(&materialShader[i], true, water_sign);
@@ -197,7 +197,7 @@ void LLDrawPoolAlpha::renderPostDeferred(S32 pass)
 
     // explicitly unbind here so render loop doesn't make assumptions about the last shader
     // already being setup for rendering
-    LLGLSLShader::unbind();
+    LLViewerShaderProgram::unbind();
 
     if (!LLPipeline::sRenderingHUDs)
     {
@@ -325,7 +325,7 @@ void LLDrawPoolAlpha::renderDebugAlpha()
         // <FS:Beq> FIRE-32132 et al. Allow rigged mesh transparency highlights to be toggled
         }
         // </FS:Beq>
-        LLGLSLShader::sCurBoundShaderPtr->unbind();
+        LLViewerShaderProgram::sCurBoundShaderPtr->unbind();
     }
 }
 
@@ -500,7 +500,7 @@ void LLDrawPoolAlpha::RestoreTexSetup(bool tex_setup)
 
 void LLDrawPoolAlpha::drawEmissive(LLDrawInfo* draw)
 {
-    LLGLSLShader::sCurBoundShaderPtr->uniform1f(LLShaderMgr::EMISSIVE_BRIGHTNESS, 1.f);
+    LLViewerShaderProgram::sCurBoundShaderPtr->uniform1f(LLShaderMgr::EMISSIVE_BRIGHTNESS, 1.f);
     draw->mVertexBuffer->setBuffer();
     draw->mVertexBuffer->drawRange(LLRender::TRIANGLES, draw->mStart, draw->mEnd, draw->mCount, draw->mOffset);
 }
@@ -536,7 +536,7 @@ void LLDrawPoolAlpha::renderPbrEmissives(std::vector<LLDrawInfo*>& emissives)
 void LLDrawPoolAlpha::renderRiggedEmissives(std::vector<LLDrawInfo*>& emissives)
 {
     LLGLDepthTest depth(GL_TRUE, GL_FALSE); //disable depth writes since "emissive" is additive so sorting doesn't matter
-    LLGLSLShader* shader = emissive_shader->mRiggedVariant;
+    LLViewerShaderProgram* shader = emissive_shader->mRiggedVariant;
     shader->bind();
     shader->uniform1f(LLShaderMgr::EMISSIVE_BRIGHTNESS, 1.f);
 
@@ -588,7 +588,7 @@ void LLDrawPoolAlpha::renderAlpha(U32 mask, bool depth_only, bool rigged)
 
     const LLVOAvatar* lastAvatar = nullptr;
     U64 lastMeshId = 0;
-    const LLGLSLShader* lastAvatarShader = nullptr;
+    const LLViewerShaderProgram* lastAvatarShader = nullptr;
     bool skipLastSkin = false;
 
     LLCullResult::sg_iterator begin;
@@ -867,7 +867,7 @@ void LLDrawPoolAlpha::renderAlpha(U32 mask, bool depth_only, bool rigged)
                 gGL.blendFunc(LLRender::BF_ZERO, LLRender::BF_ONE, LLRender::BF_ONE, LLRender::BF_ONE);
 
                 bool rebind = false;
-                LLGLSLShader* lastShader = current_shader;
+                LLViewerShaderProgram* lastShader = current_shader;
                 if (!emissives.empty())
                 {
                     light_enabled = true;

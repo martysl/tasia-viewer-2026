@@ -192,10 +192,17 @@ public:
     const LLVector3* corners() const;
 };
 
+// Same one-class-per-backend alias llviewershadermgr.h declares for the
+// shader program classes, repeated here so consumers of getCubeMap() below can
+// stay backend-agnostic without including the DX cubemap header. With DX_RENDER
+// off this typedef expands to LLCubeMap, so the GL build sees exactly what it
+// saw before.
 #ifdef DX_RENDER
 class DXCubeMap;
+typedef DXCubeMap LLVOSkyCubeMap;
 #else
 class LLCubeMap;
+typedef LLCubeMap LLVOSkyCubeMap;
 #endif
 
 class LLVOSky : public LLStaticViewerObject
@@ -266,11 +273,7 @@ public:
     const LLVector3 &getCameraPosAgent() const          { return mCameraPosAgent; }
     LLVector3 getEarthCenter() const                    { return mEarthCenter; }
 
-#ifdef DX_RENDER
-    DXCubeMap *getCubeMap() const                       { return mCubeMap; }
-#else
-    LLCubeMap *getCubeMap() const                       { return mCubeMap; }
-#endif
+    LLVOSkyCubeMap *getCubeMap() const                { return mCubeMap; }
     S32 getDrawRefl() const                             { return mDrawRefl; }
     void setDrawRefl(const S32 r)                       { mDrawRefl = r; }
     bool isReflFace(const LLFace* face) const           { return face == mFace[FACE_REFLECTION]; }
@@ -355,11 +358,7 @@ protected:
     F32                 mInterpVal;
     F32                 mWorldScale;
 
-#ifdef DX_RENDER
-    LLPointer<DXCubeMap> mCubeMap;                  // Cube map for the environment
-#else
-    LLPointer<LLCubeMap> mCubeMap;                  // Cube map for the environment
-#endif
+    LLPointer<LLVOSkyCubeMap> mCubeMap;              // Cube map for the environment
     S32                  mDrawRefl;
 
     LLFrameTimer        mUpdateTimer;

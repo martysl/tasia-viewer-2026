@@ -36,7 +36,7 @@ class LLDrawPoolSky : public LLFacePool
 {
 private:
     LLSkyTex            *mSkyTex;
-    LLGLSLShader        *mShader;
+    LLViewerShaderProgram  *mShader;
 
 public:
     enum

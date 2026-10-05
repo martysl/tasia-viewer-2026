@@ -296,7 +296,7 @@ ERlvCmdRet RlvSphereEffect::onValueMaxChanged(const LLUUID& idRlvObj, const boos
     return RLV_RET_SUCCESS;
 }
 
-void RlvSphereEffect::setShaderUniforms(LLGLSLShader* pShader)
+void RlvSphereEffect::setShaderUniforms(LLViewerShaderProgram* pShader)
 {
     pShader->uniform2f(LLShaderMgr::DEFERRED_SCREEN_RES, (GLfloat)gPipeline.mRT->screen.getWidth(), (GLfloat)gPipeline.mRT->screen.getHeight());
     pShader->uniform1i(LLShaderMgr::RLV_EFFECT_MODE, llclamp((int)m_eMode, 0, (int)ESphereMode::Count));
@@ -331,7 +331,7 @@ void RlvSphereEffect::setShaderUniforms(LLGLSLShader* pShader)
     pShader->uniform4fv(LLShaderMgr::RLV_EFFECT_PARAM4, 1, glm::value_ptr(effectParams));
 }
 
-void RlvSphereEffect::renderPass(LLGLSLShader* pShader, const LLShaderEffectParams* pParams) const
+void RlvSphereEffect::renderPass(LLViewerShaderProgram* pShader, const LLShaderEffectParams* pParams) const
 {
     if (pParams->m_pDstBuffer)
     {

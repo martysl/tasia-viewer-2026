@@ -74,7 +74,7 @@ U32 LLViewerTextureList::sNumFastCacheReads = 0;
 
 LLViewerTextureList gTextureList;
 
-extern LLGLSLShader gCopyProgram;
+extern LLViewerShaderProgram gCopyProgram;
 
 ETexListType get_element_type(S32 priority)
 {

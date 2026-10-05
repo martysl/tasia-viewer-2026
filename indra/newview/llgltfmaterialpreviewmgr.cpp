@@ -380,7 +380,7 @@ PreviewSphere& get_preview_sphere(LLPointer<LLFetchedGLTFMaterial>& material, co
 }
 
 // Final, direct modifications to shader constants, just before render
-void fixup_shader_constants(LLGLSLShader& shader)
+void fixup_shader_constants(LLViewerShaderProgram& shader)
 {
     // Sunlight intensity of 0 no matter what
     shader.uniform1i(LLShaderMgr::SUN_UP_FACTOR, 1);
@@ -502,7 +502,7 @@ bool LLGLTFPreviewTexture::render()
         screen.bindTarget();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        LLGLSLShader& shader = gDeferredPBRAlphaProgram;
+        LLViewerShaderProgram& shader = gDeferredPBRAlphaProgram;
 
         gPipeline.bindDeferredShader(shader);
         fixup_shader_constants(shader);

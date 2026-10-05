@@ -2139,8 +2139,8 @@ void renderNormals(LLDrawable *drawablep)
         else if (drawable_faces)
         {
             // *HACK: Prepare to restore previous shader as other debug code depends on a simpler shader being present
-            llassert(LLGLSLShader::sCurBoundShaderPtr == &gDebugProgram);
-            LLGLSLShader* prev_shader = LLGLSLShader::sCurBoundShaderPtr;
+            llassert(LLViewerShaderProgram::sCurBoundShaderPtr == &gDebugProgram);
+            LLViewerShaderProgram* prev_shader = LLViewerShaderProgram::sCurBoundShaderPtr;
             for (auto it = drawable_faces->begin(); it != drawable_faces->end(); ++it)
             {
                 LLFace* facep = *it;
@@ -2150,7 +2150,7 @@ void renderNormals(LLDrawable *drawablep)
                 U32 mask_vn = LLVertexBuffer::TYPE_VERTEX | LLVertexBuffer::TYPE_NORMAL;
                 if ((buf->getTypeMask() & mask_vn) != mask_vn) { continue; }
 
-                LLGLSLShader* shader;
+                LLViewerShaderProgram* shader;
                 if ((buf->getTypeMask() & LLVertexBuffer::TYPE_TANGENT) != LLVertexBuffer::TYPE_TANGENT)
                 {
                     shader = &gNormalDebugProgram[NORMAL_DEBUG_SHADER_DEFAULT];
@@ -2777,7 +2777,7 @@ void renderBatchSize(LLDrawInfo* params)
 {
     LLGLEnable offset(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(-1.f, 1.f);
-    LLGLSLShader* old_shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* old_shader = LLViewerShaderProgram::sCurBoundShaderPtr;
     bool bind = false;
     if (params->mAvatar)
     {

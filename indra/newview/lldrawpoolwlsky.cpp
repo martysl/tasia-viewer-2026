@@ -50,10 +50,10 @@ extern bool gCubeSnapshot;
 static LLStaticHashedString sCamPosLocal("camPosLocal");
 static LLStaticHashedString sCustomAlpha("custom_alpha");
 
-static LLGLSLShader* cloud_shader = NULL;
-static LLGLSLShader* sky_shader   = NULL;
-static LLGLSLShader* sun_shader   = NULL;
-static LLGLSLShader* moon_shader  = NULL;
+static LLViewerShaderProgram* cloud_shader = NULL;
+static LLViewerShaderProgram* sky_shader   = NULL;
+static LLViewerShaderProgram* sun_shader   = NULL;
+static LLViewerShaderProgram* moon_shader  = NULL;
 
 static float sStarTime;
 
@@ -92,7 +92,7 @@ void LLDrawPoolWLSky::endDeferredPass(S32 pass)
     glClear(GL_DEPTH_BUFFER_BIT);
 }
 
-void LLDrawPoolWLSky::renderDome(const LLVector3& camPosLocal, F32 camHeightLocal, LLGLSLShader * shader) const
+void LLDrawPoolWLSky::renderDome(const LLVector3& camPosLocal, F32 camHeightLocal, LLViewerShaderProgram * shader) const
 {
     llassert_always(NULL != shader);
 
@@ -287,7 +287,7 @@ void LLDrawPoolWLSky::renderStarsDeferred(const LLVector3& camPosLocal) const
     gGL.popMatrix();
 }
 
-void LLDrawPoolWLSky::renderSkyCloudsDeferred(const LLVector3& camPosLocal, F32 camHeightLocal, LLGLSLShader* cloudshader) const
+void LLDrawPoolWLSky::renderSkyCloudsDeferred(const LLVector3& camPosLocal, F32 camHeightLocal, LLViewerShaderProgram* cloudshader) const
 {
     if (use_hdri_sky())
     {

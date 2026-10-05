@@ -150,7 +150,7 @@ bool LLTerrainPaintMap::bakeHeightNoiseIntoPBRPaintMapRGB(const LLViewerRegion& 
     const U32 ni = 6 * (vert_size - 1) * (vert_size - 1);
     const U32 region_vertices = n * patch_count * patch_count;
     const U32 region_indices = ni * patch_count * patch_count;
-    if (LLGLSLShader::sCurBoundShaderPtr == nullptr)
+    if (LLViewerShaderProgram::sCurBoundShaderPtr == nullptr)
     { // make sure a shader is bound to satisfy mVertexBuffer->setBuffer
         gDebugProgram.bind();
     }
@@ -224,11 +224,11 @@ bool LLTerrainPaintMap::bakeHeightNoiseIntoPBRPaintMapRGB(const LLViewerRegion& 
     // Draw the region in agent space at full resolution
     {
 
-        LLGLSLShader::unbind();
+        LLViewerShaderProgram::unbind();
         // *NOTE: A theoretical non-PBR terrain bake program would be
         // *slightly* different, due the texture terrain shader not having an
         // alpha ramp threshold (TERRAIN_RAMP_MIX_THRESHOLD)
-        LLGLSLShader& shader = gPBRTerrainBakeProgram;
+        LLViewerShaderProgram& shader = gPBRTerrainBakeProgram;
         shader.bind();
 
         LLGLDisable stencil(GL_STENCIL_TEST);
@@ -280,7 +280,7 @@ bool LLTerrainPaintMap::bakeHeightNoiseIntoPBRPaintMapRGB(const LLViewerRegion& 
 
     scratch_target.flush();
 
-    LLGLSLShader::unbind();
+    LLViewerShaderProgram::unbind();
 
     return success;
 }
