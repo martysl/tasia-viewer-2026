@@ -1720,7 +1720,7 @@ void LLModelPreview::genGlodLODs(S32 which_lod, U32 decimation, bool enforce_tri
 
     LLVertexBuffer::unbind();
 
-    LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
     if (shader)
     {
@@ -5053,7 +5053,7 @@ bool LLModelPreview::render()
 
             if (show_joint_positions)
             {
-                LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+                LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
                 if (shader)
                 {
                     gDebugProgram.bind();

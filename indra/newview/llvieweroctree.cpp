@@ -1239,7 +1239,7 @@ void LLOcclusionCullingGroup::doOcclusion(LLCamera* camera, const LLVector4a* sh
                             glBeginQuery(mode, mOcclusionQuery[LLViewerCamera::sCurCameraID]);
                         }
 
-                        LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+                        LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
                         llassert(shader);
 
                         shader->uniform3fv(LLShaderMgr::BOX_CENTER, 1, bounds[0].getF32ptr());

@@ -6843,7 +6843,7 @@ void LLSelectMgr::renderSilhouettes(bool for_hud)
 
     auto renderMeshSelection_f = [fogCfx, wireframe_selection](LLSelectNode* node, LLViewerObject* objectp, LLColor4 hlColor)
     {
-        LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+        LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
         if (shader)
         {
@@ -7514,7 +7514,7 @@ void LLSelectNode::renderOneSilhouette(const LLColor4 &color)
     }
 
 
-    LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
     if (shader)
     { //use UI program for selection highlights (texture color modulated by vertex color)

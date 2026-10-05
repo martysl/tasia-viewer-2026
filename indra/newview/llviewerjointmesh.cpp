@@ -179,9 +179,9 @@ void LLViewerJointMesh::uploadJointMatrices()
             }
         }
         stop_glerror();
-        if (LLGLSLShader::sCurBoundShaderPtr)
+        if (LLViewerShaderProgram::sCurBoundShaderPtr)
         {
-            LLGLSLShader::sCurBoundShaderPtr->uniform4fv(LLViewerShaderMgr::AVATAR_MATRIX, 45, mat);
+            LLViewerShaderProgram::sCurBoundShaderPtr->uniform4fv(LLViewerShaderMgr::AVATAR_MATRIX, 45, mat);
         }
         stop_glerror();
     }
@@ -222,7 +222,7 @@ U32 LLViewerJointMesh::drawShape( F32 pixelArea, bool first_pass, bool is_dummy)
     if (!mValid || !mMesh || !mFace || !mVisible ||
         !mFace->getVertexBuffer() ||
         mMesh->getNumFaces() == 0 ||
-        LLGLSLShader::sCurBoundShaderPtr == NULL)
+        LLViewerShaderProgram::sCurBoundShaderPtr == NULL)
     {
         return 0;
     }

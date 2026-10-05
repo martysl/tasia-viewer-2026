@@ -1672,7 +1672,7 @@ void LLManipTranslate::highlightIntersection(LLVector3 normal,
     }
 
 
-    LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
 
     static const U32 types[] = { LLRenderPass::PASS_SIMPLE, LLRenderPass::PASS_ALPHA, LLRenderPass::PASS_FULLBRIGHT, LLRenderPass::PASS_SHINY };

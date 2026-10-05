@@ -520,7 +520,7 @@ void LLRenderPass::pushMaskBatches(U32 type, bool texture, bool batch_textures)
     {
         LLDrawInfo* pparams = *i;
         LLCullResult::increment_iterator(i, end);
-        LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(pparams->mAlphaMaskCutoff);
+        LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(pparams->mAlphaMaskCutoff);
         pushBatch(*pparams, texture, batch_textures);
     }
 }
@@ -541,7 +541,7 @@ void LLRenderPass::pushRiggedMaskBatches(U32 type, bool texture, bool batch_text
 
         llassert(pparams);
 
-        LLGLSLShader::sCurBoundShaderPtr->setMinimumAlpha(pparams->mAlphaMaskCutoff);
+        LLViewerShaderProgram::sCurBoundShaderPtr->setMinimumAlpha(pparams->mAlphaMaskCutoff);
 
         if (uploadMatrixPalette(pparams->mAvatar, pparams->mSkinInfo, lastAvatar, lastMeshId, skipLastSkin))
         {
@@ -672,7 +672,7 @@ bool LLRenderPass::uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo*
         return false;
     }
 
-    LLGLSLShader::sCurBoundShaderPtr->uniformMatrix3x4fv(LLViewerShaderMgr::AVATAR_MATRIX,
+    LLViewerShaderProgram::sCurBoundShaderPtr->uniformMatrix3x4fv(LLViewerShaderMgr::AVATAR_MATRIX,
         count,
         false,
         (GLfloat*)&(mpc.mGLMp[0]));
@@ -687,7 +687,7 @@ bool LLRenderPass::uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo*
     LL_PROFILE_ZONE_SCOPED_CATEGORY_AVATAR;
 
     llassert(skinInfo);
-    llassert(LLGLSLShader::sCurBoundShaderPtr);
+    llassert(LLViewerShaderProgram::sCurBoundShaderPtr);
 
     if (!avatar)
     {
@@ -708,7 +708,7 @@ bool LLRenderPass::uploadMatrixPalette(LLVOAvatar* avatar, const LLMeshSkinInfo*
 
     if (!skipLastSkin)
     {
-        LLGLSLShader::sCurBoundShaderPtr->uniformMatrix3x4fv(LLViewerShaderMgr::AVATAR_MATRIX,
+        LLViewerShaderProgram::sCurBoundShaderPtr->uniformMatrix3x4fv(LLViewerShaderMgr::AVATAR_MATRIX,
             count,
             false,
             (GLfloat*)&(mpc.mGLMp[0]));

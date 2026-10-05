@@ -436,9 +436,9 @@ void LLSceneMonitor::calcDiffAggregate()
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     }
 
-    LLGLSLShader* cur_shader = NULL;
+    LLViewerShaderProgram* cur_shader = NULL;
 
-    cur_shader = LLGLSLShader::sCurBoundShaderPtr;
+    cur_shader = LLViewerShaderProgram::sCurBoundShaderPtr;
     gOneTextureFilterProgram.bind();
     gOneTextureFilterProgram.uniform1f(sTolerance, mDiffTolerance);
 

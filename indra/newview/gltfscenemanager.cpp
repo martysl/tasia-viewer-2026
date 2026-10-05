@@ -717,7 +717,7 @@ void GLTFSceneManager::render(Asset& asset, U8 variant)
             else
             {
                 LLFetchedGLTFMaterial::sDefault.bind();
-                LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::GLTF_MATERIAL_ID, -1);
+                LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::GLTF_MATERIAL_ID, -1);
             }
 
             for (auto& pdata : batches[i].mPrimitives)
@@ -736,7 +736,7 @@ void GLTFSceneManager::render(Asset& asset, U8 variant)
                 }
                 else
                 {
-                    LLGLSLShader::sCurBoundShaderPtr->uniform1i(LLShaderMgr::GLTF_NODE_ID, pdata.mNodeIndex);
+                    LLViewerShaderProgram::sCurBoundShaderPtr->uniform1i(LLShaderMgr::GLTF_NODE_ID, pdata.mNodeIndex);
                 }
 
                 {
@@ -767,7 +767,7 @@ void GLTFSceneManager::bindTexture(Asset& asset, TextureType texture_type, Textu
         LLShaderMgr::EMISSIVE_MAP
     };
 
-    S32 channel = LLGLSLShader::sCurBoundShaderPtr->getTextureChannel(uniform[(U8)type_idx]);
+    S32 channel = LLViewerShaderProgram::sCurBoundShaderPtr->getTextureChannel(uniform[(U8)type_idx]);
 
     if (channel > -1)
     {
@@ -816,7 +816,7 @@ void GLTFSceneManager::bindTexture(Asset& asset, TextureType texture_type, Textu
 void GLTFSceneManager::bind(Asset& asset, Material& material)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_GLTF;
-    LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+    LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
     bindTexture(asset, TextureType::BASE_COLOR, material.mPbrMetallicRoughness.mBaseColorTexture, LLViewerFetchedTexture::sWhiteImagep);
 

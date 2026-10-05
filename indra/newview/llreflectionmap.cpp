@@ -398,7 +398,7 @@ void LLReflectionMap::doOcclusion(const LLVector4a& eye)
         LL_PROFILE_ZONE_NAMED_CATEGORY_PIPELINE("rmdo - push query");
         glBeginQuery(GL_ANY_SAMPLES_PASSED, mOcclusionQuery);
 
-        LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+        LLViewerShaderProgram* shader = LLViewerShaderProgram::sCurBoundShaderPtr;
 
         shader->uniform3fv(LLShaderMgr::BOX_CENTER, 1, mOrigin.getF32ptr());
         shader->uniform3f(LLShaderMgr::BOX_SIZE, mRadius, mRadius, mRadius);
