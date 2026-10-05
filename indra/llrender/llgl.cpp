@@ -71,6 +71,7 @@
 // DXContext for llSetDXViewport()'s gDXContext.setViewport() below. The header
 // is self-contained (no includes at all), so this adds no new dependency.
 #include "DXContext.h"
+#include <dxgi.h>
 #endif
 
 #if LL_SDL
@@ -1332,6 +1333,113 @@ bool LLGLManager::initGL()
     return true;
 }
 
+#ifdef DX_RENDER
+// S24: real DXGI-based equivalent of initGL() above - see llgl.h. Called
+// once from LLWindowWin32::switchContext() after initDX11Context() succeeds.
+bool LLGLManager::initGLDX()
+{
+    if (mInited)
+    {
+        LL_ERRS("RenderInit") << "Calling init on LLGLManager after already initialized!" << LL_ENDL;
+    }
+
+    mInited = true;
+    mHasRequirements = true;
+
+    // Walk up from the already-created device to its owning adapter (same
+    // technique DXSwapChain::create() already uses to find the swap chain's
+    // factory) rather than re-enumerating adapters and guessing which one
+    // matches - this guarantees we describe the actual adapter in use.
+    ID3D11Device* device = gDXDevice.getDevice();
+    if (device)
+    {
+        IDXGIDevice* dxgi_device = nullptr;
+        if (SUCCEEDED(device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgi_device)) && dxgi_device)
+        {
+            IDXGIAdapter* adapter = nullptr;
+            if (SUCCEEDED(dxgi_device->GetAdapter(&adapter)) && adapter)
+            {
+                DXGI_ADAPTER_DESC desc = {};
+                if (SUCCEEDED(adapter->GetDesc(&desc)))
+                {
+                    std::wstring description_w(desc.Description);
+                    mGLRenderer = ll_convert_wide_to_string(description_w);
+                    LLStringUtil::toUpper(mGLRenderer);
+
+                    mVRAM = (U32)(desc.DedicatedVideoMemory / (1024 * 1024));
+
+                    switch (desc.VendorId)
+                    {
+                    case 0x10DE: // NVIDIA
+                        mGLVendorShort = "NVIDIA";
+                        mIsNVIDIA = true;
+                        break;
+                    case 0x1002: // AMD/ATI
+                    case 0x1022:
+                        mGLVendorShort = "AMD";
+                        mIsAMD = true;
+                        break;
+                    case 0x8086: // Intel
+                        mGLVendorShort = "INTEL";
+                        mIsIntel = true;
+                        break;
+                    default:
+                        mGLVendorShort = "MISC";
+                        break;
+                    }
+
+                    // S24: DXGI has no separate "vendor name" string like
+                    // GL_VENDOR - use the PCI-VendorId-derived generic name
+                    // from the switch above instead of duplicating the model
+                    // string (Description) into both fields.
+                    mGLVendor = mGLVendorShort;
+                }
+                adapter->Release();
+            }
+            dxgi_device->Release();
+        }
+    }
+
+    // S24: D3D11 feature-level hardware is capability-equivalent to (or
+    // beyond) every GL-version-gated feature-masking check in this
+    // codebase; report a real modern version rather than leaving mGLVersion
+    // at its 1.0f default, which trips LLFeatureManager::applyBaseMasks()'s
+    // "mGLVersion < 3.99f" check into unconditionally applying the "GL3"
+    // feature mask.
+    mGLVersion = 4.6f;
+    mDriverVersionMajor = 4;
+    mDriverVersionMinor = 6;
+    mDriverVersionRelease = 0;
+    mGLSLVersionMajor = 4;
+    mGLSLVersionMinor = 60;
+
+    // Real feature-level string for display purposes (e.g. Floater About's
+    // "Graphics API" line, llappviewer.cpp) - distinct from mGLVersion above,
+    // which is a fixed feature-masking sentinel, not meant to be shown to
+    // the user as-is.
+    switch (gDXDevice.getFeatureLevel())
+    {
+    case D3D_FEATURE_LEVEL_11_1: mGLVersionString = "Direct3D 11.1 (Feature Level 11_1)"; break;
+    case D3D_FEATURE_LEVEL_11_0: mGLVersionString = "Direct3D 11.0 (Feature Level 11_0)"; break;
+    case D3D_FEATURE_LEVEL_10_1: mGLVersionString = "Direct3D 11 (Feature Level 10_1)"; break;
+    case D3D_FEATURE_LEVEL_10_0: mGLVersionString = "Direct3D 11 (Feature Level 10_0)"; break;
+    default: mGLVersionString = "Direct3D 11"; break;
+    }
+
+    mHasCubeMapArray = true;
+    mHasTransformFeedback = true;
+    mHasDebugOutput = true;
+
+    mGLMaxTextureSize = 16384;
+    mNumTextureImageUnits = 32;
+
+    LL_INFOS("RenderInit") << "DX_RENDER GPU detection: vendor=" << mGLVendorShort
+        << " renderer=" << mGLRenderer << " vram=" << mVRAM << "MB" << LL_ENDL;
+
+    return true;
+}
+#endif // DX_RENDER
+
 void LLGLManager::getGLInfo(LLSD& info)
 {
     if (gHeadlessClient)
@@ -1453,8 +1561,15 @@ void LLGLManager::shutdownGL()
 {
     if (mInited)
     {
+        // Unguarded raw GL here is a live landmine under DX_RENDER: initGLDX()
+        // sets mInited too, and shutdownGL() runs unconditionally on every
+        // window close and on switchContext(). Nothing to guard it WITH either,
+        // because the DX11 device and swapchain are already torn down by the
+        // caller before this point, so there is no outstanding GPU work.
+#ifndef DX_RENDER
         glFinish();
         stop_glerror();
+#endif
         mInited = false;
     }
 }

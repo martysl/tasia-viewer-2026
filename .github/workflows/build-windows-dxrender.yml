@@ -23,6 +23,9 @@ on:
       - 'indra/llcommon/**'
       - 'indra/llmath/**'
       - 'indra/llfilesystem/**'
+      - 'indra/llwindow/**'
+      - 'indra/llrender/**'
+      - 'indra/newview/**'
       - '.github/workflows/build-windows-dxrender.yml'
 
 permissions:

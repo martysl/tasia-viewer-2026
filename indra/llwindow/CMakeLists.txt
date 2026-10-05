@@ -18,6 +18,22 @@ include(LLWindow)
 include(UI)
 include(ViewerMiscLibs)
 include(GLM)
+# S24: DX_RENDER backend. include() is guarded on the option alone (matching
+# the donor): DXRender.cmake only sets two variables and has an include guard,
+# so it is inert and harmless on a non-Windows host.
+if(DX_RENDER)
+  include(DXRender)
+endif()
+
+# llwindowwin32.cpp includes DXDevice.h/DXSwapChain.h/DXContext.h directly
+# (by bare filename, the way the donor does), so they have to resolve on the
+# include path. Guarded on WIN32 as well as DX_RENDER, matching
+# DXRender.cmake's own stated contract and indra/CMakeLists.txt's
+# add_subdirectory(dxrender) guard: with DX_RENDER=OFF these directories are
+# never added and the include is never compiled.
+if(DX_RENDER AND WIN32)
+  include_directories(${DXRENDER_INCLUDE_DIRS})
+endif()
 
 set(llwindow_SOURCE_FILES
     llcursortypes.cpp
@@ -189,6 +205,17 @@ endif (llwindow_HEADER_FILES)
 
   target_link_libraries (llwindow ${llwindow_LINK_LIBRARIES})
   target_include_directories(llwindow INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# S24: llwindowwin32.cpp calls into gDXDevice/gDXSwapChain/gDXContext, so llwindow
+# needs the dxrender target (which transitively brings d3d11/dxgi/d3dcompiler/
+# dcomp) - the plain `dxgi` in llwindow_LINK_LIBRARIES above only covers the
+# existing checkDXMem VRAM probe. Guarded on WIN32 as well, because dxrender is
+# only added as a subdirectory when DX_RENDER AND WIN32 (see
+# indra/CMakeLists.txt) - linking a target that was never defined is a hard
+# configure error.
+if(DX_RENDER AND WIN32)
+  target_link_libraries(llwindow ${DXRENDER_LIBRARIES})
+endif()
 
 if (DARWIN)
   target_link_libraries(llwindow ${CARBON_LIBRARY})

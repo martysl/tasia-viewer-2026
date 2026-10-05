@@ -67,6 +67,11 @@
 
 #include <d3d9.h>
 #include <dxgi1_4.h>
+#ifdef DX_RENDER
+#include "DXDevice.h"
+#include "DXSwapChain.h"
+#include "DXContext.h"
+#endif
 #include <timeapi.h>
 
 // Require DirectInput version 8
@@ -118,6 +123,15 @@ LPWSTR gIconResource = IDI_APPLICATION;
 LPWSTR gIconSmallResource = IDI_APPLICATION;
 LPDIRECTINPUT8 gDirectInput8;
 
+#ifdef DX_RENDER
+// D3D11 device globals, adopted by DXDevice::initialize() in
+// initDX11Context() below. Null until something creates a device on them.
+namespace
+{
+	ID3D11Device* gD3D11Device = nullptr;
+	ID3D11DeviceContext* gD3D11Context = nullptr;
+}
+#endif
 LLW32MsgCallback gAsyncMsgCallback = NULL;
 
 #ifndef DPI_ENUMS_DECLARED
@@ -1034,6 +1048,11 @@ void LLWindowWin32::close()
         gKeyboard->resetKeys();
     }
 
+#ifdef DX_RENDER
+    LL_DEBUGS("Window") << "Releasing DX11 device/swapchain" << LL_ENDL;
+    gDXSwapChain.destroy();
+    gDXDevice.shutdown();
+#endif
     // Clean up remaining GL state
     if (gGLManager.mInited)
     {
@@ -1193,11 +1212,41 @@ bool LLWindowWin32::setSizeImpl(const LLCoordWindow size)
     return setSizeImpl(LLCoordScreen(window_rect.right - window_rect.left, window_rect.bottom - window_rect.top));
 }
 
+#ifdef DX_RENDER
+// DX_RENDER: replaces switchContext()'s GL pixel-format/wgl-context setup.
+// Called after recreateWindow() has already given us a valid mWindowHandle -
+// this function's only job is to stand up a DX11 device + swap chain for it.
+bool LLWindowWin32::initDX11Context(const LLCoordScreen& size, bool enable_vsync)
+{
+	// gD3D11Device/gD3D11Context (this file, anonymous namespace above) may
+	// already exist courtesy of selectHighPerformanceAdapter()'s GPU-selection
+	// probe on multi-adapter systems; DXDevice::initialize() adopts them if so,
+	// or creates its own device if not (e.g. single-adapter systems).
+	if (!gDXDevice.initialize(gD3D11Device, gD3D11Context))
+	{
+		LL_WARNS("Window") << "DXDevice::initialize failed" << LL_ENDL;
+		return false;
+	}
+
+	if (!gDXSwapChain.create(mWindowHandle, size.mX, size.mY, enable_vsync))
+	{
+		LL_WARNS("Window") << "DXSwapChain::create failed" << LL_ENDL;
+		return false;
+	}
+
+	LL_INFOS("Window") << "DX11 device and swap chain created (feature level 0x"
+		<< std::hex << gDXDevice.getFeatureLevel() << std::dec << ")" << LL_ENDL;
+
+	return true;
+}
+#endif
 // changing fullscreen resolution
 bool LLWindowWin32::switchContext(bool fullscreen, const LLCoordScreen& size, bool enable_vsync, const LLCoordScreen* const posp)
 {
     //called from main thread
+#ifndef DX_RENDER
     GLuint  pixel_format;
+#endif
     DEVMODE dev_mode;
     ::ZeroMemory(&dev_mode, sizeof(DEVMODE));
     dev_mode.dmSize = sizeof(DEVMODE);
@@ -1356,6 +1405,19 @@ bool LLWindowWin32::switchContext(bool fullscreen, const LLCoordScreen& size, bo
         LL_WARNS("Window") << "Window creation failed, code: " << GetLastError() << LL_ENDL;
     }
 
+#ifdef DX_RENDER
+    if (!initDX11Context(size, enable_vsync))
+    {
+        close();
+        return false;
+    }
+
+    // S24: real DXGI-based GPU detection, mirroring the GL branch's
+    // gGLManager.initGL() call below - see LLGLManager::initGLDX()'s comment
+    // (llgl.h/.cpp): without this, LLFeatureManager silently masks real
+    // features off with no real GPU data to work from.
+    gGLManager.initGLDX();
+#else
     //-----------------------------------------------------------------------
     // Create GL drawing context
     //-----------------------------------------------------------------------
@@ -1763,6 +1825,7 @@ const   S32   max_format  = (S32)num_formats - 1;
 
     // Disable vertical sync for swap
     toggleVSync(enable_vsync);
+#endif // DX_RENDER
 
     SetWindowLongPtr(mWindowHandle, GWLP_USERDATA, (LONG_PTR)this);
 
@@ -1911,6 +1974,9 @@ void LLWindowWin32::recreateWindow(RECT window_rect, DWORD dw_ex_style, DWORD dw
 
 void* LLWindowWin32::createSharedContext()
 {
+#ifdef DX_RENDER
+    return nullptr;
+#else
     mMaxGLVersion = llclamp(mMaxGLVersion, 3.f, 4.6f);
 
     S32 version_major = llfloor(mMaxGLVersion);
@@ -1963,6 +2029,7 @@ void* LLWindowWin32::createSharedContext()
     }
 
     return rc;
+#endif // DX_RENDER
 }
 
 void LLWindowWin32::makeContextCurrent(void* contextPtr)
@@ -1978,6 +2045,15 @@ void LLWindowWin32::destroySharedContext(void* contextPtr)
 
 void LLWindowWin32::toggleVSync(bool enable_vsync)
 {
+#ifdef DX_RENDER
+	// S24: mhDC/mhRC are never populated under DX_RENDER, so the GL-only path
+	// below always hit its "no active GL context" early return and
+	// RenderVSyncEnable had zero live effect. gDXSwapChain.setVSync() takes
+	// effect on the next Present() call.
+	gDXSwapChain.setVSync(enable_vsync);
+	LL_INFOS("Window") << "VSync " << (enable_vsync ? "enabled" : "disabled") << " (DXGI present interval = " << (enable_vsync ? 1 : 0) << ")" << LL_ENDL;
+	return;
+#endif
     if (wglSwapIntervalEXT == nullptr)
     {
         LL_INFOS("Window") << "VSync: wglSwapIntervalEXT not initialized" << LL_ENDL;
@@ -3871,7 +3947,28 @@ void LLWindowWin32::swapBuffers()
 {
     {
         LL_PROFILE_ZONE_SCOPED_CATEGORY_WIN32;
+#ifdef DX_RENDER
+		// S24: present() must come before beginFrame() - beginFrame() clears/rebinds
+		// the back buffer for the *next* frame, so doing it first would wipe out
+		// this frame's render before it's presented.
+		gDXSwapChain.present();
+
+		if (gDXSwapChain.isDeviceLost())
+		{
+			// S24: no recovery attempted (TDR/driver-crash/eGPU-unplug device+swapchain
+			// recreation is out of scope) - every further D3D11 call would also fail, so
+			// terminate immediately rather than continuing into beginFrame() (which would
+			// itself fail against the dead device) and rendering garbage/nothing forever
+			// with no diagnostic.
+			OSMessageBox(mCallbacks->translateString("MBDeviceLost"),
+				mCallbacks->translateString("MBError"), OSMB_OK);
+			TerminateProcess(GetCurrentProcess(), 1);
+		}
+
+		gDXContext.beginFrame();
+#else
         SwapBuffers(mhDC);
+#endif
     }
 
     {

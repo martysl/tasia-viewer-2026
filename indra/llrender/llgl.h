@@ -70,6 +70,14 @@ public:
     bool initGL();
     void shutdownGL();
 
+#ifdef DX_RENDER
+    // S24: initGL() above is pure OpenGL and never called under DX_RENDER.
+    // initGLDX() is the real DXGI-based equivalent that populates
+    // mGLVendor/mGLRenderer/mGLVersion/etc - without it those stay at
+    // zero/empty defaults, which starves LLFeatureManager of real GPU data.
+    bool initGLDX();
+#endif
+
 #if LL_WINDOWS
     void initWGL(); // Initializes stupid WGL extensions
 #endif
