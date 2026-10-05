@@ -3,6 +3,51 @@
 Branch `tasia-dx11-merge`. Newest first. Verification evidence only, no claims
 without a command behind them.
 
+## R11 — THE DX VIEWER LINKS (`ae98e5e`, CI run `37357859954`)
+
+| check | result |
+|---|---|
+| MSVC, `DX_RENDER=ON`, builds **and links** `firestorm-bin.exe` | **SUCCESS**, 1h02m |
+| `viewer linked` assertion | passed |
+| `LNK1120` unresolved externals | **0** (was 3) |
+| mingw gates | 8/8, 26/26, 10/10 |
+| native Linux | `BUILD_EXIT=0` |
+
+`firestorm-bin.exe` now exists under `newview/Release/`. This is the first
+moment the DX backend could actually be executed; three earlier states in this
+project compiled and rendered nothing.
+
+The last three link errors:
+- `gEXRImage` — a real type mismatch across the shared/DX boundary.
+  `llreflectionmapmanager.cpp`, compiled in both builds, defined it as
+  `LLPointer<LLImageGL>` while `dxdrawpoolwlsky.cpp` declared
+  `LLPointer<LLImageDX>`. Different instantiations, different mangled names.
+  Fixed with an alias following the existing `LLVOSkyCubeMap` pattern, applied
+  to all four declaration sites rather than only the definition.
+- `gLastCompositedPostTarget` — no reader in this tree at all. Defined in the
+  DX-only `dxpipeline.cpp`.
+- `FTM_RENDER_WATER_OPAQUE` — a real omission; this tree's
+  `lldrawpoolwater.cpp` contains no `LLTrace` at all.
+
+**The checker review found two gates that were lying and one certain crash:**
+- `glregress-alias.sh` compared against `HEAD`, which by then *was* the commit
+  containing the change, so it would have passed while comparing the tree with
+  itself. Re-anchored to `b6f6360^`.
+- `dxcheck.sh` continued past a missing input file without setting its failure
+  flag, and exited 0 having checked nothing when the list came back empty.
+- `dxcheckshared.sh` silently covered 15 of 18 shared files. Now 26.
+- **`LLGLSLShader::sCurBoundShaderPtr` is permanently NULL under DX** — assigned
+  only inside `LLGLSLShader::bind()`, which the DX path never calls. Eleven
+  files dereferenced it unguarded, `lldrawpool.cpp:675` worst. Substituted the
+  alias at 23 sites. This compiled, linked, and would have crashed on the first
+  draw.
+
+Also fixed: `is_little_endian()` had two external definitions once both
+`llimagegl.cpp` and `llimagedx.cpp` were in the build. The donor never hits it
+because `llimagegl.cpp` is not in its build; here the DX copy became `static`,
+leaving exactly one external definition and clearing MSVC's LNK4006 plus the
+LNK4088 warning that the image may not run.
+
 ## R10 — T2 + T5 + depth state (`21bb380`)
 
 | check | result |
