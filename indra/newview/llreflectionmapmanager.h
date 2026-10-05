@@ -34,6 +34,18 @@
 class LLSpatialGroup;
 class LLViewerObject;
 
+// Same one-class-per-backend alias llvosky.h declares for the sky cubemap,
+// repeated here so every gEXRImage user can stay backend-agnostic. With
+// DX_RENDER off this typedef expands to LLImageGL, so the GL build sees
+// exactly what it saw before.
+#ifdef DX_RENDER
+class LLImageDX;
+typedef LLImageDX LLReflectionMapEXRImage;
+#else
+class LLImageGL;
+typedef LLImageGL LLReflectionMapEXRImage;
+#endif
+
 // number of reflection probes to keep in vram
 #define LL_MAX_REFLECTION_PROBE_COUNT 256
 

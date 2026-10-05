@@ -64,11 +64,12 @@ extern bool gSnapshotNoPost;
 // LLPipeline::renderDeferredLighting()'s GL body.
 extern bool gCubeSnapshot;
 
-// Matches llviewerdisplay.cpp's own extern (defined there, next to
-// gSnapshotNoPost) - set right before both presentFinal() call sites, so
-// rawSnapshot() (llviewerwindow.cpp) can read the true final composited
-// render target directly.
-extern LLRenderTarget* gLastCompositedPostTarget;
+// The true final composited render target, set right before both
+// presentFinal() call sites below. The GL tree defines this in
+// llviewerdisplay.cpp next to gLastCompositedPostTarget's rawSnapshot()
+// reader; neither that reader nor the GPU-upscale path it feeds is ported
+// here, so presentDeferredScreen() is currently the only writer.
+LLRenderTarget* gLastCompositedPostTarget = nullptr;
 
 #include "DXDevice.h"
 #include "DXReadback.h"

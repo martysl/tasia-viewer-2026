@@ -127,7 +127,7 @@ void LLDrawPoolWLSky::renderDome(const LLVector3& camPosLocal, F32 camHeightLoca
     gGL.popMatrix();
 }
 
-extern LLPointer<LLImageGL> gEXRImage;
+extern LLPointer<LLReflectionMapEXRImage> gEXRImage;
 
 static bool use_hdri_sky()
 {

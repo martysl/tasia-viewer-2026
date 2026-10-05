@@ -7860,7 +7860,7 @@ void LLPipeline::generateExposure(LLRenderTarget* src, LLRenderTarget* dst, bool
     }
 }
 
-extern LLPointer<LLImageGL> gEXRImage;
+extern LLPointer<LLReflectionMapEXRImage> gEXRImage;
 
 void LLPipeline::tonemap(LLRenderTarget* src, LLRenderTarget* dst, bool gamma_correct)
 {

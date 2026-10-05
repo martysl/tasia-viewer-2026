@@ -71,11 +71,12 @@ void DXDrawPoolWater::beginPostDeferredPass(LLDrawPoolWater& pool, S32 pass)
     }
 }
 
-// Real handle defined in lldrawpoolwater.cpp - shared, not a separate instance
-// (LLTrace::BlockTimerStatHandle registers itself in a global name-keyed
-// registry; two independently-constructed handles with the same display
-// name collide and crash during static initialization).
-extern LLTrace::BlockTimerStatHandle FTM_RENDER_WATER_OPAQUE;
+// Sole handle instance - lldrawpoolwater.cpp has no LLTrace timers of its
+// own to share this with, and it must stay that way (LLTrace::
+// BlockTimerStatHandle registers itself in a global name-keyed registry;
+// two independently-constructed handles with the same display name collide
+// and crash during static initialization).
+LLTrace::BlockTimerStatHandle FTM_RENDER_WATER_OPAQUE("Water Opaque");
 
 // static
 void DXDrawPoolWater::renderPostDeferred(LLDrawPoolWater& pool, S32 pass)

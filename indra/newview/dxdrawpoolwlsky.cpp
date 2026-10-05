@@ -44,7 +44,7 @@
 #include "llmatrix4a.h"
 
 extern bool gCubeSnapshot;
-extern LLPointer<LLImageDX> gEXRImage;
+extern LLPointer<LLReflectionMapEXRImage> gEXRImage;
 
 namespace
 {

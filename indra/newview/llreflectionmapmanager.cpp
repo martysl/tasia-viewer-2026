@@ -41,6 +41,10 @@
 #include "llviewermenufile.h"
 #include "llnotificationsutil.h"
 
+#ifdef DX_RENDER
+#include "llimagedx.h"
+#endif
+
 #if LL_WINDOWS
 #pragma warning (push)
 #pragma warning (disable : 4702) // compiler complains unreachable code
@@ -53,7 +57,7 @@
 #pragma warning (pop)
 #endif
 
-LLPointer<LLImageGL> gEXRImage;
+LLPointer<LLReflectionMapEXRImage> gEXRImage;
 
 void load_exr(const std::string& filename)
 {
@@ -70,24 +74,36 @@ void load_exr(const std::string& filename)
     if (ret == TINYEXR_SUCCESS)
     {
         U32 texName = 0;
-        LLImageGL::generateTextures(1, &texName);
+        LLReflectionMapEXRImage::generateTextures(1, &texName);
 
-        gEXRImage = new LLImageGL(texName, 4, GL_TEXTURE_2D, GL_RGB16F, GL_RGB16F, GL_FLOAT, LLTexUnit::TAM_CLAMP);
+        gEXRImage = new LLReflectionMapEXRImage(texName, 4, GL_TEXTURE_2D, GL_RGB16F, GL_RGB16F, GL_FLOAT, LLTexUnit::TAM_CLAMP);
         gEXRImage->setHasMipMaps(true);
         gEXRImage->setUseMipMaps(true);
         gEXRImage->setFilteringOption(LLTexUnit::TFO_TRILINEAR);
 
+#ifdef DX_RENDER
+        gDX.getTexUnit(0)->bind(gEXRImage);
+#else
         gGL.getTexUnit(0)->bind(gEXRImage);
+#endif
 
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGBA, GL_FLOAT, out);
 
+#ifdef DX_RENDER
+        LLImageDXMemory::alloc_tex_image(width, height, GL_RGB16F, 1);
+#else
         LLImageGLMemory::alloc_tex_image(width, height, GL_RGB16F, 1);
+#endif
 
         free(out); // release memory of image data
 
         glGenerateMipmap(GL_TEXTURE_2D);
 
+#ifdef DX_RENDER
+        gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+#else
         gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+#endif
 
     }
     else
