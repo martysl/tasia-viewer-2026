@@ -42,6 +42,8 @@
 
 #ifdef DX_RENDER
 #include "DXBuffer.h"
+#include "DXVertexLayout.h"
+class LLHLSLShader;
 #endif
 
 #define LL_MAX_VERTEX_ATTRIB_LOCATION 64
@@ -338,6 +340,12 @@ public:
     static U32 sGLRenderIndices;
     static U32 sLastMask;
     static U32 sVertexCount;
+
+#ifdef DX_RENDER
+    static thread_local ID3D11Buffer* sDXRenderBuffer;
+    static thread_local ID3D11Buffer* sDXRenderIndices;
+    static thread_local LLHLSLShader* sDXLastShader;
+#endif
 
 #ifdef DX_RENDER
     DXBuffer mDXBuffer;

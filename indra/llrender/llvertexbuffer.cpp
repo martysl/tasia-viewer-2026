@@ -38,6 +38,10 @@
 #include "llmemory.h"
 #include <glm/gtc/type_ptr.hpp>
 
+#ifdef DX_RENDER
+#include <d3d11.h>
+#endif
+
 //Next Highest Power Of Two
 //helper function, returns first number > v that is a power of 2, or v if v is already a power of 2
 U32 nhpo2(U32 v)
@@ -682,6 +686,12 @@ U32 LLVertexBuffer::sGLRenderBuffer = 0;
 U32 LLVertexBuffer::sGLRenderIndices = 0;
 U32 LLVertexBuffer::sLastMask = 0;
 U32 LLVertexBuffer::sVertexCount = 0;
+
+#ifdef DX_RENDER
+thread_local ID3D11Buffer* LLVertexBuffer::sDXRenderBuffer = nullptr;
+thread_local ID3D11Buffer* LLVertexBuffer::sDXRenderIndices = nullptr;
+thread_local LLHLSLShader* LLVertexBuffer::sDXLastShader = nullptr;
+#endif
 
 
 //NOTE: each component must be AT LEAST 4 bytes in size to avoid a performance penalty on AMD hardware
