@@ -16,6 +16,14 @@ on:
         required: true
         default: "false"
         type: boolean
+      upload_github_artifact:
+        description: "Also upload to GitHub artifact storage (consumes the shared quota; storage.to is the default)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: write
@@ -280,7 +288,26 @@ jobs:
           print(f'Created {archive}')
           PY
 
+      # GitHub artifact storage is a shared, finite quota: each Windows build
+      # here is ~593 MB, so a handful of DX iterations fills it and every later
+      # upload fails. storage.to is the primary hand-off; GitHub artifacts are
+      # opt-in via upload_github_artifact so iteration stops consuming quota.
+      - name: Upload artifact to storage.to
+        if: inputs.upload_github_artifact != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The Windows release asset is a .zip, not a .tar.gz like the Unix ones.
+          curl -sSL -o storageto.zip \
+            https://github.com/storageto/cli/releases/download/v0.5.0/storageto-windows-amd64.zip
+          unzip -q -o storageto.zip storageto.exe
+          ./storageto.exe upload Tasia-Viewer-Windows-FMOD.zip --expire 7d --json \
+            | tee storage-to-result.json
+          URL="$(python -c "import json;print(json.load(open('storage-to-result.json'))['file_info']['url'])")"
+          echo "storage.to: $URL" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload artifact
+        if: inputs.upload_github_artifact == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: Tasia-Viewer-Windows-FMOD
