@@ -40,6 +40,59 @@
 
 #ifdef DX_RENDER
 #include <d3d11.h>
+
+namespace
+{
+	// D3D11 has no equivalent of GL_TRIANGLE_FAN or GL_LINE_LOOP (dropped
+	// after D3D9) - mapped to D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED and asserted
+	// against below. Neither is used by the base (unrigged, non-UI) geometry
+	// converted so far; revisit if/when a pool that needs one is converted.
+	const D3D11_PRIMITIVE_TOPOLOGY sDXMode[LLRender::NUM_MODES] =
+	{
+		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // TRIANGLES
+		D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, // TRIANGLE_STRIP
+		D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED,     // TRIANGLE_FAN - not yet supported
+		D3D11_PRIMITIVE_TOPOLOGY_POINTLIST,     // POINTS
+		D3D11_PRIMITIVE_TOPOLOGY_LINELIST,      // LINES
+		D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP,     // LINE_STRIP
+		D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED,     // LINE_LOOP - not yet supported
+	};
+
+	// S24: this is the universal DX_RENDER draw chokepoint (every 3D pool
+	// draw, every LLRender::flush() call, every direct drawRange()/
+	// drawArrays() caller) - re-asserts VS/PS here in case some raw
+	// ctx->VSSetShader()/PSSetShader() call elsewhere didn't update
+	// LLHLSLShader::sCurBoundShaderPtr, leaving stale GPU-bound shaders with
+	// no warning. Cache-and-compare, not unconditional rebind - D3D11
+	// SetShader calls aren't free at this call frequency.
+	ID3D11VertexShader* sLastBoundVS = nullptr;
+	ID3D11PixelShader* sLastBoundPS = nullptr;
+
+	// If sCurBoundShaderPtr is null, leave the context untouched - this is
+	// the deliberate post-unbind() state the two raw-bind sites above already
+	// rely on (unbind() nulls both the tracker and the real VS/PS so the
+	// NEXT real bind() is forced to do a genuine rebind); asserting a shader
+	// here when the tracker says "none" would fight that convention instead
+	// of complementing it.
+	void assertShaderStagesBound()
+	{
+		LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+		if (!shader)
+		{
+			return;
+		}
+		ID3D11VertexShader* vs = shader->mDXVertexShader.getVS();
+		ID3D11PixelShader* ps = shader->mDXPixelShader.getPS();
+		if (vs != sLastBoundVS || ps != sLastBoundPS)
+		{
+			gDXDevice.getContext()->VSSetShader(vs, nullptr, 0);
+			gDXDevice.getContext()->PSSetShader(ps, nullptr, 0);
+			sLastBoundVS = vs;
+			sLastBoundPS = ps;
+		}
+	}
+}
+
 #endif
 
 //Next Highest Power Of Two
@@ -927,6 +980,26 @@ void LLVertexBuffer::clone(LLVertexBuffer& target) const
 void LLVertexBuffer::drawRange(U32 mode, U32 start, U32 end, U32 count, U32 indices_offset) const
 {
     llassert(validateRange(start, end, count, indices_offset));
+
+#ifdef DX_RENDER
+    llassert(mDXBuffer.getBuffer() == sDXRenderBuffer);
+    llassert(mDXIndices.getBuffer() == sDXRenderIndices);
+    llassert(sDXMode[mode] != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED);
+    gDX.syncMatrices();
+    assertShaderStagesBound();
+    ID3D11DeviceContext* ctx = gDXDevice.getContext();
+    DXStateCache::setPrimitiveTopology(ctx, sDXMode[mode]);
+    ctx->DrawIndexed(count, indices_offset, 0);
+    // S24: NOT a leftover diagnostic - this is the permanent, settings-gated
+    // (S24DXDebugLayerEnabled) mechanism behind the D3D11 debug-layer
+    // end-of-session tally and per-draw shader correlation. Do not remove as
+    // part of a diagnostic sweep. logPendingDebugMessages() only does real
+    // logging/I/O the first time each distinct message ID is seen, so this
+    // is cheap even called on every draw.
+    gDXDevice.logPendingDebugMessages(LLHLSLShader::sCurBoundShaderPtr ? LLHLSLShader::sCurBoundShaderPtr->mName.c_str() : "?");
+    return;
+#endif
+
     llassert(mGLBuffer == sGLRenderBuffer);
     llassert(mGLIndices == sGLRenderIndices);
     gGL.syncMatrices();
@@ -938,6 +1011,18 @@ void LLVertexBuffer::drawRange(U32 mode, U32 start, U32 end, U32 count, U32 indi
 
 void LLVertexBuffer::drawRangeFast(U32 mode, U32 start, U32 end, U32 count, U32 indices_offset) const
 {
+#ifdef DX_RENDER
+    // S24: no gDX.syncMatrices() call in this "fast" variant - callers are
+    // expected to have already synced matrices themselves - but the
+    // shader-stage assertion still applies, see assertShaderStagesBound().
+    assertShaderStagesBound();
+    ID3D11DeviceContext* ctx = gDXDevice.getContext();
+    DXStateCache::setPrimitiveTopology(ctx, sDXMode[mode]);
+    ctx->DrawIndexed(count, indices_offset, 0);
+    gDXDevice.logPendingDebugMessages(LLHLSLShader::sCurBoundShaderPtr ? LLHLSLShader::sCurBoundShaderPtr->mName.c_str() : "?");
+    return;
+#endif
+
     glDrawRangeElements(sGLMode[mode], start, end, count, mIndicesType,
         (GLvoid*)(indices_offset * (size_t)mIndicesStride));
 }
@@ -952,6 +1037,20 @@ void LLVertexBuffer::draw(U32 mode, U32 count, U32 indices_offset) const
 void LLVertexBuffer::drawArrays(U32 mode, U32 first, U32 count) const
 {
     llassert(first + count <= mNumVerts);
+
+#ifdef DX_RENDER
+    llassert(mDXBuffer.getBuffer() == sDXRenderBuffer);
+    llassert(mDXIndices.getBuffer() == sDXRenderIndices);
+    llassert(sDXMode[mode] != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED);
+    gDX.syncMatrices();
+    assertShaderStagesBound();
+    ID3D11DeviceContext* ctx = gDXDevice.getContext();
+    DXStateCache::setPrimitiveTopology(ctx, sDXMode[mode]);
+    ctx->Draw(count, first);
+    gDXDevice.logPendingDebugMessages(LLHLSLShader::sCurBoundShaderPtr ? LLHLSLShader::sCurBoundShaderPtr->mName.c_str() : "?");
+    return;
+#endif
+
     llassert(mGLBuffer == sGLRenderBuffer);
     llassert(mGLIndices == sGLRenderIndices);
 
@@ -1783,14 +1882,48 @@ void LLVertexBuffer::setBuffer()
     llassert(mMappedIndexRegions.empty());
 
     // a shader must be bound
-    llassert(LLGLSLShader::sCurBoundShaderPtr);
+    llassert(LLHLSLShader::sCurBoundShaderPtr);
 
-    U32 data_mask = LLGLSLShader::sCurBoundShaderPtr->mAttributeMask;
+#ifdef DX_RENDER
+    // Unlike GL's exact data_mask/mTypeMask superset assert, D3D11 input
+    // layouts tolerate a vertex buffer providing more attributes than the
+    // shader consumes (extra elements are simply unused) - so there's no
+    // equivalent check here. setupVertexBuffer() builds the layout from this
+    // buffer's own mTypeMask; CreateInputLayout itself fails correctly (see
+    // DXVertexLayout::getOrCreate()'s LL_WARNS) if the bound VS needs an
+    // attribute this buffer lacks.
+    //
+    // S24: no "skip setupVertexBuffer() if sDXRenderBuffer/sDXLastShader
+    // already match" dedup here - DXUIBatch::drawAndPop() and DXPipeline's
+    // fullscreen-blit path both set the input layout/vertex buffers directly
+    // without touching sDXRenderBuffer/sDXLastShader, so a dedup here could
+    // wrongly skip re-establishing the input layout after one of those ran,
+    // leaving the GPU to misinterpret this buffer's bytes under the wrong
+    // layout - most visible for anything that redraws the SAME
+    // LLVertexBuffer object across many frames (e.g. LLUIImage's
+    // display-list cache). setupVertexBuffer() is a handful of cheap
+    // state-setting calls, not a Draw() - unconditional is the safe default.
+    sDXRenderBuffer = mDXBuffer.getBuffer();
+    sDXLastShader = LLHLSLShader::sCurBoundShaderPtr;
+    setupVertexBuffer();
+
+    if (mDXIndices.getBuffer() != sDXRenderIndices)
+    {
+        sDXRenderIndices = mDXIndices.getBuffer();
+        gDXDevice.getContext()->IASetIndexBuffer(sDXRenderIndices,
+            mIndicesType == GL_UNSIGNED_SHORT ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
+    }
+
+    STOP_GLERROR;
+    return;
+#endif
+
+    U32 data_mask = LLHLSLShader::sCurBoundShaderPtr->mAttributeMask;
 
     // this Vertex Buffer must provide all necessary attributes for currently bound shader
     llassert_msg((data_mask & mTypeMask) == data_mask,
         "Attribute mask mismatch! mTypeMask should be a superset of data_mask.  data_mask: 0x"
-                << std::hex << data_mask << " mTypeMask: 0x" << mTypeMask << " Missing: 0x" << (data_mask & ~mTypeMask) <<  std::dec);
+        << std::hex << data_mask << " mTypeMask: 0x" << mTypeMask << " Missing: 0x" << (data_mask & ~mTypeMask) << std::dec);
 
     if (sGLRenderBuffer != mGLBuffer)
     {
@@ -1819,6 +1952,125 @@ void LLVertexBuffer::setBuffer()
 void LLVertexBuffer::setupVertexBuffer()
 {
     STOP_GLERROR;
+
+#ifdef DX_RENDER
+    // LLVertexBuffer is struct-of-arrays (calcOffsets() gives each attribute
+    // its own contiguous block spanning all vertices), not interleaved - so
+    // each active attribute gets its own D3D11 input slot, all views into
+    // the same mDXBuffer resource at different offsets/strides. Built from
+    // this buffer's own mTypeMask (see setBuffer()'s comment on why, unlike
+    // GL, there's no need to consult the bound shader's attribute mask here).
+    // Enumeration order MUST match DXVertexLayout::getOrCreate()'s InputSlot
+    // assignment (bits 0-5, then color/emissive, then tangent, then weight,
+    // then clothweight).
+    llassert(LLHLSLShader::sCurBoundShaderPtr);
+    ID3D11Blob* vs_bytecode = LLHLSLShader::sCurBoundShaderPtr->mDXVertexShader.getVSBytecode();
+    if (!vs_bytecode)
+    {
+        return;
+    }
+
+    ID3D11Buffer* vb = mDXBuffer.getBuffer();
+    // S24: 12, not 11, to fit MAP_WEIGHT4 - see DXVertexLayout.cpp's
+    // matching elements[] array comment.
+    ID3D11Buffer* buffers[12];
+    UINT strides[12];
+    UINT offsets[12];
+    UINT count = 0;
+
+    static const AttributeType kSimple[6] = { TYPE_VERTEX, TYPE_NORMAL, TYPE_TEXCOORD0, TYPE_TEXCOORD1, TYPE_TEXCOORD2, TYPE_TEXCOORD3 };
+    for (AttributeType type : kSimple)
+    {
+        if (mTypeMask & (1u << type))
+        {
+            buffers[count] = vb;
+            strides[count] = sTypeSize[type];
+            offsets[count] = mOffsets[type];
+            ++count;
+        }
+    }
+
+    if ((mTypeMask & MAP_COLOR) || (mTypeMask & MAP_EMISSIVE))
+    {
+        // S24: which data source (color vs emissive) feeds the shared COLOR0
+        // slot depends on which one the BOUND SHADER wants, not just which
+        // ones this buffer carries - a single VBO can carry both (any
+        // alpha-blended face with classic Glow enabled), and the alpha-blend
+        // pass (alphaV.hlsl) wants diffuse_color while the glow-accumulation
+        // pass (emissiveV.hlsl/pbrglowV.hlsl) wants emissive, both declaring
+        // plain "COLOR0" in HLSL so D3D11 reflection alone can't distinguish
+        // them. Identify the emissive-accumulation shaders by name instead;
+        // falls back to emissive if that's the only data this buffer carries.
+        const std::string& bound_name = LLHLSLShader::sCurBoundShaderPtr->mName;
+        bool wants_emissive_in_color0 =
+            bound_name == "Deferred Emissive Shader" ||
+            bound_name == "PBR Glow Shader" ||
+            bound_name == "Skinned Deferred Emissive Shader" ||
+            bound_name == "Skinned PBR Glow Shader";
+        AttributeType src = ((mTypeMask & MAP_EMISSIVE) && (wants_emissive_in_color0 || !(mTypeMask & MAP_COLOR)))
+            ? TYPE_EMISSIVE : TYPE_COLOR;
+        buffers[count] = vb;
+        strides[count] = sTypeSize[TYPE_COLOR];
+        offsets[count] = mOffsets[src];
+        ++count;
+    }
+
+    if (mTypeMask & MAP_TANGENT)
+    {
+        buffers[count] = vb;
+        strides[count] = sTypeSize[TYPE_TANGENT];
+        offsets[count] = mOffsets[TYPE_TANGENT];
+        ++count;
+    }
+
+    if (mTypeMask & MAP_WEIGHT)
+    {
+        buffers[count] = vb;
+        strides[count] = sTypeSize[TYPE_WEIGHT];
+        offsets[count] = mOffsets[TYPE_WEIGHT];
+        ++count;
+    }
+
+    if (mTypeMask & MAP_WEIGHT4)
+    {
+        // S24: rigged-mesh skinning (objectSkinV.hlsl's "weight4 :
+        // BLENDWEIGHT" input) - see DXVertexLayout.cpp's kWeight4 comment.
+        buffers[count] = vb;
+        strides[count] = sTypeSize[TYPE_WEIGHT4];
+        offsets[count] = mOffsets[TYPE_WEIGHT4];
+        ++count;
+    }
+
+    if (mTypeMask & MAP_CLOTHWEIGHT)
+    {
+        buffers[count] = vb;
+        strides[count] = sTypeSize[TYPE_CLOTHWEIGHT];
+        offsets[count] = mOffsets[TYPE_CLOTHWEIGHT];
+        ++count;
+    }
+
+    if (mTypeMask & MAP_TEXTURE_INDEX)
+    {
+        // Same underlying buffer as TYPE_VERTEX, different input slot - see
+        // DXVertexLayout.h's header comment: this is packed into position's
+        // otherwise-unused W component (mOffsets[TYPE_TEXTURE_INDEX] is
+        // already TYPE_VERTEX's offset + 12, computed by the shared,
+        // non-DX_RENDER-specific calcOffsets()), not a separate stream.
+        buffers[count] = vb;
+        strides[count] = sTypeSize[TYPE_VERTEX];
+        offsets[count] = mOffsets[TYPE_TEXTURE_INDEX];
+        ++count;
+    }
+
+    ID3D11DeviceContext* ctx = gDXDevice.getContext();
+    ctx->IASetVertexBuffers(0, count, buffers, strides, offsets);
+
+    ID3D11InputLayout* layout = DXVertexLayout::getOrCreate(mTypeMask, vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize(),
+        LLHLSLShader::sCurBoundShaderPtr->mName.c_str());
+    ctx->IASetInputLayout(layout);
+
+    return;
+#else
     U8* base = nullptr;
 
     U32 data_mask = LLGLSLShader::sCurBoundShaderPtr->mAttributeMask;
@@ -1915,6 +2167,7 @@ void LLVertexBuffer::setupVertexBuffer()
         glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, LLVertexBuffer::sTypeSize[TYPE_VERTEX], ptr);
     }
     STOP_GLERROR;
+#endif
 }
 
 void LLVertexBuffer::setPositionData(const LLVector4a* data)
