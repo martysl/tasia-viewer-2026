@@ -1906,7 +1906,15 @@ void LLRender::blendFunc(eBlendFactor sfactor, eBlendFactor dfactor)
         mCurrBlendColorDFactor = dfactor;
         mCurrBlendAlphaDFactor = dfactor;
         flush();
+#ifndef DX_RENDER
+        // Under DX_RENDER there is no WGL context, and this unguarded call was
+        // the null function pointer that killed the DX viewer on startup:
+        // LLRender::init() reaches setSceneBlendType() -> blendFunc() as its
+        // very first statement, so the fault landed immediately after "LLVertex
+        // Buffer initialization done". The donor omits the call entirely and
+        // relies on applyDXBlendState() below alone.
         glBlendFunc(sGLBlendFactor[sfactor], sGLBlendFactor[dfactor]);
+#endif
     }
 
 #ifdef DX_RENDER
@@ -1936,8 +1944,14 @@ void LLRender::blendFunc(eBlendFactor color_sfactor, eBlendFactor color_dfactor,
         mCurrBlendAlphaDFactor = alpha_dfactor;
         flush();
 
+#ifndef DX_RENDER
+        // Same unguarded-GL hazard as the 2-argument overload above. The donor
+        // documents that DXStateCache's single blend state cannot express
+        // separate colour and alpha factors, so it drops this call; nothing
+        // converted so far reaches this overload anyway.
         glBlendFuncSeparate(sGLBlendFactor[color_sfactor], sGLBlendFactor[color_dfactor],
                            sGLBlendFactor[alpha_sfactor], sGLBlendFactor[alpha_dfactor]);
+#endif
     }
 
 #ifdef DX_RENDER
