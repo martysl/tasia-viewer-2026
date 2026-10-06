@@ -229,6 +229,22 @@ void LLTexUnit::refreshState(void)
 
 void LLTexUnit::activate(void)
 {
+#ifdef DX_RENDER
+    // Real no-op, and it has to be one. Under DX_RENDER there is no WGL
+    // context and LLGLManager::initExtensions() never runs, so glActiveTexture
+    // stays a NULL PFNGLACTIVE_TEXTUREPROC global - calling it is a null
+    // dereference. There is also nothing for it to select: D3D11 texture
+    // binding addresses a pixel-shader slot directly (PSSetShaderResources /
+    // PSSetSamplers, see bind()/bindFast()'s DX branches) and has no notion of
+    // an "active" texture unit at all. Reached from every DX bind path
+    // (dxdrawpoolterrain, dxdrawpoolalpha, DXCubeMap, llfontdx and every
+    // LLHLSLShader::enableTexture()), so this has to be safe rather than
+    // merely unused. mCurrTextureUnitIndex is likewise left untouched: the
+    // GL bookkeeping that read it is gone from the DX branches below, and
+    // gDX's own value is what matrixMode(MM_TEXTURE) reads - see its DX
+    // branch for the same class of fix.
+    (void)mIndex;
+#else
     if (mIndex < 0) return;
 
     if ((S32)gGL.mCurrTextureUnitIndex != mIndex || gGL.mDirty)
@@ -237,10 +253,23 @@ void LLTexUnit::activate(void)
         glActiveTexture(GL_TEXTURE0 + mIndex);
         gGL.mCurrTextureUnitIndex = mIndex;
     }
+#endif // DX_RENDER
 }
 
 void LLTexUnit::enable(eTextureType type)
 {
+#ifdef DX_RENDER
+    // Deliberately leaves mCurrTexType at TT_NONE. Under DX_RENDER, texture
+    // binding goes through the DX-native bind()/bindFast() branches below,
+    // which set the pixel-shader SRV directly and need no texture-type
+    // bookkeeping; the GL body additionally writes mCurrTexType, which is
+    // precisely what would corrupt unbind()/unbindFast()'s
+    // `mCurrTexType == type` gate (they'd bind nothing at all once a stale
+    // non-TT_NONE value was left behind). Nothing under DX_RENDER reads
+    // mCurrTexType except GL-only paths (getCurrType(), debugTexUnits(),
+    // setTextureAddressMode()/setTextureFilteringOption()'s GL bodies).
+    (void)type;
+#else
     if (mIndex < 0) return;
 
     if ( (mCurrTexType != type || gGL.mDirty) && (type != TT_NONE) )
@@ -254,10 +283,18 @@ void LLTexUnit::enable(eTextureType type)
 
         gGL.flush();
     }
+#endif // DX_RENDER
 }
 
 void LLTexUnit::disable(void)
 {
+#ifdef DX_RENDER
+    // Bypasses the mCurrTexType gate on purpose: enable()'s DX branch above
+    // never sets mCurrTexType, so it stays TT_NONE forever and a check gated
+    // on it would always skip the unbind - leaving whatever an earlier,
+    // unrelated draw bound in this unit's slot. Unbind unconditionally.
+    unbind(LLTexUnit::TT_TEXTURE);
+#else
     if (mIndex < 0) return;
 
     if (mCurrTexType != TT_NONE)
@@ -265,10 +302,69 @@ void LLTexUnit::disable(void)
         unbind(mCurrTexType);
         mCurrTexType = TT_NONE;
     }
+#endif // DX_RENDER
 }
 
 void LLTexUnit::bindFast(LLTexture* texture)
 {
+#ifdef DX_RENDER
+    // Binds this LLTexture's LLImageDX (if uploaded) plus a sampler matching
+    // its address-mode/filter settings, to pixel-shader slot mIndex.
+    //
+    // A null SRV samples as (0,0,0,0) in HLSL, not as a no-op, so any shader
+    // doing `vertex_color * diffuseMap.Sample(...)` would render fully
+    // transparent instead of unaffected - fall back to getWhiteTextureSRV()
+    // rather than binding null.
+    if (mIndex < 0 || !texture) return;
+
+    // PORTING GAP (reported, not worked around silently): in the donor,
+    // LLTexture::getGLTexture() returns LLImageDX* (lltexture.h declares it as
+    // such, and LLDXTexture overrides it), so bindFast() can reach straight
+    // through the texture to its DXTexture and bind the real SRV. In this tree
+    // LLTexture::getGLTexture() still returns LLImageGL* and LLViewerTexture
+    // still derives from LLGLTexture - LLDXTexture exists (lldxtexture.cpp is in
+    // the DX_RENDER source list) but nothing derives from it, and there is no
+    // LLTexture::getDXTexture() virtual. So there is NO LLImageDX reachable
+    // from an LLTexture here and no SRV to bind; falling through to the GL
+    // body would be a null-deref of a NULL PFN. Bind the white fallback so the
+    // slot is left in a defined, neutral state (a null SRV samples as
+    // (0,0,0,0) in HLSL, which is not neutral) and let the real per-texture DX
+    // path arrive with the LLDXTexture/LLViewerTexture type swap - i.e. the
+    // same porting step that changed lltexture.h's declaration in the donor.
+    bool bound_image_changed = true;
+
+    ID3D11ShaderResourceView* srv = getWhiteTextureSRV();
+    bool srv_changed = bound_image_changed || mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        // Flush BEFORE updating mCurrBoundImageDX/mCurrDXSRV below, not after -
+        // otherwise LLRender::flush()'s mDXImage capture would tag still-queued
+        // vertices with the NEW texture instead of the one they were queued
+        // under. gDXUIBatch has its own pending queue with the same hazard.
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    mCurrBoundImageDX = nullptr;
+    // No LLImageDX to read address-mode/filter from (see the porting gap
+    // above) - TAM_WRAP / TFO_BILINEAR are this codebase's established
+    // defaults.
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate((int)LLTexUnit::TAM_WRAP, (int)LLTexUnit::TFO_BILINEAR);
+
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // Sampler slots cap at 16, SRV slots do not.
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+    return;
+#else
     LLImageGL* gl_tex = texture->getGLTexture();
     texture->setActive();
     glActiveTexture(GL_TEXTURE0 + mIndex);
@@ -290,10 +386,22 @@ void LLTexUnit::bindFast(LLTexture* texture)
         setTextureAddressModeFast(gl_tex->mAddressMode, gl_tex->getTarget());
         setTextureFilteringOptionFast(gl_tex->mFilterOption, gl_tex->getTarget());
     }
+#endif // DX_RENDER
 }
 
 bool LLTexUnit::bind(LLTexture* texture, bool for_rendering, bool forceBind)
 {
+#ifdef DX_RENDER
+    // mIndex < 0 covers the derived-channel case: enableTexture()-based
+    // callers come back as -1 and getTexUnit() maps out-of-range indices onto
+    // mDummyTexUnit (also -1), so they never reach bindFast(). A *hardcoded*
+    // valid index (gDX.getTexUnit(0)->bind(tex), used by the converted pools
+    // that have no per-material channel registration yet) bypasses that guard,
+    // hence the explicit check here rather than relying on the -1 convention.
+    if (mIndex < 0 || !texture) return false;
+    bindFast(texture);
+    return true;
+#else
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     stop_glerror();
     if (mIndex >= 0)
@@ -355,6 +463,7 @@ bool LLTexUnit::bind(LLTexture* texture, bool for_rendering, bool forceBind)
     }
 
     return true;
+#endif // DX_RENDER
 }
 
 bool LLTexUnit::bind(LLImageGL* texture, bool for_rendering, bool forceBind, S32 usename)
@@ -573,6 +682,50 @@ bool LLTexUnit::bind(DXCubeMapArray* cubeMapArray)
 // LLRenderTarget is unavailible on the mapserver since it uses FBOs.
 bool LLTexUnit::bind(LLRenderTarget* renderTarget, bool bindDepth)
 {
+#ifdef DX_RENDER
+    if (mIndex < 0 || !renderTarget) return false;
+
+    // Pulls the SRV straight off DXRenderTarget rather than going through
+    // bindManual(), which is handed a raw GLuint-based usage type + texture
+    // name and has nothing to translate under DX_RENDER (see its DX branch).
+    // This is the texture-binding chokepoint for the whole deferred/post-
+    // process chain (dxpipeline, dxdrawpoolwater).
+    ID3D11ShaderResourceView* srv = bindDepth ? renderTarget->getDepthSRV() : renderTarget->getColorSRV(0);
+    if (!srv)
+    {
+        return false;
+    }
+    // The sampler skip is independent of the SRV skip: the same SRV can
+    // legitimately need a different sampler on two different calls, and a
+    // shared skip condition would wrongly suppress one of those rebinds.
+    bool srv_changed = mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        // Flush BEFORE updating mCurrDXSRV, not after - otherwise flush()'s
+        // mDXImage capture would tag still-queued vertices with the NEW
+        // texture instead of the one they were queued under.
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    // CLAMP + BILINEAR: matches the post-process/screen-space sampling
+    // convention (edge clamping avoids wrap-around artifacts on a
+    // screen-space texture; render targets aren't mipmapped here).
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate(2, 1);
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // Sampler slots cap at 16, SRV slots do not.
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+    return true;
+#else
     if (mIndex < 0) return false;
 
     gGL.flush();
@@ -589,10 +742,25 @@ bool LLTexUnit::bind(LLRenderTarget* renderTarget, bool bindDepth)
     }
 
     return true;
+#endif // DX_RENDER
 }
 
 bool LLTexUnit::bindManual(eTextureType type, U32 texture, bool hasMips)
 {
+#ifdef DX_RENDER
+    // Unconditional false, and deliberately not a no-op that returns true:
+    // this overload is handed a raw GLuint object name with no LLImageDX /
+    // LLTexture / DXRenderTarget to look a D3D11 resource up from, so there is
+    // genuinely nothing to translate - reaching the raw glBindTexture() in the
+    // GL body would be a null dereference with no GL context behind it.
+    // Callers that derive their channel from getTextureChannel()/
+    // enableTexture() already return before this via the mIndex < 0 check;
+    // this guards the hardcoded-unit callers that would otherwise get here.
+    (void)type;
+    (void)texture;
+    (void)hasMips;
+    return false;
+#else
     if (mIndex < 0)
     {
         return false;
@@ -609,10 +777,57 @@ bool LLTexUnit::bindManual(eTextureType type, U32 texture, bool hasMips)
         mHasMipMaps = hasMips;
     }
     return true;
+#endif // DX_RENDER
 }
 
 void LLTexUnit::unbind(eTextureType type)
 {
+#ifdef DX_RENDER
+    // A real bind, not a no-op: GL's unbind() does not bind "nothing", it
+    // binds a real 1x1 white texture (LLTexUnit::sWhiteTexture), specifically
+    // because shaders like interface/uiF.hlsl unconditionally do
+    // `vertex_color * diffuseMap.Sample(...)` for every 2D UI draw, textured
+    // or not (solid-colour rects, borders and highlights included). A null SRV
+    // samples as (0,0,0,0) in HLSL rather than as a neutral value, so leaving
+    // a slot genuinely unbound - or leaving whatever an earlier, unrelated
+    // draw put there - zeroes out or corrupts every untextured 2D UI element.
+    // getWhiteTextureSRV() is a real, self-contained 1x1 white DXTexture
+    // mirroring GL's sWhiteTexture role exactly. Reached from llfontdx (any
+    // underlined UI text), llimagedx, dxdrawpoolterrain, DXCubeMapArray.
+    if (mIndex < 0 || type != LLTexUnit::TT_TEXTURE)
+    {
+        return;
+    }
+    ID3D11ShaderResourceView* srv = getWhiteTextureSRV();
+    bool srv_changed = mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        // Same missing-flush hazard as bindFast(): without this, vertices
+        // pushed after this call (e.g. dx_rect_2d()) can be drawn with whatever
+        // a LATER bind() switches to instead of white.
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    // "no texture" means mCurrBoundImageDX must actually go to null, not stay
+    // whatever the last real bind() set - otherwise bindFast()'s
+    // bound_image_changed check would wrongly conclude nothing changed.
+    mCurrBoundImageDX = nullptr;
+    // WRAP, POINT - matches a solid white texel regardless.
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate(0, 0);
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // Sampler slots cap at 16, SRV slots do not.
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+#else
     stop_glerror();
 
     if (mIndex < 0) return;
@@ -637,10 +852,42 @@ void LLTexUnit::unbind(eTextureType type)
         }
         stop_glerror();
     }
+#endif // DX_RENDER
 }
 
 void LLTexUnit::unbindFast(eTextureType type)
 {
+#ifdef DX_RENDER
+    // Real bind, same body and same reasoning as unbind() above - see
+    // getWhiteTextureSRV()'s comment for why a null/no-op unbind silently
+    // zeroes out every untextured 2D UI element.
+    if (mIndex < 0 || type != LLTexUnit::TT_TEXTURE)
+    {
+        return;
+    }
+    ID3D11ShaderResourceView* srv = getWhiteTextureSRV();
+    bool srv_changed = mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    mCurrBoundImageDX = nullptr;
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate(0, 0);
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // Sampler slots cap at 16, SRV slots do not.
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+#else
     activate();
 
     // Disabled caching of binding state.
@@ -657,10 +904,26 @@ void LLTexUnit::unbindFast(eTextureType type)
             glBindTexture(sGLTextureType[type], 0);
         }
     }
+#endif // DX_RENDER
 }
 
 void LLTexUnit::setTextureAddressMode(eTextureAddressMode mode)
 {
+#ifdef DX_RENDER
+    // Real no-op, not an accidental one: under DX_RENDER the full sampler
+    // state (address mode + filter option together) is built fresh at bind
+    // time by DXSampler::getOrCreate() (see bindFast()'s comment), reading
+    // mAddressMode/mFilterOption straight off the LLImageDX/LLTexture being
+    // bound - this GL immediate-state-setting idiom has no role to play.
+    // Before it was made explicit, the only thing stopping it from reaching
+    // the raw glTexParameteri() calls in the GL body was mCurrTexture
+    // happening to stay 0 forever (no DX bind path ever assigns it) - a
+    // correct but *implicit* invariant, one accidental future edit away from
+    // a null-GL-context crash. Reached 11 times from dxdrawpoolterrain and
+    // once from llimagedx.cpp, so made explicit here instead.
+    (void)mode;
+    return;
+#else
     if (mIndex < 0 || mCurrTexture == 0) return;
 
     gGL.flush();
@@ -668,6 +931,7 @@ void LLTexUnit::setTextureAddressMode(eTextureAddressMode mode)
     activate();
 
     setTextureAddressModeFast(mode, mCurrTexType);
+#endif // DX_RENDER
 }
 
 void LLTexUnit::setTextureAddressModeFast(eTextureAddressMode mode, eTextureType tex_type)
@@ -682,11 +946,24 @@ void LLTexUnit::setTextureAddressModeFast(eTextureAddressMode mode, eTextureType
 
 void LLTexUnit::setTextureFilteringOption(LLTexUnit::eTextureFilterOptions option)
 {
+#ifdef DX_RENDER
+    // Real no-op, same reasoning as setTextureAddressMode() above: the filter
+    // option is applied via DXSampler::getOrCreate() at bind time, reading
+    // mFilterOption off the LLImageDX/LLTexture being bound, not through this
+    // GL immediate-state-setting path. Made explicit for the same reason - the
+    // only thing stopping this from reaching the raw glTexParameteri() calls in
+    // the GL body was mCurrTexture staying 0 forever, a correct but implicit
+    // invariant. (llimagedx.cpp's LLImageDX::setFilteringOption() already
+    // documents this as a DX_RENDER no-op, so this makes that comment true.)
+    (void)option;
+    return;
+#else
     if (mIndex < 0 || mCurrTexture == 0 || mCurrTexType == LLTexUnit::TT_MULTISAMPLE_TEXTURE) return;
 
     gGL.flush();
 
     setTextureFilteringOptionFast(option, mCurrTexType);
+#endif // DX_RENDER
 }
 
 void LLTexUnit::setTextureFilteringOptionFast(LLTexUnit::eTextureFilterOptions option, eTextureType tex_type)
@@ -1168,6 +1445,16 @@ void LLRender::shutdown()
 
 void LLRender::refreshState(void)
 {
+#ifdef DX_RENDER
+    // Unreachable in practice - mStatesDirty has no writer yet, so nothing
+    // calls this - but the whole body is a GL-context-restoration idiom:
+    // LLTexUnit::refreshState() loops glActiveTexture over every unit, which is
+    // a NULL PFNGL*PROC global under DX_RENDER. Guarded rather than deleted so
+    // the day mStatesDirty does get a writer, the DX build still compiles and
+    // still does the safe thing (nothing) instead of crashing. DX-native
+    // equivalent would just re-PSet every unit's cached SRV/sampler, which the
+    // per-unit mDXSRVGeneration stamping already handles automatically.
+#else
     mDirty = true;
 
     U32 active_unit = mCurrTextureUnitIndex;
@@ -1184,6 +1471,7 @@ void LLRender::refreshState(void)
     flush();
 
     mDirty = false;
+#endif // DX_RENDER
 }
 
 void LLRender::syncLightState()
@@ -1695,7 +1983,16 @@ void LLRender::matrixMode(eMatrixMode mode)
 {
     if (mode == MM_TEXTURE)
     {
+#ifdef DX_RENDER
+        // This object's OWN current unit index, not gGL's. Reading gGL here gave
+        // every one of the nine gDX.matrixMode(MM_TEXTURE) call sites the GL
+        // context's index - the wrong context's texture-matrix slot - since
+        // activate()'s DX branch (a no-op) is what would otherwise have kept
+        // gDX.mCurrTextureUnitIndex up to date. GL branch below is unchanged.
+        U32 tex_index = mCurrTextureUnitIndex;
+#else
         U32 tex_index = gGL.getCurrentTexUnitIndex();
+#endif // DX_RENDER
         // the shaders don't actually reference anything beyond texture_matrix0/1 outside of terrain rendering
         llassert(tex_index <= 3);
         mode = eMatrixMode(MM_TEXTURE0 + tex_index);
@@ -1846,10 +2143,19 @@ void LLRender::setColorMask(bool writeColorR, bool writeColorG, bool writeColorB
         mCurrColorMask[2] = writeColorB;
         mCurrColorMask[3] = writeAlpha;
 
+#ifndef DX_RENDER
+        // glColorMask is a NULL PFNGL*PROC global under DX_RENDER (no WGL
+        // context, LLGLManager::initExtensions() never runs) - calling it is a
+        // null dereference, and it was the FIRST thing this function did, before
+        // the DX applyDXBlendState() call below. Under DX the write mask travels
+        // as part of the ID3D11BlendState instead, so there is nothing for the
+        // call above to do. Reached from dxpipeline and dxdrawpoolalpha on the
+        // very first frame.
         glColorMask(writeColorR ? GL_TRUE : GL_FALSE,
                     writeColorG ? GL_TRUE : GL_FALSE,
                     writeColorB ? GL_TRUE : GL_FALSE,
                     writeAlpha ? GL_TRUE : GL_FALSE);
+#endif // DX_RENDER
 
 #ifdef DX_RENDER
         // The color write mask is the third input D3D11 folds into the same
@@ -2107,10 +2413,12 @@ bool LLRender::verifyTexUnitActive(U32 unitToVerify)
 
 void LLRender::clearErrors()
 {
+#ifndef DX_RENDER
     while (glGetError())
     {
         //loop until no more error flags left
     }
+#endif // DX_RENDER
 }
 
 void LLRender::beginList(std::list<LLVertexBufferData> *list)
@@ -2119,7 +2427,18 @@ void LLRender::beginList(std::list<LLVertexBufferData> *list)
     {
         LL_ERRS() << "beginList called while another list is open." << LL_ENDL;
     }
+    #ifdef DX_RENDER
+    // LLHLSLShader::sCurBoundShaderPtr, not LLGLSLShader's: under DX_RENDER the
+    // bound shader is an LLHLSLShader, whose sCurBoundShaderPtr is a different
+    // static that the GL assert would never see set. The GL spelling also
+    // wouldn't compile here at all - under DX_RENDER, gUIProgram is an
+    // LLHLSLShader (llglslshader.h declares it only when !DX_RENDER) and
+    // LLHLSLShader does not derive from LLGLSLShader, so the pointer comparison
+    // has no common type.
+    llassert(LLHLSLShader::sCurBoundShaderPtr == &gUIProgram);
+#else
     llassert(LLGLSLShader::sCurBoundShaderPtr == &gUIProgram);
+#endif // DX_RENDER
     flush();
     sBufferDataList = list;
 }
@@ -2180,6 +2499,162 @@ void LLRender::end()
 
 void LLRender::flush()
 {
+#ifdef DX_RENDER
+    if (mCount == 0)
+    {
+        return;
+    }
+
+    // LLHLSLShader, not LLGLSLShader: under DX_RENDER the bound shader is an
+    // LLHLSLShader and LLGLSLShader::sCurBoundShaderPtr is a *different* static
+    // that is never set here - so the GL body below's
+    // llassert_always(... != nullptr) fires on the very first flush (the UI
+    // draws immediately at startup) and, without the assert, its
+    // `->mAttributeMask` dereference is a null dereference.
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+
+    // Graceful drop rather than an assert: a batch queued with no shader bound
+    // cannot be drawn (there is no attribute mask to build the vertex buffer
+    // from), and a hard error here would take down startup over one stray
+    // immediate-mode draw.
+    if (LL_UNLIKELY(shader == nullptr))
+    {
+        static U32 warn_count = 0;
+        if (warn_count < 5)
+        {
+            LL_WARNS("Render")
+                << "flush() called with no bound shader. Dropping batch. mode="
+                << mMode << " count=" << mCount
+                << LL_ENDL;
+            ++warn_count;
+        }
+
+        mCount = 0;
+        resetStriders(0);
+        return;
+    }
+
+    if (!mUIOffset.empty())
+    {
+        sUICalls++;
+        sUIVerts += mCount;
+    }
+
+    // Local, to avoid re-entrancy (drawArrays may call flush).
+    U32 count = mCount;
+
+    if (mMode == LLRender::TRIANGLES && (count % 3))
+    {
+        LL_WARNS("Render") << "Incomplete triangle requested." << LL_ENDL;
+        count -= (count % 3);
+    }
+    else if (mMode == LLRender::LINES && (count % 2))
+    {
+        LL_WARNS("Render") << "Incomplete line requested." << LL_ENDL;
+        count -= (count % 2);
+    }
+
+    U32 draw_mode = mMode;
+    // D3D11 has no LINE_LOOP topology (llvertexbuffer.cpp's sDXMode[] maps it to
+    // D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED, which drawArrays asserts against), so
+    // a closed line loop is expanded here into a line strip with the first
+    // vertex duplicated onto the end. Done at this shared immediate-mode
+    // chokepoint so every caller benefits. count+1 is safe - vertex3f()'s own
+    // overflow guard keeps mCount within the striders' range with room to
+    // spare for one more.
+    if (mMode == LLRender::LINE_LOOP && count > 0)
+    {
+        mVerticesp[count] = mVerticesp[0];
+        mColorsp[count] = mColorsp[0];
+        mTexcoordsp[count] = mTexcoordsp[0];
+        ++count;
+        draw_mode = LLRender::LINE_STRIP;
+    }
+    // D3D11 has no TRIANGLE_FAN either, same as LINE_LOOP above. Real callers:
+    // LLCone::render() (cone sides for translate-arrow gizmos), lltracker.cpp's
+    // beacon circle, llreflectionmap.cpp's debug rings.
+    //
+    // Unlike LINE_LOOP (one extra vertex, appended in place) a fan-to-list
+    // expansion reorders and grows the data - triangle (v0, vi, vi+1) for each
+    // i in [1, count-2] - so it can't be done in place against the same striders
+    // it reads from. Copy the source verts out, then overwrite the striders
+    // from index 0. Capped against the striders' fixed [0,4095] range (see
+    // vertex3f()'s comment): the real callers are small decorative/gizmo
+    // geometry, nowhere near that limit, and a fan large enough to hit it drops
+    // its batch with a warning instead of overflowing.
+    else if (mMode == LLRender::TRIANGLE_FAN && count >= 3)
+    {
+        U32 expanded_count = (count - 2) * 3;
+        if (expanded_count <= 4095)
+        {
+            std::vector<LLVector4a> src_verts(count);
+            std::vector<LLColor4U> src_colors(count);
+            std::vector<LLVector2> src_uvs(count);
+            for (U32 i = 0; i < count; ++i)
+            {
+                src_verts[i] = mVerticesp[i];
+                src_colors[i] = mColorsp[i];
+                src_uvs[i] = mTexcoordsp[i];
+            }
+
+            U32 out = 0;
+            for (U32 i = 1; i + 1 < count; ++i)
+            {
+                mVerticesp[out] = src_verts[0];   mColorsp[out] = src_colors[0];   mTexcoordsp[out] = src_uvs[0];   ++out;
+                mVerticesp[out] = src_verts[i];   mColorsp[out] = src_colors[i];   mTexcoordsp[out] = src_uvs[i];   ++out;
+                mVerticesp[out] = src_verts[i+1]; mColorsp[out] = src_colors[i+1]; mTexcoordsp[out] = src_uvs[i+1]; ++out;
+            }
+            count = out;
+            draw_mode = LLRender::TRIANGLES;
+        }
+        else
+        {
+            LL_WARNS("Render") << "TRIANGLE_FAN too large to expand for DX_RENDER (count=" << count << "), dropping batch." << LL_ENDL;
+            mCount = 0;
+            resetStriders(0);
+            return;
+        }
+    }
+
+    mCount = 0;
+
+    if (!mBuffer)
+    {
+        // mBuffer is present in the main thread and absent in an image thread.
+        LL_ERRS() << "A flush call from outside main rendering thread" << LL_ENDL;
+        return;
+    }
+
+    LLVertexBuffer* vb;
+
+    U32 attribute_mask = shader->mAttributeMask;
+
+    if (sBufferDataList)
+    {
+        vb = genBuffer(attribute_mask, count);
+        sBufferDataList->emplace_back(
+            vb,
+            draw_mode,
+            count,
+            getTexUnit(0)->mCurrTexture,
+            mMatrix[MM_MODELVIEW][mMatIdx[MM_MODELVIEW]],
+            mMatrix[MM_PROJECTION][mMatIdx[MM_PROJECTION]],
+            mMatrix[MM_TEXTURE0][mMatIdx[MM_TEXTURE0]]
+            );
+    }
+    else
+    {
+        vb = bufferfromCache(attribute_mask, count);
+    }
+
+    // gDXUIBatch's call sites flush THIS queue before submitting to it, but
+    // nothing flushed gDXUIBatch's own pending queue before THIS draw, which
+    // could corrupt paint order.
+    gDXUIBatch.flushPending();
+
+    drawBuffer(vb, draw_mode, count);
+    resetStriders(count);
+#else
     STOP_GLERROR;
     if (mCount > 0)
     {
@@ -2250,6 +2725,7 @@ void LLRender::flush()
 
         resetStriders(count);
     }
+#endif // DX_RENDER
 }
 
 LLVertexBuffer* LLRender::bufferfromCache(U32 attribute_mask, U32 count)
@@ -2591,7 +3067,17 @@ void LLRender::color3fv(const GLfloat* c)
 
 void LLRender::diffuseColor3f(F32 r, F32 g, F32 b)
 {
+#ifdef DX_RENDER
+    // LLHLSLShader, not LLGLSLShader: LLGLSLShader::sCurBoundShaderPtr is never
+    // set under DX_RENDER, so the GL spelling left shader null here and every
+    // diffuse colour was silently dropped - all of these overloads read the
+    // same wrong static. uniform4f()/uniform4fv()'s U32-index forms resolve
+    // the index against LLShaderMgr's shared mReservedUniforms name table, so
+    // LLShaderMgr::DIFFUSE_COLOR ("color") works unchanged on this side.
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+#else
     LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+#endif // DX_RENDER
     llassert(shader != NULL);
 
     if (shader)
@@ -2602,7 +3088,17 @@ void LLRender::diffuseColor3f(F32 r, F32 g, F32 b)
 
 void LLRender::diffuseColor3fv(const F32* c)
 {
+#ifdef DX_RENDER
+    // LLHLSLShader, not LLGLSLShader: LLGLSLShader::sCurBoundShaderPtr is never
+    // set under DX_RENDER, so the GL spelling left shader null here and every
+    // diffuse colour was silently dropped - all of these overloads read the
+    // same wrong static. uniform4f()/uniform4fv()'s U32-index forms resolve
+    // the index against LLShaderMgr's shared mReservedUniforms name table, so
+    // LLShaderMgr::DIFFUSE_COLOR ("color") works unchanged on this side.
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+#else
     LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+#endif // DX_RENDER
     llassert(shader != NULL);
 
     if (shader)
@@ -2613,7 +3109,17 @@ void LLRender::diffuseColor3fv(const F32* c)
 
 void LLRender::diffuseColor4f(F32 r, F32 g, F32 b, F32 a)
 {
+#ifdef DX_RENDER
+    // LLHLSLShader, not LLGLSLShader: LLGLSLShader::sCurBoundShaderPtr is never
+    // set under DX_RENDER, so the GL spelling left shader null here and every
+    // diffuse colour was silently dropped - all of these overloads read the
+    // same wrong static. uniform4f()/uniform4fv()'s U32-index forms resolve
+    // the index against LLShaderMgr's shared mReservedUniforms name table, so
+    // LLShaderMgr::DIFFUSE_COLOR ("color") works unchanged on this side.
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+#else
     LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+#endif // DX_RENDER
     llassert(shader != NULL);
 
     if (shader)
@@ -2624,7 +3130,17 @@ void LLRender::diffuseColor4f(F32 r, F32 g, F32 b, F32 a)
 
 void LLRender::diffuseColor4fv(const F32* c)
 {
+#ifdef DX_RENDER
+    // LLHLSLShader, not LLGLSLShader: LLGLSLShader::sCurBoundShaderPtr is never
+    // set under DX_RENDER, so the GL spelling left shader null here and every
+    // diffuse colour was silently dropped - all of these overloads read the
+    // same wrong static. uniform4f()/uniform4fv()'s U32-index forms resolve
+    // the index against LLShaderMgr's shared mReservedUniforms name table, so
+    // LLShaderMgr::DIFFUSE_COLOR ("color") works unchanged on this side.
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+#else
     LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+#endif // DX_RENDER
     llassert(shader != NULL);
 
     if (shader)
@@ -2635,7 +3151,17 @@ void LLRender::diffuseColor4fv(const F32* c)
 
 void LLRender::diffuseColor4ubv(const U8* c)
 {
+#ifdef DX_RENDER
+    // LLHLSLShader, not LLGLSLShader: LLGLSLShader::sCurBoundShaderPtr is never
+    // set under DX_RENDER, so the GL spelling left shader null here and every
+    // diffuse colour was silently dropped - all of these overloads read the
+    // same wrong static. uniform4f()/uniform4fv()'s U32-index forms resolve
+    // the index against LLShaderMgr's shared mReservedUniforms name table, so
+    // LLShaderMgr::DIFFUSE_COLOR ("color") works unchanged on this side.
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+#else
     LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+#endif // DX_RENDER
     llassert(shader != NULL);
 
     if (shader)
@@ -2646,7 +3172,17 @@ void LLRender::diffuseColor4ubv(const U8* c)
 
 void LLRender::diffuseColor4ub(U8 r, U8 g, U8 b, U8 a)
 {
+#ifdef DX_RENDER
+    // LLHLSLShader, not LLGLSLShader: LLGLSLShader::sCurBoundShaderPtr is never
+    // set under DX_RENDER, so the GL spelling left shader null here and every
+    // diffuse colour was silently dropped - all of these overloads read the
+    // same wrong static. uniform4f()/uniform4fv()'s U32-index forms resolve
+    // the index against LLShaderMgr's shared mReservedUniforms name table, so
+    // LLShaderMgr::DIFFUSE_COLOR ("color") works unchanged on this side.
+    LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr;
+#else
     LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+#endif // DX_RENDER
     llassert(shader != NULL);
 
     if (shader)

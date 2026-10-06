@@ -41,6 +41,12 @@ class LLViewerObject;
 #ifdef DX_RENDER
 class LLImageDX;
 typedef LLImageDX LLReflectionMapEXRImage;
+
+// Real D3D11 constant buffer backing mProbeData/ReflectionProbeData, the
+// equivalent of the GL UBO in mUBO below - see updateUniforms()/setUniforms()
+// in llreflectionmapmanager.cpp. Needed as a real include (not a forward
+// declaration) because it is a by-value member.
+#include "DXBuffer.h"
 #else
 class LLImageGL;
 typedef LLImageGL LLReflectionMapEXRImage;
@@ -254,6 +260,16 @@ private:
 
     // handle to UBO
     U32 mUBO = 0;
+#ifdef DX_RENDER
+    // Real D3D11 constant buffer holding mProbeData, the counterpart of mUBO.
+    // mUBO itself stays 0 under DX_RENDER (glGenBuffers/glBindBuffer/
+    // glBufferData are NULL PFNGL*PROC globals - LLGLManager::initExtensions()
+    // never runs without a WGL context), so "has it been created yet" is
+    // tested with mDXUBO.getBuffer(), which correctly returns to null after
+    // cleanup()'s destroy() (called on teleport as well as shutdown) and so
+    // triggers recreation on the next call, exactly like GL's mUBO == 0 test.
+    DXBuffer mDXUBO;
+#endif
 
     // list of maps being used for rendering
     std::vector<LLReflectionMap*> mReflectionMaps;

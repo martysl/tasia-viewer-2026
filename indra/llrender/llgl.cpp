@@ -1451,9 +1451,24 @@ void LLGLManager::getGLInfo(LLSD& info)
     }
     else
     {
+#ifdef DX_RENDER
+        // S24: report the already-populated fields instead of raw
+        // glGetString(). Under DX_RENDER there is no GL context at all - no WGL
+        // context is ever created and LLGLManager::initExtensions() (the
+        // glh_init_extensions() loader behind every PFNGL*PROC global) is
+        // never called, so glGetString() has nothing to query and is undefined
+        // behaviour. initGLDX() fills exactly these three fields from DXGI
+        // (IDXGIDevice::GetAdapter -> DXGI_ADAPTER_DESC), and it runs before
+        // this: LLAppViewer::init() / LLFeatureManager call both this and
+        // initGLDX() during startup.
+        info["GLInfo"]["GLVendor"] = mGLVendor;
+        info["GLInfo"]["GLRenderer"] = mGLRenderer;
+        info["GLInfo"]["GLVersion"] = mGLVersionString;
+#else
         info["GLInfo"]["GLVendor"] = ll_safe_string((const char *)glGetString(GL_VENDOR));
         info["GLInfo"]["GLRenderer"] = ll_safe_string((const char *)glGetString(GL_RENDERER));
         info["GLInfo"]["GLVersion"] = ll_safe_string((const char *)glGetString(GL_VERSION));
+#endif
     }
 
 #if !LL_MESA_HEADLESS
@@ -1479,9 +1494,17 @@ std::string LLGLManager::getGLInfoString()
     }
     else
     {
+#ifdef DX_RENDER
+        // S24: same as getGLInfo() above - no GL context exists under
+        // DX_RENDER, so report the fields initGLDX() already populated.
+        info_str += std::string("GL_VENDOR      ") + mGLVendor + std::string("\n");
+        info_str += std::string("GL_RENDERER    ") + mGLRenderer + std::string("\n");
+        info_str += std::string("GL_VERSION     ") + mGLVersionString + std::string("\n");
+#else
         info_str += std::string("GL_VENDOR      ") + ll_safe_string((const char *)glGetString(GL_VENDOR)) + std::string("\n");
         info_str += std::string("GL_RENDERER    ") + ll_safe_string((const char *)glGetString(GL_RENDERER)) + std::string("\n");
         info_str += std::string("GL_VERSION     ") + ll_safe_string((const char *)glGetString(GL_VERSION)) + std::string("\n");
+#endif
     }
 
 #if !LL_MESA_HEADLESS
@@ -1503,9 +1526,17 @@ void LLGLManager::printGLInfoString()
     }
     else
     {
+#ifdef DX_RENDER
+        // S24: same as getGLInfo() above - no GL context exists under
+        // DX_RENDER, so log the fields initGLDX() already populated.
+        LL_INFOS("RenderInit") << "GL_VENDOR:     " << mGLVendor << LL_ENDL;
+        LL_INFOS("RenderInit") << "GL_RENDERER:   " << mGLRenderer << LL_ENDL;
+        LL_INFOS("RenderInit") << "GL_VERSION:    " << mGLVersionString << LL_ENDL;
+#else
         LL_INFOS("RenderInit") << "GL_VENDOR:     " << ll_safe_string((const char *)glGetString(GL_VENDOR)) << LL_ENDL;
         LL_INFOS("RenderInit") << "GL_RENDERER:   " << ll_safe_string((const char *)glGetString(GL_RENDERER)) << LL_ENDL;
         LL_INFOS("RenderInit") << "GL_VERSION:    " << ll_safe_string((const char *)glGetString(GL_VERSION)) << LL_ENDL;
+#endif
     }
 
 #if !LL_MESA_HEADLESS
@@ -1524,7 +1555,14 @@ std::string LLGLManager::getRawGLString()
     }
     else
     {
+#ifdef DX_RENDER
+        // S24: same as getGLInfo() above - no GL context exists under
+        // DX_RENDER. Also feeds LLFeatureManager's RDNA3.5 detection
+        // (checkRDNA35()) and is what gets sent to the simulator.
+        gl_string = mGLVendor + " " + mGLRenderer;
+#else
         gl_string = ll_safe_string((char*)glGetString(GL_VENDOR)) + " " + ll_safe_string((char*)glGetString(GL_RENDERER));
+#endif
     }
     return gl_string;
 }
@@ -2483,7 +2521,16 @@ void rotate_quat(LLQuaternion& rotation)
 
 void flush_glerror()
 {
+    // S24: glGetError() with no current GL context is undefined behaviour, and
+    // under DX_RENDER there is never any context (no WGL context is created and
+    // initExtensions() is never called, so the loader that would resolve the GL
+    // entry points never runs). Not dead code either: llfeaturemanager.cpp calls
+    // this from LLFeatureManager::loadGPUClass() during startup, long before a
+    // window exists. Kept - unlike the donor, which deleted it - because
+    // llgl.h declares it and other translation units reference it.
+#ifndef DX_RENDER
     glGetError();
+#endif
 }
 
 //this function outputs gl error to the log file, does not crash the code.
@@ -2585,8 +2632,13 @@ void assert_glerror()
 
 void clear_glerror()
 {
+    // S24: same reasoning as flush_glerror() above - the call is live (see
+    // llrendertarget.cpp's two clear_glerror() sites) but there is no GL context
+    // under DX_RENDER.
+#ifndef DX_RENDER
     glGetError();
     glGetError();
+#endif
 }
 
 ///////////////////////////////////////////////////////////////
@@ -2616,7 +2668,17 @@ void LLGLState::initClass()
 
     //make sure multisample defaults to disabled
     sStateMap[GL_MULTISAMPLE] = GL_FALSE;
+    // S24: unguarded raw glDisable(), and live rather than dead - LLGLState::
+    // restoreGL() always reaches this, and llviewerwindow.cpp calls
+    // restoreGL() on device-lost/restore. GL_MULTISAMPLE is not one of
+    // applyDXState()'s dispatched states either (only BLEND/CULL_FACE/
+    // SCISSOR_TEST/DEPTH_CLAMP/POLYGON_OFFSET_* and DEPTH_TEST have a D3D11
+    // target), so under DX_RENDER the sStateMap bookkeeping above is all that
+    // ever mattered: MSAA is a swap-chain/render-target sample-count property in
+    // D3D11, not a per-draw enable/disable.
+#ifndef DX_RENDER
     glDisable(GL_MULTISAMPLE);
+#endif
 }
 
 //static
@@ -2630,6 +2692,15 @@ void LLGLState::restoreGL()
 // Really shouldn't be needed, but seems we sometimes do.
 void LLGLState::resetTextureStates()
 {
+    // S24: the whole body is raw GL that cannot work under DX_RENDER - there is
+    // no GL context, so glGetIntegerv() has nothing to report, gGL's LLTexUnit
+    // table is never populated (initExtensions() is never called), and
+    // glClientActiveTexture() is one of the NULL PFNGL*PROC globals. Nothing to
+    // port it to either: D3D11 has no GL-style "client active texture" selector,
+    // texture slots are bound per-stage via ID3D11DeviceContext::SetShaderResources.
+    // Zero callers tree-wide, so an inert body is correct rather than merely
+    // convenient.
+#ifndef DX_RENDER
     gGL.flush();
     GLint maxTextureUnits;
 
@@ -2640,6 +2711,7 @@ void LLGLState::resetTextureStates()
         glClientActiveTexture(GL_TEXTURE0+j);
         j == 0 ? gGL.getTexUnit(j)->enable(LLTexUnit::TT_TEXTURE) : gGL.getTexUnit(j)->disable();
     }
+#endif
 }
 
 void LLGLState::dumpStates()
@@ -2654,6 +2726,22 @@ void LLGLState::dumpStates()
 
 void LLGLState::checkStates(GLboolean writeAlpha)
 {
+#ifdef DX_RENDER
+    // S24: this was a GL-context state validator - it read real blend factors
+    // and per-capability enable bits back out of the driver with
+    // glGetIntegerv()/glIsEnabled() and cross-checked them against sStateMap.
+    // None of that exists under DX_RENDER (no GL context, so those are
+    // undefined behaviour / NULL PFN globals), and there is no D3D11 readback
+    // equivalent that would make the same assertion meaningful: the objects
+    // LLRender applies are cached in DXStateCache and re-read by value
+    // (DXState::isEnabled(), LLGLDepthTest::getDepthFunc()/
+    // getWriteEnabled()), not queried back from the driver.
+    //
+    // Kept as a stub rather than deleted: it has ~25 live call sites tree-wide
+    // and nothing behaviourally depends on removing them.
+    (void)writeAlpha;
+    return;
+#else
     if (!gDebugGL)
     {
         return;
@@ -2689,6 +2777,7 @@ void LLGLState::checkStates(GLboolean writeAlpha)
             LL_GL_ERRS << llformat("LLGLState error. State: 0x%04x",state) << LL_ENDL;
         }
     }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -2841,16 +2930,26 @@ void LLGLState::setEnabled(S32 enabled)
     }
     else if (enabled == ENABLED_STATE && sStateMap[mState] != GL_TRUE)
     {
+#ifndef DX_RENDER
         gGL.flush();
         glEnable(mState);
+#endif
         sStateMap[mState] = GL_TRUE;
 #ifdef DX_RENDER
+        // S24: no GL context exists under DX_RENDER, so neither the gGL.flush()
+        // nor the glEnable() above can run - glEnable() on a capability with no
+        // context is undefined behaviour, and gGL.flush() drains a GL command
+        // queue that was never opened. Note this branch fires on the very first
+        // LLGLEnable/LLGLDisable: LLGLState::initClass() (which seeds sStateMap)
+        // is reached only through initGLStates(), whose sole caller is initGL(),
+        // and DX_RENDER never calls that.
+        //
         // Flush BEFORE the bookkeeping+state-apply, not after -
         // applyDXState() changes real D3D11 pipeline state immediately, and
         // without flushing first, already-queued CPU-side geometry would be
         // drawn with the new state instead of the one it was built under.
-        // gDXUIBatch is a second, independent GPU-submission queue
-        // gGL.flush() above doesn't reach, so drain it too.
+        // gDXUIBatch is a second, independent GPU-submission queue that
+        // neither gGL.flush() nor gDX.flush() reaches, so drain it too.
         gDX.flush();
         gDXUIBatch.flushPending();
         applyDXState(mState, true);
@@ -2858,12 +2957,15 @@ void LLGLState::setEnabled(S32 enabled)
     }
     else if (enabled == DISABLED_STATE && sStateMap[mState] != GL_FALSE)
     {
+#ifndef DX_RENDER
         gGL.flush();
         glDisable(mState);
+#endif
         sStateMap[mState] = GL_FALSE;
 #ifdef DX_RENDER
-        // Same missing-flush issue as the ENABLED_STATE branch above - also
-        // drain gDXUIBatch, see its comment there.
+        // Same reasoning as the ENABLED_STATE branch above - no GL context, so
+        // the two GL calls are dropped, and the same missing-flush issue
+        // applies, hence draining gDXUIBatch too.
         gDX.flush();
         gDXUIBatch.flushPending();
         applyDXState(mState, false);
@@ -2877,6 +2979,11 @@ LLGLState::~LLGLState()
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     if (mState)
     {
+#ifndef DX_RENDER
+        // S24: GL-context state validator - glIsEnabled() reads real driver
+        // state back, which is unavailable under DX_RENDER. Only the CPU-side
+        // sStateMap bookkeeping (kept accurate by setEnabled() above) and the
+        // applyDXState() call below are meaningful there.
         if (gDebugGL)
         {
             if (!gDebugSession)
@@ -2891,9 +2998,11 @@ LLGLState::~LLGLState()
                 }
             }
         }
+#endif
 
         if (mIsEnabled != mWasEnabled)
         {
+#ifndef DX_RENDER
             gGL.flush();
             if (mWasEnabled)
             {
@@ -2905,14 +3014,17 @@ LLGLState::~LLGLState()
                 glDisable(mState);
                 sStateMap[mState] = GL_FALSE;
             }
+#endif
 #ifdef DX_RENDER
-            // Must pair the sStateMap write above with a real applyDXState()
-            // call and a preceding flush, same as setEnabled() - otherwise this
-            // restore path desyncs bookkeeping from real GPU state (was the
-            // root cause of a black-world bug: blend state stuck enabled,
-            // never actually toggled).
+            // S24: the sStateMap write above needs an DX_RENDER twin, because
+            // bookkeeping and real GPU state are separate things there. It must
+            // pair with a real applyDXState() call and a preceding flush, same as
+            // setEnabled() - otherwise this restore path desyncs bookkeeping from
+            // real GPU state (was the root cause of a black-world bug: blend
+            // state stuck enabled, never actually toggled).
             gDX.flush();
             gDXUIBatch.flushPending();
+            sStateMap[mState] = mWasEnabled ? GL_TRUE : GL_FALSE;
             applyDXState(mState, mWasEnabled);
 #endif
         }
@@ -3118,7 +3230,15 @@ LLGLUserClipPlane::~LLGLUserClipPlane()
 LLGLDepthTest::LLGLDepthTest(GLboolean depth_enabled, GLboolean write_enabled, GLenum depth_func)
 : mPrevDepthEnabled(sDepthEnabled), mPrevDepthFunc(sDepthFunc), mPrevWriteEnabled(sWriteEnabled)
 {
+#ifndef DX_RENDER
+    // S24: dropped under DX_RENDER - stop_glerror() -> assert_glerror() ->
+    // do_assert_glerror() all bottom out in glGetError(), which has no context
+    // to report from. Kept on the GL path rather than deleted the way the donor
+    // does (it calls this a GPU stall in a hot constructor) because removing it
+    // outright would change GL behaviour; this constructor is on the hot path of
+    // LLGLSUIDefault and LLGLSPipeline, i.e. it runs for nearly every draw.
     stop_glerror();
+#endif
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     checkState();
 
@@ -3129,6 +3249,7 @@ LLGLDepthTest::LLGLDepthTest(GLboolean depth_enabled, GLboolean write_enabled, G
         write_enabled = GL_FALSE;
     }
 
+#ifndef DX_RENDER
     if (depth_enabled != sDepthEnabled)
     {
         gGL.flush();
@@ -3148,25 +3269,41 @@ LLGLDepthTest::LLGLDepthTest(GLboolean depth_enabled, GLboolean write_enabled, G
         glDepthMask(write_enabled);
         sWriteEnabled = write_enabled;
     }
+#endif
 
 #ifdef DX_RENDER
+    // D3D11 bundles depth-enable, depth-write-mask and the comparison function
+    // into a single ID3D11DepthStencilState, so the four GL calls in the three
+    // blocks above have no per-toggle D3D11 counterpart - one combined apply is
+    // all it takes, which is exactly why they are dropped rather than
+    // translated. They are unguarded GL in a constructor used by LLGLSUIDefault
+    // and LLGLSPipeline, i.e. for essentially every draw, so leaving them in
+    // would be the first thing a DX build hit.
+    //
     // applyDXDepthStencilState() calls OMSetDepthStencilState() immediately -
     // without a flush first, geometry already queued under the OLD depth state
     // would be rasterized with the NEW one once it flushes. LLGLDepthTest backs
     // LLGLSUIDefault (nearly every UI draw call) and is constructed/destroyed
     // hundreds of times per frame, so this is a real, frequent risk.
-    // gDXUIBatch is a second, independent GPU-submission queue gGL.flush()
-    // above doesn't reach, so drain it too.
+    // gDXUIBatch is a second, independent GPU-submission queue that neither
+    // gGL.flush() nor gDX.flush() reaches, so drain it too.
     //
-    // The three blocks above update sDepthEnabled/sDepthFunc/sWriteEnabled in
-    // place, so by here they already equal the locals - comparing the locals
-    // against the mPrev* snapshot the member-init list captured is what tells
-    // us whether any of the three moved.
-    if (depth_enabled != mPrevDepthEnabled || depth_func != mPrevDepthFunc || write_enabled != mPrevWriteEnabled)
+    // The statics are still updated here: they are the CPU-side record of what
+    // the device is actually set to, and applyDXState() reads them back
+    // (LLGLDepthTest::getDepthFunc()/getWriteEnabled()) whenever GL_DEPTH_TEST
+    // is toggled through LLGLEnable/LLGLDisable instead of through one of these
+    // instances. Since they are only written here, comparing the locals against
+    // them - or equivalently against the mPrev* snapshot the member-init list
+    // captured from the same values - is what tells us whether any of the three
+    // moved at all.
+    if (depth_enabled != sDepthEnabled || depth_func != sDepthFunc || write_enabled != sWriteEnabled)
     {
         gDX.flush();
         gDXUIBatch.flushPending();
         applyDXDepthStencilState(depth_enabled, write_enabled, depth_func);
+        sDepthEnabled = depth_enabled;
+        sDepthFunc = depth_func;
+        sWriteEnabled = write_enabled;
     }
 #endif
 }
@@ -3175,16 +3312,7 @@ LLGLDepthTest::~LLGLDepthTest()
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_PIPELINE;
     checkState();
-#ifdef DX_RENDER
-    // Snapshot before the restore below. Unlike the constructor, mPrev* is what
-    // the three blocks here restore TO, not what they started from - they leave
-    // sDepthEnabled/sDepthFunc/sWriteEnabled equal to mPrev* either way, so
-    // without a snapshot taken first, "did anything actually change" is gone by
-    // the time the DX branch could ask.
-    const GLboolean prev_sDepthEnabled = sDepthEnabled;
-    const GLenum prev_sDepthFunc = sDepthFunc;
-    const GLboolean prev_sWriteEnabled = sWriteEnabled;
-#endif
+#ifndef DX_RENDER
     if (sDepthEnabled != mPrevDepthEnabled )
     {
         gGL.flush();
@@ -3204,20 +3332,39 @@ LLGLDepthTest::~LLGLDepthTest()
         glDepthMask(mPrevWriteEnabled);
         sWriteEnabled = mPrevWriteEnabled;
     }
-#ifdef DX_RENDER
-    // Same missing-flush issue as the constructor - see its comment.
-    if (prev_sDepthEnabled != mPrevDepthEnabled || prev_sDepthFunc != mPrevDepthFunc
-        || prev_sWriteEnabled != mPrevWriteEnabled)
+#else
+    // Same reasoning as the constructor: the three GL blocks above are dropped
+    // because there is no GL context under DX_RENDER, so one combined
+    // applyDXDepthStencilState() restores all three at once. No separate
+    // prev_* snapshot is needed here precisely because those blocks are gone -
+    // sDepthEnabled/sDepthFunc/sWriteEnabled still hold the values the
+    // constructor left behind, so comparing them against the mPrev* members is
+    // a true "did the constructor actually change anything" test. Flush before
+    // the apply, for the same queued-geometry reason as in the constructor.
+    if (sDepthEnabled != mPrevDepthEnabled || sDepthFunc != mPrevDepthFunc || sWriteEnabled != mPrevWriteEnabled)
     {
         gDX.flush();
         gDXUIBatch.flushPending();
         applyDXDepthStencilState(mPrevDepthEnabled, mPrevWriteEnabled, mPrevDepthFunc);
+        sDepthEnabled = mPrevDepthEnabled;
+        sDepthFunc = mPrevDepthFunc;
+        sWriteEnabled = mPrevWriteEnabled;
     }
 #endif
 }
 
 void LLGLDepthTest::checkState()
 {
+#ifdef DX_RENDER
+    // S24: compile-time guard, not just the runtime gDebugGL test the GL path
+    // below has - under DX_RENDER this reads real GL state back out of the
+    // driver (glGetIntegerv/glGetBooleanv/glIsEnabled) to compare against
+    // sDepthEnabled/sDepthFunc/sWriteEnabled, and there is no GL context to
+    // read from, so gDebugGL alone would still let it execute (and link, if
+    // OpenGL is delinked) in a debug build. Nested inside #ifdef DX_RENDER so
+    // the GL preprocessed output stays byte-identical; the function is empty
+    // there because LL_DEBUG_GL is not defined anywhere in this tree.
+#if LL_DEBUG_GL
     if (gDebugGL)
     {
         GLint func = 0;
@@ -3240,6 +3387,31 @@ void LLGLDepthTest::checkState()
             }
         }
     }
+#endif
+#else
+    if (gDebugGL)
+    {
+        GLint func = 0;
+        GLboolean mask = GL_FALSE;
+
+        glGetIntegerv(GL_DEPTH_FUNC, &func);
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &mask);
+
+        if (glIsEnabled(GL_DEPTH_TEST) != sDepthEnabled ||
+            sWriteEnabled != mask ||
+            sDepthFunc != func)
+        {
+            if (gDebugSession)
+            {
+                gFailLog << "Unexpected depth testing state." << std::endl;
+            }
+            else
+            {
+                LL_GL_ERRS << "Unexpected depth testing state." << LL_ENDL;
+            }
+        }
+    }
+#endif
 }
 
 LLGLSquashToFarClip::LLGLSquashToFarClip()
@@ -3281,6 +3453,16 @@ LLGLSquashToFarClip::~LLGLSquashToFarClip()
 
 
 
+// S24: LLGLFence/LLGLSyncFence are GL-only fence sync - glFenceSync(),
+// glClientWaitSync() and glDeleteSync() are all NULL PFNGL*PROC globals under
+// DX_RENDER (initExtensions(), the loader that would resolve them, is never
+// called), and there is nothing to translate them to: D3D11's equivalent is a
+// DXQuery, which LLViewerStats::checkGPUFrameCompletion() uses instead. The
+// declarations are kept in llgl.h (removing them would change a public header
+// for no gain) and the bodies are made inert rather than deleted, so that a
+// future DX call site gets a fence that reports "already complete" instead of
+// dereferencing a NULL function pointer. No callers exist today either way.
+
 LLGLSyncFence::LLGLSyncFence()
 {
     mSync = 0;
@@ -3288,23 +3470,28 @@ LLGLSyncFence::LLGLSyncFence()
 
 LLGLSyncFence::~LLGLSyncFence()
 {
+#ifndef DX_RENDER
     if (mSync)
     {
         glDeleteSync(mSync);
     }
+#endif
 }
 
 void LLGLSyncFence::placeFence()
 {
+#ifndef DX_RENDER
     if (mSync)
     {
         glDeleteSync(mSync);
     }
     mSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+#endif
 }
 
 bool LLGLSyncFence::isCompleted()
 {
+#ifndef DX_RENDER
     bool ret = true;
     if (mSync)
     {
@@ -3315,16 +3502,24 @@ bool LLGLSyncFence::isCompleted()
         }
     }
     return ret;
+#else
+    // No GPU work is ever submitted through this fence under DX_RENDER, so
+    // "completed" is always true - the safe answer for a caller that would
+    // otherwise spin in wait().
+    return true;
+#endif
 }
 
 void LLGLSyncFence::wait()
 {
+#ifndef DX_RENDER
     if (mSync)
     {
         while (glClientWaitSync(mSync, 0, FENCE_WAIT_TIME_NANOSECONDS) == GL_TIMEOUT_EXPIRED)
         { //track the number of times we've waited here
         }
     }
+#endif
 }
 
 LLGLSPipelineSkyBox::LLGLSPipelineSkyBox()

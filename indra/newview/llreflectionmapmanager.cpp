@@ -43,6 +43,11 @@
 
 #ifdef DX_RENDER
 #include "llimagedx.h"
+// gDXDevice - the real D3D11 device/context handle, for the RSSetViewports()
+// and PSSetConstantBuffers() calls that replace raw glViewport()/
+// glBindBufferBase() below. Pulled in explicitly rather than relying on a
+// transitive include: llimagedx.h does not reach it.
+#include "DXDevice.h"
 #endif
 
 #if LL_WINDOWS
@@ -58,6 +63,43 @@
 #endif
 
 LLPointer<LLReflectionMapEXRImage> gEXRImage;
+
+#ifdef DX_RENDER
+// One-shot diagnostic for updateProbeFace()'s three glCopyTexSubImage3D()
+// sites.
+//
+// Why these are skipped rather than translated: the donor routes each of them
+// through mTexture->getDXTexture()->copySliceFromBoundRenderTarget(...), which
+// needs mTexture/mIrradianceMaps to be DXCubeMapArray (whose backing
+// DXCubeArrayTexture is created with R16G16B16A16_FLOAT/R8G8B8A8_UNORM so
+// CopySubresourceRegion accepts the source as castable). In this port those two
+// members are still LLCubeMapArray - a GL-only class built on LLImageGL - so
+// there is no D3D11 cube-array resource to copy into and nothing to hand
+// OMGetRenderTargets() back to. Swapping the member type is a separate change
+// from porting these guards, and it is not one that can be hidden inside an
+// #ifdef: LLCubeMapArray and DXCubeMapArray are different C++ types, so the
+// swap changes the GL build too.
+//
+// What this does buy: glCopyTexSubImage3D is one of the NULL PFNGL*PROC
+// globals under DX_RENDER (no WGL context -> LLGLManager::initExtensions()
+// never runs), so every one of these sites was a guaranteed null dereference the
+// moment a user enabled reflection probes. They are now inert and loud instead
+// of fatal. Note the capture path is still unported end to end under
+// DX_RENDER - initReflectionMaps()'s mTexture->allocate() would still need the
+// same swap - so this is crash-removal and diagnostics, not a working capture.
+static void warnReflectionProbeCopySkipped(const char* site)
+{
+    static bool sWarned = false;
+    if (!sWarned)
+    {
+        sWarned = true;
+        LL_WARNS("ReflectionMap") << "LLReflectionMapManager::updateProbeFace(" << site
+                                 << "): skipping glCopyTexSubImage3D - no GL context under DX_RENDER; "
+                                 << "mTexture/mIrradianceMaps are still GL LLCubeMapArray, so there is no "
+                                 << "D3D11 cube-array resource to copy into yet" << LL_ENDL;
+    }
+}
+#endif
 
 void load_exr(const std::string& filename)
 {
@@ -87,7 +129,9 @@ void load_exr(const std::string& filename)
         gGL.getTexUnit(0)->bind(gEXRImage);
 #endif
 
+#ifndef DX_RENDER
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGBA, GL_FLOAT, out);
+#endif
 
 #ifdef DX_RENDER
         LLImageDXMemory::alloc_tex_image(width, height, GL_RGB16F, 1);
@@ -97,7 +141,28 @@ void load_exr(const std::string& filename)
 
         free(out); // release memory of image data
 
+#ifndef DX_RENDER
         glGenerateMipmap(GL_TEXTURE_2D);
+#else
+        // glTexImage2D() above and glGenerateMipmap() here are both raw GL.
+        // glGenerateMipmap is a NULL PFNGL*PROC global under DX_RENDER (no
+        // WGL context -> initExtensions() never runs), so calling it is a null
+        // dereference; glTexImage2D has no context to upload into. The DX
+        // equivalent of both belongs on the LLImageDX path
+        // (createGLTexture()/setImage(), whose D3D11 mip chain is produced by
+        // the texture's own GenerateMips pass), which this function does not
+        // drive - LLImageDXMemory::alloc_tex_image() above only tracks bytes,
+        // it uploads nothing. Reached solely from the HDRI file picker
+        // (hdri_preview()), never at startup, so this is a visible-but-
+        // non-fatal gap rather than a boot blocker. Warned once so a silently
+        // black/unfiltered HDRI preview is attributable.
+        static bool sWarnedNoGLExrUpload = false;
+        if (!sWarnedNoGLExrUpload)
+        {
+            sWarnedNoGLExrUpload = true;
+            LL_WARNS("ReflectionMap") << "load_exr: skipping glTexImage2D()/glGenerateMipmap() - no GL context under DX_RENDER; the EXR pixel upload is not wired to the LLImageDX path yet" << LL_ENDL;
+        }
+#endif
 
 #ifdef DX_RENDER
         gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
@@ -303,7 +368,21 @@ void LLReflectionMapManager::update()
         mMipChain.resize(count);
         for (U32 i = 0; i < count; ++i)
         {
+            // DX_RENDER-only format override. GL's R11F_G11F_B10F has no
+            // guaranteed D3D11 equivalent at feature level 11 - the donor's
+            // probe cube-array texture deliberately allocates
+            // R16G16B16A16_FLOAT/R8G8B8A8_UNORM instead (see
+            // DXCubeArrayTexture::create()), so this scratch chain has to ask
+            // for the matching
+            // format or the CopySubresourceRegion that feeds it rejects the
+            // source as non-castable. Same pair GL's own main/deferred targets
+            // use (pipeline.cpp's `hdr ? GL_RGBA16F : GL_RGBA`). GL build
+            // unchanged.
+#ifdef DX_RENDER
+            mMipChain[i].allocate(res, res, render_hdr ? GL_RGBA16F : GL_RGBA);
+#else
             mMipChain[i].allocate(res, res, render_hdr ? GL_R11F_G11F_B10F : GL_RGB8);
+#endif
             res /= 2;
         }
     }
@@ -911,7 +990,11 @@ void LLReflectionMapManager::updateProbeFace(LLReflectionMap* probe, U32 face)
                 LL_PROFILE_GPU_ZONE("probe mip copy");
                 mTexture->bind(0);
                 //glCopyTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, mip, 0, 0, probe->mCubeIndex * 6 + face, 0, 0, res, res);
+#ifdef DX_RENDER
+                warnReflectionProbeCopySkipped("mip chain");
+#else
                 glCopyTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, mip, 0, 0, sourceIdx * 6 + face, 0, 0, res, res);
+#endif
                 //if (i == 0)
                 //{
                     //glCopyTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, mip, 0, 0, probe->mCubeIndex * 6 + face, 0, 0, res, res);
@@ -932,6 +1015,29 @@ void LLReflectionMapManager::updateProbeFace(LLReflectionMap* probe, U32 face)
     if (face == 5)
     {
         mMipChain[0].bindTarget();
+#ifdef DX_RENDER
+        // Third of three raw glViewport() sites in this function, and the only
+        // one with no GL call to remove: under DX_RENDER the viewport is set by
+        // DXRenderTarget::bindTarget() instead (llrendertarget.cpp routes
+        // LLRenderTarget::bindTarget() there under DX_RENDER, and it installs a
+        // POSITIVE-height viewport), so this block only exists to override that
+        // with the flip the probe pass needs.
+        //
+        // The negative Height is deliberate, matching DXContext::setViewport()'s
+        // flip semantics. Moving it into radianceGenV.hlsl as a shader-side y
+        // negation instead breaks the hero-probe mirror orientation, so do not
+        // "fix" it to a positive height.
+        {
+            D3D11_VIEWPORT vp = {};
+            vp.TopLeftX = 0.0f;
+            vp.TopLeftY = (float)mMipChain[0].getHeight();
+            vp.Width = (float)mMipChain[0].getWidth();
+            vp.Height = -(float)mMipChain[0].getHeight();
+            vp.MinDepth = 0.0f;
+            vp.MaxDepth = 1.0f;
+            gDXDevice.getContext()->RSSetViewports(1, &vp);
+        }
+#endif
         static LLStaticHashedString sSourceIdx("sourceIdx");
 
         if (isRadiancePass())
@@ -970,13 +1076,35 @@ void LLReflectionMapManager::updateProbeFace(LLReflectionMap* probe, U32 face)
 
                     mVertexBuffer->drawArrays(gGL.TRIANGLE_STRIP, 0, 4);
 
+#ifdef DX_RENDER
+                    warnReflectionProbeCopySkipped("radiance gen");
+#else
                     glCopyTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, i, 0, 0, probe->mCubeIndex * 6 + cf, 0, 0, res, res);
+#endif
                 }
 
                 if (i != mMipChain.size() - 1)
                 {
                     res /= 2;
+#ifdef DX_RENDER
+                    // Raw glViewport() has no DX_RENDER translation: there is no
+                    // GL context at all, so this is not a silent no-op but a
+                    // NULL PFNGL*PROC call. Replaced by the same negative-height
+                    // viewport installed above, narrowed to the new res.
+                    // Negative height is deliberate - do not make it positive.
+                    {
+                        D3D11_VIEWPORT vp = {};
+                        vp.TopLeftX = 0.0f;
+                        vp.TopLeftY = (float)res;
+                        vp.Width = (float)res;
+                        vp.Height = -(float)res;
+                        vp.MinDepth = 0.0f;
+                        vp.MaxDepth = 1.0f;
+                        gDXDevice.getContext()->RSSetViewports(1, &vp);
+                    }
+#else
                     glViewport(0, 0, res, res);
+#endif
                 }
             }
 
@@ -1007,7 +1135,23 @@ void LLReflectionMapManager::updateProbeFace(LLReflectionMap* probe, U32 face)
             {
                 int i = start_mip;
                 LL_PROFILE_GPU_ZONE("probe irradiance gen");
+#ifdef DX_RENDER
+                // Raw glViewport() again - same NULL PFNGL*PROC reasoning as
+                // the radiance-gen loop above, and the same deliberate negative
+                // Height flip.
+                {
+                    D3D11_VIEWPORT vp = {};
+                    vp.TopLeftX = 0.0f;
+                    vp.TopLeftY = (float)mMipChain[i].getHeight();
+                    vp.Width = (float)mMipChain[i].getWidth();
+                    vp.Height = -(float)mMipChain[i].getHeight();
+                    vp.MinDepth = 0.0f;
+                    vp.MaxDepth = 1.0f;
+                    gDXDevice.getContext()->RSSetViewports(1, &vp);
+                }
+#else
                 glViewport(0, 0, mMipChain[i].getWidth(), mMipChain[i].getHeight());
+#endif
                 for (int cf = 0; cf < 6; ++cf)
                 { // for each cube face
                     LLCoordFrame frame;
@@ -1019,10 +1163,14 @@ void LLReflectionMapManager::updateProbeFace(LLReflectionMap* probe, U32 face)
 
                     mVertexBuffer->drawArrays(gGL.TRIANGLE_STRIP, 0, 4);
 
+#ifdef DX_RENDER
+                    warnReflectionProbeCopySkipped("irradiance gen");
+#else
                     S32 res = mMipChain[i].getWidth();
                     mIrradianceMaps->bind(channel);
                     glCopyTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, i - start_mip, 0, 0, probe->mCubeIndex * 6 + cf, 0, 0, res, res);
                     mTexture->bind(channel);
+#endif
                 }
             }
 
@@ -1307,6 +1455,32 @@ void LLReflectionMapManager::updateUniforms()
     mProbeData.heroProbeCount = gPipeline.mHeroProbeManager.mHeroData.heroProbeCount;
 
     //copy mProbeData into uniform buffer object
+#ifdef DX_RENDER
+    // glGenBuffers/glBindBuffer/glBufferData are all NULL PFNGL*PROC globals
+    // under DX_RENDER - LLGLManager::initExtensions() (the glh_init_extensions()
+    // loader behind every PFNGL*PROC) never runs without a WGL context, so each
+    // of these is a null dereference, not a silent no-op.
+    //
+    // mDXUBO mirrors mUBO's lifecycle exactly: created once as a
+    // D3D11_USAGE_DYNAMIC / D3D11_BIND_CONSTANT_BUFFER resource (the closest
+    // equivalent of GL_STREAM_DRAW on a buffer written every frame), then
+    // re-uploaded in full via Map(WRITE_DISCARD) - there is no D3D11 partial
+    // range update on a DYNAMIC buffer. mUBO itself stays 0 under DX_RENDER,
+    // so "created yet" is tested with mDXUBO.getBuffer(), which correctly
+    // returns to null after cleanup()'s destroy() and so triggers recreation.
+    //
+    // This is live under DX_RENDER, not dormant: DXPipeline calls
+    // updateUniformsPerFrame() (dxpipeline.cpp) once per frame.
+    if (!mDXUBO.getBuffer())
+    {
+        mDXUBO.createConstantBuffer(sizeof(ReflectionProbeData), &mProbeData);
+    }
+    else
+    {
+        LL_PROFILE_ZONE_NAMED_CATEGORY_DISPLAY("rmmsu - update buffer");
+        mDXUBO.upload(&mProbeData, sizeof(ReflectionProbeData));
+    }
+#else
     if (mUBO == 0)
     {
         glGenBuffers(1, &mUBO);
@@ -1318,6 +1492,7 @@ void LLReflectionMapManager::updateUniforms()
         glBufferData(GL_UNIFORM_BUFFER, sizeof(ReflectionProbeData), &mProbeData, GL_STREAM_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
     }
+#endif
 
 #if 0
     if (!gCubeSnapshot)
@@ -1342,11 +1517,37 @@ void LLReflectionMapManager::setUniforms()
         return;
     }
 
+    // "Has the probe data been built yet?" - under DX_RENDER this has to ask
+    // mDXUBO, not mUBO: mUBO is never assigned there (glGenBuffers is a NULL
+    // PFNGL*PROC), so testing it would make the bootstrap gate permanently
+    // true and run updateUniforms() - the full probe-bucket rebuild plus the
+    // GPU re-upload - on every single call instead of only before the first
+    // update.
+#ifdef DX_RENDER
+    if (!mDXUBO.getBuffer())
+#else
     if (mUBO == 0)
+#endif
     {
         updateUniforms();
     }
+
+    // Binds register(b1), the "cbuffer ReflectionProbes" that
+    // reflectionProbeF.hlsl declares. register(b0) is already taken by every
+    // shader's auto-generated $Globals cbuffer (llrender.cpp), hence slot 1,
+    // and the probe blend math is pixel-stage only so this is
+    // PSSetConstantBuffers, not VSSetConstantBuffers.
+#ifdef DX_RENDER
+    {
+        ID3D11Buffer* cb = mDXUBO.getBuffer();
+        if (cb)
+        {
+            gDXDevice.getContext()->PSSetConstantBuffers(1, 1, &cb);
+        }
+    }
+#else
     glBindBufferBase(GL_UNIFORM_BUFFER, LLGLSLShader::UB_REFLECTION_PROBES, mUBO);
+#endif
 }
 
 
@@ -1387,6 +1588,15 @@ void renderReflectionProbe(LLReflectionMap* probe, std::map<LLSpatialGroup*, int
         gGL.flush();
 
         // --- New: draw a point at the probe origin color-coded by type ---
+#ifndef DX_RENDER
+        // Compiled out wholesale under DX_RENDER rather than only around the
+        // glPointSize() call: the colour-selection chain and the pointSize
+        // computation exist only to feed that one call, so guarding just the
+        // call would leave four unused locals behind - a hard error at /W3
+        // /WX, which is exactly how the missing guard would otherwise surface.
+        // This matches the donor, which deletes this whole block (its DX-only
+        // rewrite drops the GL debug line/point drawing entirely, keeping only
+        // the neighbour lines above).
         bool dupByGroup = (probe->mGroup       && groupCount[ probe->mGroup       ] > 1);
         bool dupByObject= (probe->mViewerObject && objCount[ probe->mViewerObject ] > 1);
         bool dupByLoc   = (                   locCount[ probe->mOrigin.getF32ptr()] > 1);
@@ -1423,6 +1633,7 @@ void renderReflectionProbe(LLReflectionMap* probe, std::map<LLSpatialGroup*, int
         gGL.vertex3fv(po);
         gGL.end();
         gGL.flush();
+#endif
     }
 
 #if 0
@@ -1622,7 +1833,15 @@ void LLReflectionMapManager::cleanup()
     mDefaultProbe = nullptr;
     mUpdatingProbe = nullptr;
 
+    // Also reached on every teleport, not just at shutdown, so the DX arm's
+    // destroy() matters twice over: it releases the constant buffer AND leaves
+    // getBuffer() back at null, which is what makes the next updateUniforms()
+    // recreate it - the same guarantee GL's mUBO = 0 below provides.
+#ifdef DX_RENDER
+    mDXUBO.destroy();
+#else
     glDeleteBuffers(1, &mUBO);
+#endif
     mUBO = 0;
 
     // note: also called on teleport (not just shutdown), so make sure we're in a good "starting" state

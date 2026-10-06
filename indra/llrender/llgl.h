@@ -98,7 +98,19 @@ public:
     S32 mGLMaxIndexRange;
     S32 mGLMaxTextureSize;
     F32 mMaxAnisotropy = 0.f;
+#ifdef DX_RENDER
+    // S24: initGL() (llgl.cpp) is what normally queries and sanity-clamps this
+    // to 65536, and it is never called under DX_RENDER (initGLDX() replaces
+    // it), so the member initializer below is what the DX path actually sees -
+    // while consumers DIVIDE by it to size a permutation macro:
+    // llviewershadermgr.cpp's make_gltf_variant() (MAX_UBO_VEC4S = 0 ->
+    // illegal zero-size HLSL array), llskinningutil.cpp, gltf/asset.cpp.
+    // That is a SIGFPE at startup. 65536 matches the real GL path's own clamp
+    // value and is also D3D11's guaranteed minimum constant-buffer size.
+    S32 mMaxUniformBlockSize = 65536;
+#else
     S32 mMaxUniformBlockSize = 0;
+#endif
     S32 mMaxVaryingVectors = 0;
 
     // GL 4.x capabilities

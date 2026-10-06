@@ -190,6 +190,14 @@ public:
     LLGLSSpecular(const LLColor4& color, F32 shininess)
     {
         mShininess = shininess;
+#ifndef DX_RENDER
+        // Fixed-function GL material state, guarded explicitly rather than
+        // relying on the sole caller (llviewerjointmesh.cpp) happening to pass
+        // shininess=0.f, which is the only reason the mShininess > 0.0f test
+        // below has never fired. A second caller passing a real value would
+        // reach glMaterialfv()/glMateriali() with no GL context under
+        // DX_RENDER. mShininess itself is still recorded either way so
+        // existing readers are unaffected.
         if (mShininess > 0.0f)
         {
             glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, color.mV);
@@ -197,14 +205,20 @@ public:
             shiny = llclamp(shiny,0,128);
             glMateriali(GL_FRONT_AND_BACK, GL_SHININESS, shiny);
         }
+#endif
     }
     ~LLGLSSpecular()
     {
+#ifndef DX_RENDER
+        // Same reasoning as the constructor: this restore is unreachable under
+        // DX_RENDER because the matching set was never issued, so it must be
+        // compiled out too rather than depend on mShininess still being 0.
         if (mShininess > 0.f)
         {
             glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, LLColor4(0.f,0.f,0.f,0.f).mV);
             glMateriali(GL_FRONT_AND_BACK, GL_SHININESS, 0);
         }
+#endif
     }
 };
 
