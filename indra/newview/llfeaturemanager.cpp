@@ -439,6 +439,37 @@ bool checkRDNA35()
 
 bool LLFeatureManager::loadGPUClass()
 {
+#ifdef DX_RENDER
+    // gpu_benchmark() (llglsandbox.cpp) drives LLGLSLShader - the OpenGL shader
+    // class, whose glUseProgram/glGetUniformLocation/glAttachShader calls are
+    // extension pointers that loadExtensions() never populates on the DX path.
+    // LLViewerWindow runs this on every first launch (its applyRecommendedSettings
+    // test is an OR, so a missing LastFeatureVersion also triggers it), and the
+    // resulting call through a null pointer was the crash that stopped the DX
+    // viewer right after "LLVertexBuffer initialization done".
+    //
+    // Classify from the DXGI VRAM figure LLGLManager::initGLDX() populates
+    // instead of a memory-bandwidth benchmark - coarser, but safe to run.
+    U32 vram = gGLManager.mVRAM;
+    if (vram >= 8192)      mGPUClass = GPU_CLASS_5;
+    else if (vram >= 6144) mGPUClass = GPU_CLASS_4;
+    else if (vram >= 4096) mGPUClass = GPU_CLASS_3;
+    else if (vram >= 2048) mGPUClass = GPU_CLASS_2;
+    else if (vram > 0)     mGPUClass = GPU_CLASS_1;
+    else                   mGPUClass = GPU_CLASS_0;
+
+    LL_INFOS("RenderInit") << "DX_RENDER GPU class from VRAM (" << vram
+        << "MB): " << (S32)mGPUClass << LL_ENDL;
+
+    // mGPUSupported has to be set here because this returns before the tail
+    // below does it, and llappviewer.cpp's unsupported-GPU check depends on it -
+    // otherwise that check fires unconditionally on every launch.
+    mGPUString = gGLManager.getRawGLString();
+    mGPUSupported = true;
+
+    return true;
+#endif
+
     // This is a hack for certain AMD GPUs in newer driver versions on certain APUs.
     // These GPUs will show inconsistent freezes when attempting to run shader profiles against them.
     // This is extremely problematic as it can lead to:
