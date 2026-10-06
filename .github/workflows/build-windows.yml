@@ -17,9 +17,9 @@ on:
         default: "false"
         type: boolean
       upload_github_artifact:
-        description: "Also upload to GitHub artifact storage (consumes the shared quota; storage.to is the default)"
+        description: "Also upload to GitHub artifact storage for machine retrieval (storage.to download pages are Cloudflare-protected JS apps, so scripts cannot fetch them)"
         required: true
-        default: "false"
+        default: "true"
         type: choice
         options:
           - "false"
@@ -301,9 +301,13 @@ jobs:
           curl -sSL -o storageto.zip \
             https://github.com/storageto/cli/releases/download/v0.5.0/storageto-windows-amd64.zip
           unzip -q -o storageto.zip storageto.exe
+          # storageto writes its progress lines to stdout alongside the JSON, so
+          # json.load() on the whole file fails with "Extra data". Pull the URL
+          # out with a regex instead.
           ./storageto.exe upload Tasia-Viewer-Windows-FMOD.zip --expire 7d --json \
-            | tee storage-to-result.json
-          URL="$(python -c "import json;print(json.load(open('storage-to-result.json'))['file_info']['url'])")"
+            | tee storage-to-result.txt
+          URL="$(grep -oE '"url": *"[^"]+"' storage-to-result.txt | head -1 | cut -d'"' -f4)"
+          test -n "$URL"
           echo "storage.to: $URL" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifact
