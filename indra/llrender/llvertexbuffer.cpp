@@ -40,6 +40,10 @@
 
 #ifdef DX_RENDER
 #include <d3d11.h>
+#include <d3dcompiler.h>
+#include "DXDevice.h"
+#include "DXStateCache.h"
+#include "llhlslshader.h"
 
 namespace
 {
@@ -1964,7 +1968,7 @@ void LLVertexBuffer::setupVertexBuffer()
     // assignment (bits 0-5, then color/emissive, then tangent, then weight,
     // then clothweight).
     llassert(LLHLSLShader::sCurBoundShaderPtr);
-    ID3D11Blob* vs_bytecode = LLHLSLShader::sCurBoundShaderPtr->mDXVertexShader.getVSBytecode();
+    ID3DBlob* vs_bytecode = LLHLSLShader::sCurBoundShaderPtr->mDXVertexShader.getVSBytecode();
     if (!vs_bytecode)
     {
         return;
