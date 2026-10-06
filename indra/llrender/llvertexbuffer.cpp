@@ -956,6 +956,14 @@ void LLVertexBuffer::initClass(LLWindow* window)
 {
     llassert(sVBOPool == nullptr);
 
+#ifdef DX_RENDER
+    // genBuffer()/genIndices() bypass sVBOPool entirely under DX_RENDER (see
+    // there) - GL's VBO-orphaning pool and worker-thread-based deferred
+    // buffer creation are driver-quirk workarounds with no D3D11 equivalent
+    // need, so there's nothing to initialize here.
+    return;
+#endif
+
     if (gGLManager.mIsApple)
     {
         LL_INFOS() << "VBO Pooling Disabled" << LL_ENDL;
@@ -981,18 +989,31 @@ void LLVertexBuffer::initClass(LLWindow* window)
 //static
 void LLVertexBuffer::unbind()
 {
+#ifdef DX_RENDER
+    // No GL bind-state concept under DX_RENDER; IASetVertexBuffers/
+    // IASetIndexBuffer are reissued fresh at every setBuffer() call, so
+    // there's nothing to explicitly unbind on the GPU side - just reset the
+    // bookkeeping fields callers (setBuffer(), drawRange()'s assert) check.
+    sDXRenderBuffer = nullptr;
+    sDXRenderIndices = nullptr;
+#else
     STOP_GLERROR;
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     STOP_GLERROR;
     sGLRenderBuffer = 0;
     sGLRenderIndices = 0;
+#endif
 }
 
 //static
 void LLVertexBuffer::cleanupClass()
 {
     unbind();
+
+#ifdef DX_RENDER
+    DXVertexLayout::clear();
+#endif
 
     delete sVBOPool;
     sVBOPool = nullptr;
@@ -1108,6 +1129,19 @@ LLVertexBuffer::~LLVertexBuffer()
 
 void LLVertexBuffer::genBuffer(U32 size)
 {
+
+#ifdef DX_RENDER
+    // No VBO-orphaning pool under DX_RENDER (that's a GL driver-quirk
+    // workaround with no D3D11 equivalent need) - mMappedData is just a
+    // plain CPU shadow buffer; mDXBuffer is the real GPU-side resource,
+    // uploaded from it in flush_vbo().
+    llassert(mSize == 0);
+    llassert(mMappedData == nullptr);
+
+    mSize = size;
+    mMappedData = (U8*)ll_aligned_malloc_16(size);
+    mDXBuffer.createVertexBuffer(size, nullptr);
+#else
     LL_PROFILE_ZONE_SCOPED_CATEGORY_VERTEX;
     llassert(sVBOPool);
 
@@ -1120,10 +1154,20 @@ void LLVertexBuffer::genBuffer(U32 size)
         mSize = size;
         sVBOPool->allocate(GL_ARRAY_BUFFER, mSize, mGLBuffer, mMappedData);
     }
+#endif
 }
 
 void LLVertexBuffer::genIndices(U32 size)
 {
+
+#ifdef DX_RENDER
+    llassert(mIndicesSize == 0);
+    llassert(mMappedIndexData == nullptr);
+
+    mIndicesSize = size;
+    mMappedIndexData = (U8*)ll_aligned_malloc_16(size);
+    mDXIndices.createIndexBuffer(size, nullptr);
+#else
     LL_PROFILE_ZONE_SCOPED_CATEGORY_VERTEX;
     llassert(sVBOPool);
 
@@ -1135,6 +1179,7 @@ void LLVertexBuffer::genIndices(U32 size)
         mIndicesSize = size;
         sVBOPool->allocate(GL_ELEMENT_ARRAY_BUFFER, mIndicesSize, mGLIndices, mMappedIndexData);
     }
+#endif
 }
 
 bool LLVertexBuffer::createGLBuffer(U32 size)
@@ -1185,6 +1230,16 @@ bool LLVertexBuffer::createGLIndices(U32 size)
 
 void LLVertexBuffer::destroyGLBuffer()
 {
+#ifdef DX_RENDER
+    if (mMappedData)
+    {
+        LL_PROFILE_ZONE_SCOPED_CATEGORY_VERTEX;
+        ll_aligned_free_16(mMappedData);
+        mDXBuffer.destroy();
+        mMappedData = nullptr;
+        mSize = 0;
+    }
+#else
     if (mGLBuffer || mMappedData)
     {
         LL_PROFILE_ZONE_SCOPED_CATEGORY_VERTEX;
@@ -1198,10 +1253,21 @@ void LLVertexBuffer::destroyGLBuffer()
         mGLBuffer = 0;
         mMappedData = nullptr;
     }
+#endif
 }
 
 void LLVertexBuffer::destroyGLIndices()
 {
+#ifdef DX_RENDER
+    if (mMappedIndexData)
+    {
+        LL_PROFILE_ZONE_SCOPED_CATEGORY_VERTEX;
+        ll_aligned_free_16(mMappedIndexData);
+        mDXIndices.destroy();
+        mMappedIndexData = nullptr;
+        mIndicesSize = 0;
+    }
+#else
     if (mGLIndices || mMappedIndexData)
     {
         LL_PROFILE_ZONE_SCOPED_CATEGORY_VERTEX;
@@ -1215,6 +1281,7 @@ void LLVertexBuffer::destroyGLIndices()
         mGLIndices = 0;
         mMappedIndexData = nullptr;
     }
+#endif
 }
 
 bool LLVertexBuffer::updateNumVerts(U32 nverts)
@@ -1371,6 +1438,20 @@ U8* LLVertexBuffer::mapIndexBuffer(U32 index, S32 count)
 //  dst -- mMappedData or mMappedIndexData
 void LLVertexBuffer::flush_vbo(GLenum target, U32 start, U32 end, void* data, U8* dst)
 {
+#ifdef DX_RENDER
+    // D3D11's DYNAMIC buffers have no partial-range update: we must
+    // upload the whole buffer via Map/DISCARD/Unmap. The caller passes
+    // the full buffer range (start=0, end=size-1) when it wants a full
+    // upload; partial flushes are a GL driver quirk with no D3D11
+    // equivalent. Here we simply copy into the CPU shadow buffer; the
+    // actual upload happens via DXBuffer::upload() in setBuffer()/drawRange().
+    if (end != 0)
+    {
+        LL_PROFILE_ZONE_NAMED_CATEGORY_VERTEX("DX memcpy");
+        U32 size = end - start + 1;
+        memcpy(dst + start, data, size);
+    }
+#else
     if (gGLManager.mIsApple)
     {
         // on OS X, flush_vbo doesn't actually write to the GL buffer, so be sure to call
@@ -1405,6 +1486,7 @@ void LLVertexBuffer::flush_vbo(GLenum target, U32 start, U32 end, void* data, U8
             }
         }
     }
+#endif
 }
 
 void LLVertexBuffer::unmapBuffer()

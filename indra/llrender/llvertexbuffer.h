@@ -40,6 +40,10 @@
 #include <list>
 #include <glm/gtc/matrix_transform.hpp>
 
+#ifdef DX_RENDER
+#include "DXBuffer.h"
+#endif
+
 #define LL_MAX_VERTEX_ATTRIB_LOCATION 64
 
 //============================================================================
@@ -334,6 +338,11 @@ public:
     static U32 sGLRenderIndices;
     static U32 sLastMask;
     static U32 sVertexCount;
+
+#ifdef DX_RENDER
+    DXBuffer mDXBuffer;
+    DXBuffer mDXIndices;
+#endif
 };
 
 #if LL_PROFILER_ENABLE_RENDER_DOC
