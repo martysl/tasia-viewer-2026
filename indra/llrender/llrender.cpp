@@ -1050,6 +1050,29 @@ LLRender::~LLRender()
 
 bool LLRender::init(bool needs_vertex_buffer)
 {
+#ifdef DX_RENDER
+    // Ported from the donor, whose init() is these statements and nothing
+    // else. The GL body below cannot run under DX_RENDER at all: every call in
+    // it is a statically linked core-GL symbol with no DX11 dispatch-table
+    // entry, and there is no WGL context. Worse, the glGenVertexArrays null
+    // check further down returns false here - nothing calls loadExtensions()
+    // on the DX path, so the pointer stays null - which made LLViewerWindow's
+    // gGL.init(true) fail and abort startup with MBVideoDrvErr.
+    gGL.setSceneBlendType(LLRender::BT_ALPHA);
+    gGL.setAmbientLightColor(LLColor4::black);
+
+    // Mirrors the DX_RENDER block inside the GL body below, which cannot run
+    // here: glCullFace() does nothing under DX_RENDER and DXState::sCullFace
+    // stays at its GL_BACK default anyway, so the cross-backend cullFace() is
+    // what actually tracks the direction and binds the rasterizer state.
+    cullFace(GL_BACK);
+
+    if (needs_vertex_buffer)
+    {
+        initVertexBuffer();
+    }
+    return true;
+#else
 #if LL_WINDOWS
     if (gGLManager.mHasDebugOutput && gDebugGL)
     { //setup debug output callback
@@ -1108,12 +1131,15 @@ bool LLRender::init(bool needs_vertex_buffer)
     // </FS:Ansariel>
 
     return true;
+#endif // DX_RENDER
 }
 
 void LLRender::initVertexBuffer()
 {
     llassert_always(mBuffer.isNull()) ;
+#ifndef DX_RENDER
     stop_glerror();
+#endif
     mBuffer = new LLVertexBuffer(immediate_mask);
     // <FS:Ansariel> Warn in case of allocation failure
     //mBuffer->allocateBuffer(4096, 0);
@@ -1125,7 +1151,9 @@ void LLRender::initVertexBuffer()
     mBuffer->getVertexStrider(mVerticesp);
     mBuffer->getTexCoord0Strider(mTexcoordsp);
     mBuffer->getColorStrider(mColorsp);
+#ifndef DX_RENDER
     stop_glerror();
+#endif
 }
 
 void LLRender::resetVertexBuffer()
@@ -2012,6 +2040,27 @@ void LLRender::setAmbientLightColor(const LLColor4& color)
 // <FS> Line width OGL core profile fix by Rye Mutt
 void LLRender::setLineWidth(F32 line_width)
 {
+#ifdef DX_RENDER
+    // D3D11's rasterizer has no line-width control at all - the width is
+    // baked into the rasterizer state at creation and always comes out 1px,
+    // which DXStateCache.h's wireframe note already records as a known
+    // residual gap. So there is nothing to bind here: glLineWidth() and
+    // glIsEnabled() are raw GL with no dispatch entry, and the donor dropped
+    // this method entirely. Still tracked in mLineWidth so the dirty/flush
+    // bookkeeping above stays intact for callers that read it back.
+    if (line_width > 1.f)
+    {
+        line_width = 1.f;
+    }
+    if (mLineWidth != line_width || mDirty)
+    {
+        if (mMode == LLRender::LINES || mMode == LLRender::LINE_STRIP)
+        {
+            flush();
+        }
+        mLineWidth = line_width;
+    }
+#else
     if (line_width > 1.f)
     {
         line_width = llmin(line_width, glIsEnabled(GL_LINE_SMOOTH) ? mMaxLineWidthSmooth : mMaxLineWidthAliased);
@@ -2025,6 +2074,7 @@ void LLRender::setLineWidth(F32 line_width)
         mLineWidth = line_width;
         glLineWidth(line_width);
     }
+#endif // DX_RENDER
 }
 // </FS>
 
