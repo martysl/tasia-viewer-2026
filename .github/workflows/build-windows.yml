@@ -17,9 +17,9 @@ on:
         default: "false"
         type: boolean
       upload_github_artifact:
-        description: "Also upload to GitHub artifact storage for machine retrieval (storage.to download pages are Cloudflare-protected JS apps, so scripts cannot fetch them)"
+        description: "Upload to GitHub artifact storage as well as storage.to (consumes the repo's 500 MB shared quota)"
         required: true
-        default: "true"
+        default: "false"
         type: choice
         options:
           - "false"
@@ -288,10 +288,11 @@ jobs:
           print(f'Created {archive}')
           PY
 
-      # GitHub artifact storage is a shared, finite quota: each Windows build
-      # here is ~593 MB, so a handful of DX iterations fills it and every later
-      # upload fails. storage.to is the primary hand-off; GitHub artifacts are
-      # opt-in via upload_github_artifact so iteration stops consuming quota.
+      # GitHub artifact storage is off: the repo sits on a 500 MB free-tier
+      # quota and a single Windows build here is ~593 MB. storage.to carries the
+      # build instead and its link lands in the run summary. Note storage.to has
+      # no REST download endpoint, so that link has to be opened in a browser -
+      # it is not machine-retrievable.
       - name: Upload artifact to storage.to
         if: inputs.upload_github_artifact != 'true'
         shell: bash
