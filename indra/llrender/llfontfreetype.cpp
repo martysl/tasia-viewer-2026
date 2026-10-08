@@ -46,6 +46,9 @@
 #include "llimage.h"
 #include "llimagepng.h"
 //#include "llimagej2c.h"
+#ifdef DX_RENDER
+#include "llimagedx.h"
+#endif
 #include "llmath.h" // Linden math
 #include "llstring.h"
 //#include "imdebug.h"
@@ -638,6 +641,18 @@ LLFontGlyphInfo* LLFontFreetype::addGlyphFromFont(const LLFontFreetype *fontp, l
         llassert(false);
     }
 
+    #ifdef DX_RENDER
+    LLImageDX *image_dx = mFontBitmapCachep->getImageDX(bitmap_glyph_type, bitmap_num);
+    LLImageRaw *image_raw = mFontBitmapCachep->getImageRaw(bitmap_glyph_type, bitmap_num);
+    if (image_dx && image_raw)
+    {
+        image_dx->setSubImage(image_raw, 0, 0, image_dx->getWidth(), image_dx->getHeight());
+    }
+    else
+    {
+        llassert(false); //images were just inserted by nextOpenPos, they shouldn't be missing
+    }
+#else
     LLImageGL *image_gl = mFontBitmapCachep->getImageGL(bitmap_glyph_type, bitmap_num);
     LLImageRaw *image_raw = mFontBitmapCachep->getImageRaw(bitmap_glyph_type, bitmap_num);
     if (image_gl && image_raw)
@@ -648,6 +663,7 @@ LLFontGlyphInfo* LLFontFreetype::addGlyphFromFont(const LLFontFreetype *fontp, l
     {
         llassert(false); //images were just inserted by nextOpenPos, they shouldn't be missing
     }
+#endif
 
     return gi;
 }

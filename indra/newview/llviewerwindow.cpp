@@ -73,6 +73,9 @@
 #include "lldate.h"
 #include "llerrorcontrol.h"
 #include "llfontgl.h"
+#ifdef DX_RENDER
+#include "llfontdx.h"
+#endif
 #include "llmousehandler.h"
 #include "llrect.h"
 #include "llsky.h"
@@ -2113,12 +2116,22 @@ LLViewerWindow::LLViewerWindow(const Params& p)
     // Init font system, load default fonts and generate basic glyphs
     // currently it takes aprox. 0.5 sec and we would load these fonts anyway
     // before login screen.
+#ifdef DX_RENDER
+    // LLFontDX::initClass() has no fonts_file / size_mod parameters - the
+    // DX font class was derived from a pre-FS-Ansariel LLFontGL, so it
+    // loads defaults only. This matches the donor exactly.
+    LLFontDX::initClass( gSavedSettings.getF32("FontScreenDPI"),
+        mDisplayScale.mV[VX],
+        mDisplayScale.mV[VY],
+        gDirUtilp->getAppRODataDir());
+#else
     LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
         mDisplayScale.mV[VX],
         mDisplayScale.mV[VY],
         gDirUtilp->getAppRODataDir(),
         gSavedSettings.getString("FSFontSettingsFile"),
         gSavedSettings.getF32("FSFontSizeAdjustment"));
+#endif
 
 
     //
@@ -7129,17 +7142,26 @@ void LLViewerWindow::restoreGL(const std::string& progress_message)
 
 void LLViewerWindow::initFonts(F32 zoom_factor)
 {
-    LLFontGL::destroyAllGL();
-    // Initialize with possibly different zoom factor
-
     LLFontManager::initClass();
 
+#ifdef DX_RENDER
+    // See the constructor's LLFontDX::initClass() call: no fonts_file /
+    // size_mod parameters, matching the donor.
+    LLFontDX::destroyAllGL();
+    LLFontDX::initClass( gSavedSettings.getF32("FontScreenDPI"),
+                                mDisplayScale.mV[VX] * zoom_factor,
+                                mDisplayScale.mV[VY] * zoom_factor,
+                                gDirUtilp->getAppRODataDir());
+#else
+    LLFontGL::destroyAllGL();
+    // Initialize with possibly different zoom factor
     LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
                                 mDisplayScale.mV[VX] * zoom_factor,
                                 mDisplayScale.mV[VY] * zoom_factor,
                                 gDirUtilp->getAppRODataDir(),
                                 gSavedSettings.getString("FSFontSettingsFile"),
                                 gSavedSettings.getF32("FSFontSizeAdjustment"));
+#endif
 }
 
 void LLViewerWindow::requestResolutionUpdate()
