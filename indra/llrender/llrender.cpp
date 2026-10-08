@@ -210,6 +210,19 @@ U32 LLTexUnit::getInternalType(eTextureType type)
 
 void LLTexUnit::refreshState(void)
 {
+#ifdef DX_RENDER
+    // S24: re-establishes GL texture-unit state after the context was lost and
+    // regained. Both glActiveTexture() and glBindTexture() (x2) are NULL
+    // PFNGL*PROC globals under DX_RENDER, and there is no WGL context whose
+    // state could have been lost - DX keeps its own binding state in DXStateCache
+    // and rebinds at draw time, so there is nothing to restore here.
+    //
+    // Reachable every time a setting changes: LLViewerWindow::checkSettings()
+    // calls this from gStatesDirty (llviewerwindow.cpp:7157), so this is a
+    // live null deref, not a theoretical one.
+    (void)mIndex;
+    return;
+#else
     // We set dirty to true so that the tex unit knows to ignore caching
     // and we reset the cached tex unit state
 
@@ -225,6 +238,7 @@ void LLTexUnit::refreshState(void)
     {
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+#endif // DX_RENDER
 }
 
 void LLTexUnit::activate(void)
@@ -468,6 +482,56 @@ bool LLTexUnit::bind(LLTexture* texture, bool for_rendering, bool forceBind)
 
 bool LLTexUnit::bind(LLImageGL* texture, bool for_rendering, bool forceBind, S32 usename)
 {
+#ifdef DX_RENDER
+    // S24: this is the LLImageGL counterpart of bind(LLImageDX*) just below,
+    // and unlike bind(LLTexture*) (whose DX_RENDER branch was already ported)
+    // it had no guard at all, so the GL body below ran verbatim under
+    // DX_RENDER and reached glBindTexture() - a NULL PFNGLBINDTEXTUREPROC.
+    //
+    // Reachable from a lot of places, not just the font path:
+    //   - llfontbitmapcache.cpp:148, once per new glyph atlas (and the font
+    //     path IS live: all three LLFontGL::initClass() call sites in
+    //     llviewerwindow.cpp are still unguarded, so llfontgl.cpp - not
+    //     llfontdx.cpp - is what actually runs under DX_RENDER today)
+    //   - llrender2dutils.cpp x5 (all UI 2D drawing)
+    //   - lltexlayer.cpp x8, lltexlayerparams.cpp x2, lllocaltextureobject.cpp
+    //   - llcubemap.cpp:296, llrender2dutils.cpp:980
+    //
+    // There is no SRV to bind: LLImageGL is not the DX image type and carries
+    // no D3D11 resource (its uploads are inert under DX_RENDER - see
+    // llimagegl.cpp). So bind the white fallback and report success, exactly
+    // as bindFast() does for the same reason. Returning true matters: callers
+    // such as llrender2dutils.cpp treat false as "the draw cannot proceed" and
+    // skip it, whereas true means "proceed, drawn flat white".
+    //
+    // The mIndex < 0 check is kept first so the derived-channel and
+    // out-of-range conventions behave identically to the GL body below.
+    if (mIndex < 0) return false;
+    (void)texture; (void)for_rendering; (void)forceBind; (void)usename;
+    ID3D11ShaderResourceView* srv = getWhiteTextureSRV();
+    bool srv_changed = mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    // No LLImageGL to read address-mode/filter from, so use this codebase's
+    // established defaults - see bindFast()'s matching note.
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate((int)LLTexUnit::TAM_WRAP, (int)LLTexUnit::TFO_BILINEAR);
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+    return true;
+#else
     stop_glerror();
     if (mIndex < 0) return false;
 
@@ -515,10 +579,44 @@ bool LLTexUnit::bind(LLImageGL* texture, bool for_rendering, bool forceBind, S32
     stop_glerror();
 
     return true;
+#endif // DX_RENDER
 }
 
 bool LLTexUnit::bind(LLCubeMap* cubeMap)
 {
+#ifdef DX_RENDER
+    // S24: same shape as bind(LLImageGL*) above - the GL body reaches
+    // glBindTexture(GL_TEXTURE_CUBE_MAP, ...) at the end, a NULL
+    // PFNGLBINDTEXTUREPROC. Its six faces are LLImageGLs, so there is no
+    // D3D11 cubemap resource to bind from here either; white fallback.
+    //
+    // Reachable from llcubemap.cpp:296, i.e. LLViewerSky/l_sky/skybox
+    // drawing. Also note gGL.flush() is deliberately not called on this path
+    // (it is not GL), matching the other DX_RENDER bind() overloads.
+    if (mIndex < 0) return false;
+    (void)cubeMap;
+    ID3D11ShaderResourceView* srv = getWhiteTextureSRV();
+    bool srv_changed = mCurrDXSRV != (void*)srv;
+    bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
+    if (srv_changed)
+    {
+        gDX.flush();
+        gDXUIBatch.flushPending();
+        mCurrDXSRV = (void*)srv;
+    }
+    mDXSRVGeneration = DXStateCache::getRTVGeneration();
+    if (srv_changed || generation_stale)
+    {
+        gDXDevice.getContext()->PSSetShaderResources(mIndex, 1, &srv);
+    }
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate((int)LLTexUnit::TAM_WRAP, (int)LLTexUnit::TFO_BILINEAR);
+    if (mIndex < 16 && mCurrDXSampler != (void*)sampler)
+    {
+        gDXDevice.getContext()->PSSetSamplers(mIndex, 1, &sampler);
+    }
+    mCurrDXSampler = (void*)sampler;
+    return true;
+#else
     if (mIndex < 0) return false;
 
     gGL.flush();
@@ -554,6 +652,7 @@ bool LLTexUnit::bind(LLCubeMap* cubeMap)
         }
     }
     return true;
+#endif // DX_RENDER
 }
 
 #ifdef DX_RENDER
@@ -936,12 +1035,26 @@ void LLTexUnit::setTextureAddressMode(eTextureAddressMode mode)
 
 void LLTexUnit::setTextureAddressModeFast(eTextureAddressMode mode, eTextureType tex_type)
 {
+#ifdef DX_RENDER
+    // S24: this and setTextureFilteringOptionFast() are declared in llrender.h
+    // as public "inner loop" helpers, so anything can call them - not just the
+    // four in-file callers, all of which now sit in guarded/GL-only bodies.
+    // glTexParameteri() is a NULL PFNGLTEXPARAMETERIPROC under DX_RENDER.
+    // Sampler state under DX_RENDER is not immediate-mode at all: it is built
+    // from the texture being bound by DXSampler::getOrCreate() at bind time
+    // (see setTextureAddressMode() and bindFast()'s comments), so there is
+    // nothing for this to set. Guarded rather than left to the callers so the
+    // symbol itself can never dereference a NULL PFN.
+    (void)mode; (void)tex_type;
+    return;
+#else
     glTexParameteri(sGLTextureType[tex_type], GL_TEXTURE_WRAP_S, sGLAddressMode[mode]);
     glTexParameteri(sGLTextureType[tex_type], GL_TEXTURE_WRAP_T, sGLAddressMode[mode]);
     if (tex_type == TT_CUBE_MAP || tex_type == TT_CUBE_MAP_ARRAY || tex_type == TT_TEXTURE_3D)
     {
         glTexParameteri(sGLTextureType[tex_type], GL_TEXTURE_WRAP_R, sGLAddressMode[mode]);
     }
+#endif // DX_RENDER
 }
 
 void LLTexUnit::setTextureFilteringOption(LLTexUnit::eTextureFilterOptions option)
@@ -968,6 +1081,16 @@ void LLTexUnit::setTextureFilteringOption(LLTexUnit::eTextureFilterOptions optio
 
 void LLTexUnit::setTextureFilteringOptionFast(LLTexUnit::eTextureFilterOptions option, eTextureType tex_type)
 {
+#ifdef DX_RENDER
+    // S24: same reasoning as setTextureAddressModeFast() immediately above -
+    // 9 glTexParameteri() plus 2 glTexParameterf() calls, all NULL
+    // PFNGL*PROC globals under DX_RENDER, and no sampler state for this to set
+    // (DXSampler::getOrCreate() builds it from the texture at bind time).
+    // (void) rather than a comment-only early return so the parameters stay
+    // referenced and the /W3 unused-parameter class cannot reappear.
+    (void)option; (void)tex_type;
+    return;
+#else
     if (option == TFO_POINT)
     {
         glTexParameteri(sGLTextureType[tex_type], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1015,6 +1138,7 @@ void LLTexUnit::setTextureFilteringOptionFast(LLTexUnit::eTextureFilterOptions o
             glTexParameterf(sGLTextureType[tex_type], GL_TEXTURE_MAX_ANISOTROPY, 1.f);
         }
     }
+#endif // DX_RENDER
 }
 
 GLint LLTexUnit::getTextureSource(eTextureBlendSrc src)

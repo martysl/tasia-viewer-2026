@@ -892,7 +892,26 @@ void LLImageDX::updateClass()
     if (!sFreeList[idx].empty())
     {
         free_tex_images((GLsizei) sFreeList[idx].size(), sFreeList[idx].data());
+#ifndef DX_RENDER
+        // S24: glDeleteTextures() is a NULL PFNGLDELETETEXTURESPROC under
+        // DX_RENDER - no WGL context is created and initExtensions(), the
+        // loader that would resolve the PFNGL*PROC globals, is never called,
+        // so every one of them stays at its nullptr initialiser.
+        //
+        // free_tex_images() above stays OUTSIDE the guard on purpose: it is
+        // the LLImageDXMemory accounting release balancing allocDXTextureBytes()
+        // / alloc_tex_image(), and skipping it would permanently leak the
+        // tracked texture-byte total that feeds getTextureBytesAllocated() and
+        // the VRAM floater. Only the GL call itself is dropped - there is no
+        // GL object to delete, because DXTexture owns and releases the real
+        // D3D11 resource (see DXTexture's own destruction path).
+        //
+        // Note this function currently has no caller (newview's
+        // llappviewer.cpp:5773 calls LLImageGL::updateClass()), so this is not
+        // yet a live fault - but it is one call away from being one, and the
+        // same free-list-drain shape as LLImageGL::updateClass(), which is.
         glDeleteTextures((GLsizei)sFreeList[idx].size(), sFreeList[idx].data());
+#endif
         sFreeList[idx].resize(0);
     }
 }

@@ -175,6 +175,21 @@ U32* LLImageGL::sManualScratch = nullptr;
 
 void LLImageGL::checkTexSize(bool forced) const
 {
+#ifdef DX_RENDER
+    // S24: debug-only consistency check ("is the texture I think is bound
+    // actually bound, and is its size right"). Reaches glGetIntegerv() (2) and
+    // glGetTexLevelParameteriv() (2). glGetTexLevelParameteriv is a NULL PFN
+    // under DX_RENDER; glGetIntegerv is a core GL 1.x dllimport so it would not
+    // fault, but it has no context to query and returns nothing useful.
+    //
+    // The whole check is meaningless without GL state to compare against, and
+    // it also dereferences sDefaultGLTexture unconditionally in its error
+    // branch (which is never reached here, since nothing is ever bound).
+    // Skipping it outright is right: under DX_RENDER there is no GL binding to
+    // be inconsistent with.
+    (void)forced;
+    return;
+#else
     if ((forced || gDebugGL) && mTarget == GL_TEXTURE_2D)
     {
         {
@@ -232,6 +247,7 @@ void LLImageGL::checkTexSize(bool forced) const
             ll_fail("LLImageGL::checkTexSize failed.");
         }
     }
+#endif // DX_RENDER
 }
 //end of debug functions
 //**************************************************************************************
@@ -251,6 +267,32 @@ void LLImageGL::initClass(LLWindow* window, S32 num_catagories, bool skip_analyz
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
     sSkipAnalyzeAlpha = skip_analyze_alpha;
 
+#ifdef DX_RENDER
+    // S24: initClass() is called from LLViewerWindow::initGL() during startup,
+    // immediately before gTextureList.init(), so it must not fault here.
+    //
+    // Everything this function would do is GL-only. glGenBuffers() is a NULL
+    // PFNGLGENBUFFERSPROC global under DX_RENDER: no WGL context is created
+    // and LLGLManager::initExtensions() - the loader that resolves the entry
+    // points - is never called, so every PFNGL*PROC global stays at its
+    // nullptr initialiser (llgl.cpp). Calling it is a null dereference.
+    //
+    // The scratch PBO exists only to service the GL pixel-transfer paths
+    // (setSubImageFromFrameBuffer()/scaleDown()/readBackRaw()). Under DX_RENDER
+    // those are all inert for the same reason, so the PBO is not needed. The
+    // two statics are left at 0, which is exactly the "no scratch PBO" state
+    // the GL path already handles at every use site.
+    //
+    // The GL texture thread pool is not created either: LLImageDXThread is the
+    // pool the DX path actually uses (see LLImageDX::initClass()), and
+    // LLImageGLThread only posts work that ends up calling GL. Leaving the
+    // singleton uncreated is safe - deleteSingleton() in cleanupClass() is
+    // tolerant of it.
+    (void)window;
+    (void)num_catagories;
+    (void)thread_texture_loads;
+    (void)thread_media_updates;
+#else
     if (sScratchPBO == 0)
     {
         glGenBuffers(1, &sScratchPBO);
@@ -262,6 +304,7 @@ void LLImageGL::initClass(LLWindow* window, S32 num_catagories, bool skip_analyz
         LLImageGLThread::sEnabledTextures = gGLManager.mGLVersion > 3.95f ? thread_texture_loads : false;
         LLImageGLThread::sEnabledMedia = gGLManager.mGLVersion > 3.95f ? thread_media_updates : false;
     }
+#endif // DX_RENDER
 }
 
 void LLImageGL::allocateConversionBuffer()
@@ -285,12 +328,18 @@ void LLImageGL::cleanupClass()
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
     LLImageGLThread::deleteSingleton();
+#ifndef DX_RENDER
+    // S24: mirror of initClass()'s guard - sScratchPBO is never allocated
+    // under DX_RENDER (see there), so glDeleteBuffers() is not only a NULL
+    // deref there, it is unreachable. Kept inside the same #ifndef so the
+    // "scratch PBO released" bookkeeping stays paired with the allocation.
     if (sScratchPBO != 0)
     {
         glDeleteBuffers(1, &sScratchPBO);
         sScratchPBO = 0;
         sScratchPBOSize = 0;
     }
+#endif
 
     delete[] sManualScratch;
 }
@@ -748,7 +797,23 @@ void LLImageGL::setImage(const LLImageRaw* imageraw)
 bool LLImageGL::setImage(const U8* data_in, bool data_hasmips /* = false */, S32 usename /* = 0 */)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
-
+#ifdef DX_RENDER
+    // S24: the main pixel-upload entry point. The body binds through
+    // gGL.getTexUnit(0) (LLTexUnit::bind/unbind, whose DX_RENDER branches are
+    // already guarded) and then reaches, directly, glCompressedTexImage2D()
+    // (2), glPixelStorei() (6), glTexParameteri() and glGenerateMipmap() - all
+    // NULL PFNGL*PROC under DX_RENDER. setManualImage() is inert now (see
+    // there), but it is not the only upload path in here.
+    //
+    // Returning false is the "upload did not happen" answer and is what
+    // createGLTexture() propagates to LLGLTexture::createGLTexture(), which in
+    // turn is what LLViewerTexture reports. Note the deliberate asymmetry with
+    // setSubImage(): no bookkeeping is touched either, because
+    // mGLTextureCreated = true at the bottom of the GL body would claim a GPU
+    // resource that does not exist.
+    (void)data_in; (void)data_hasmips; (void)usename;
+    return false;
+#else
     const bool is_compressed = isCompressed();
 
     if (mUseMipMaps)
@@ -1029,6 +1094,7 @@ bool LLImageGL::setImage(const U8* data_in, bool data_hasmips /* = false */, S32
     stop_glerror();
     mGLTextureCreated = true;
     return true;
+#endif // DX_RENDER
 }
 
 U32 type_width_from_pixtype(U32 pixtype)
@@ -1073,6 +1139,19 @@ void sub_image_lines(U32 target, S32 miplevel, S32 x_offset, S32 y_offset, S32 w
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
 
+#ifdef DX_RENDER
+    // S24: this is a file-scope function with external linkage (not a member,
+    // not static), and both of its glTexSubImage2D() loops are reachable from
+    // anywhere that can see the symbol - not just from the two call sites in
+    // this file, both of which now sit inside functions that return early
+    // under DX_RENDER (setSubImage() and setManualImage()). Guarded here as
+    // well so the symbol itself can never dereference a NULL PFN under
+    // DX_RENDER, whatever calls it.
+    (void)target; (void)miplevel; (void)x_offset; (void)y_offset;
+    (void)width; (void)height; (void)pixformat; (void)pixtype;
+    (void)src; (void)data_width;
+    return;
+#else
     LL_PROFILE_ZONE_NUM(width);
     LL_PROFILE_ZONE_NUM(height);
 
@@ -1119,11 +1198,28 @@ void sub_image_lines(U32 target, S32 miplevel, S32 x_offset, S32 y_offset, S32 w
             src += line_width;
         }
     }
+#endif // DX_RENDER
 }
 
 bool LLImageGL::setSubImage(const U8* datap, S32 data_width, S32 data_height, S32 x_pos, S32 y_pos, S32 width, S32 height, bool force_fast_update /* = false */, LLGLuint use_name)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
+#ifdef DX_RENDER
+    // S24: the fast-update branch below reaches glPixelStorei() (4 sites),
+    // gGL.getTexUnit(0)->bindManual() (which binds through glBindTexture()'s
+    // own LLTexUnit path) and glTexSubImage2D()/sub_image_lines(). All of
+    // those are NULL PFNGL*PROC under DX_RENDER.
+    //
+    // Returning false (not true) is the honest answer: nothing was uploaded.
+    // It is also what the existing early-out one screen below already returns
+    // for the "no GL texture" and "NULL datap" cases, so no caller has to grow
+    // a new branch for this. Newview's llterrainpaintmap.cpp:273 checks this
+    // return value, so it will see the failure rather than silently proceeding.
+    (void)datap; (void)data_width; (void)data_height;
+    (void)x_pos; (void)y_pos; (void)width; (void)height;
+    (void)force_fast_update; (void)use_name;
+    return false;
+#else
     if (!width || !height)
     {
         return true;
@@ -1228,6 +1324,7 @@ bool LLImageGL::setSubImage(const U8* datap, S32 data_width, S32 data_height, S3
         mGLTextureCreated = true;
     }
     return true;
+#endif // DX_RENDER
 }
 
 bool LLImageGL::setSubImage(const LLImageRaw* imageraw, S32 x_pos, S32 y_pos, S32 width, S32 height, bool force_fast_update /* = false */, LLGLuint use_name)
@@ -1239,6 +1336,20 @@ bool LLImageGL::setSubImage(const LLImageRaw* imageraw, S32 x_pos, S32 y_pos, S3
 // Copy sub image from frame buffer
 bool LLImageGL::setSubImageFromFrameBuffer(S32 fb_x, S32 fb_y, S32 x_pos, S32 y_pos, S32 width, S32 height)
 {
+#ifdef DX_RENDER
+    // S24: the bind() below goes through LLTexUnit::bind(), whose DX_RENDER
+    // branch is already guarded, but it succeeds (returns true) and would then
+    // fall into glCopyTexSubImage2D() - a NULL PFNGL*PROC under DX_RENDER, and
+    // one with no GL framebuffer to copy from in any case. Return false: the
+    // "could not copy" answer, matching what LLRenderTarget's own DX_RENDER
+    // no-ops report.
+    //
+    // Reachable from newview: llterrainpaintmap.cpp:273 (LLTerrainPaintMap
+    // refreshes its alpha ramp by reading the framebuffer), so this is not
+    // dead code under DX_RENDER.
+    (void)fb_x; (void)fb_y; (void)x_pos; (void)y_pos; (void)width; (void)height;
+    return false;
+#else
     if (gGL.getTexUnit(0)->bind(this, false, true))
     {
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, fb_x, fb_y, x_pos, y_pos, width, height);
@@ -1250,12 +1361,36 @@ bool LLImageGL::setSubImageFromFrameBuffer(S32 fb_x, S32 fb_y, S32 x_pos, S32 y_
     {
         return false;
     }
+#endif // DX_RENDER
 }
 
 // static
 void LLImageGL::generateTextures(S32 numTextures, U32 *textures)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
+#ifdef DX_RENDER
+    // S24: glGenTextures() is a NULL PFNGLGENTEXTURESPROC under DX_RENDER (no
+    // WGL context, and initExtensions() - the resolver - is never called), so
+    // both glGenTextures() sites below would be null derefs.
+    //
+    // Hand out a unique, non-zero, stable U32 instead, mirroring what
+    // LLImageDX::generateTextures() already does for the DX path: these names
+    // are only ever used as an opaque identity (mTexName) and as the key for
+    // LLImageGLMemory::alloc_tex_image() accounting, never to bind anything.
+    // A monotonic counter, not a repeated sentinel, so two distinct LLImageGL
+    // instances cannot alias onto one key in the accounting maps.
+    //
+    // Note this does NOT make the texture renderable: nothing uploads pixels,
+    // because setManualImage()/setImage() are inert here too (see below). An
+    // LLImageGL under DX_RENDER is a bookkeeping shell only. Nothing binds it
+    // either - LLTexUnit::bindFast()'s DX_RENDER branch binds the white
+    // fallback SRV, never an mTexName.
+    static U32 s_next_name = 1;
+    for (S32 i = 0; i < numTextures; ++i)
+    {
+        textures[i] = s_next_name++;
+    }
+#else
     static constexpr U32 pool_size = 1024;
     static thread_local U32 name_pool[pool_size]; // pool of texture names
     static thread_local U32 name_count = 0; // number of available names in the pool
@@ -1279,6 +1414,7 @@ void LLImageGL::generateTextures(S32 numTextures, U32 *textures)
         LL_PROFILE_ZONE_NAMED_CATEGORY_TEXTURE("iglgt - pool miss");
         glGenTextures(numTextures, textures);
     }
+#endif // DX_RENDER
 }
 
 constexpr int DELETE_DELAY = 3; // number of frames to wait before deleting textures
@@ -1296,7 +1432,20 @@ void LLImageGL::updateClass()
     if (!sFreeList[idx].empty())
     {
         free_tex_images((GLsizei) sFreeList[idx].size(), sFreeList[idx].data());
+#ifndef DX_RENDER
+        // S24: glDeleteTextures() is a NULL PFNGLDELETETEXTURESPROC under
+        // DX_RENDER (no WGL context, initExtensions() never runs).
+        // free_tex_images() above is NOT NULL-guarded and must stay outside
+        // the guard: it is the LLImageGLMemory accounting release that
+        // balances alloc_tex_image() in generateTextures()'s DX_RENDER branch,
+        // so skipping it would leak the tracked texture-byte total. Only the
+        // GL call itself is dropped.
+        //
+        // This is reached from LLAppViewer::idle() once per frame
+        // (llappviewer.cpp), so unlike the other sites here this is a
+        // guaranteed every-frame null deref, not a startup-only one.
         glDeleteTextures((GLsizei)sFreeList[idx].size(), sFreeList[idx].data());
+#endif
         sFreeList[idx].resize(0);
     }
 }
@@ -1319,6 +1468,43 @@ void LLImageGL::deleteTextures(S32 numTextures, const U32 *textures)
 void LLImageGL::setManualImage(U32 target, S32 miplevel, S32 intformat, S32 width, S32 height, U32 pixformat, U32 pixtype, const void* pixels, bool allow_compression)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
+#ifdef DX_RENDER
+    // S24: setManualImage() is the single GL texture-upload chokepoint for this
+    // class, and it is the widest-reaching of the unguarded sites: unlike the
+    // other functions here it is called directly (statically, not through an
+    // LLImageGL instance) from ~15 places outside llrender - llrendertarget.cpp,
+    // llpostprocess.cpp, and in newview llmaniptranslate.cpp, llglsandbox.cpp,
+    // lldrawpoolbump.cpp, pipeline.cpp, fsmaniptranslatejoint.cpp,
+    // llvoavatar.cpp.
+    //
+    // The body is pure GL - glTexParameteriv() (a PFN under DX_RENDER),
+    // glCompressedTexImage2D(), glPixelStorei(), glTexParameteri(),
+    // glGenerateMipmap() and the two glTexImage2D() calls. Every one of those
+    // is a NULL PFNGL*PROC global here (no WGL context; initExtensions(), the
+    // resolver, never runs), so making the body inert is what keeps all ~15
+    // of those call sites from faulting.
+    //
+    // Deliberately NOT deleted: llimagedx.h does not declare
+    // LLImageDX::setManualImage at all, so this cannot be ported by retargeting
+    // the call - and the call sites are in newview, which this task does not
+    // own. Keeping the symbol means those files still compile under DX_RENDER
+    // and become no-ops instead of becoming build errors.
+    //
+    // Effect: LLImageGL-based textures accept no pixel data under DX_RENDER.
+    // They keep their width/height/component bookkeeping (set by the caller
+    // via setSize()) but hold no GPU resource. See generateTextures() above for
+    // what the mTexName then means.
+    (void)target;
+    (void)miplevel;
+    (void)intformat;
+    (void)width;
+    (void)height;
+    (void)pixformat;
+    (void)pixtype;
+    (void)pixels;
+    (void)allow_compression;
+    return;
+#else
     if (LLRender::sGLCoreProfile)
     {
         LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
@@ -1491,6 +1677,7 @@ void LLImageGL::setManualImage(U32 target, S32 miplevel, S32 intformat, S32 widt
         alloc_tex_image(width, height, intformat, 1);
     }
     stop_glerror();
+#endif // DX_RENDER
 }
 
 //create an empty GL texture: just create a texture name
@@ -1681,8 +1868,18 @@ bool LLImageGL::createGLTexture(S32 discard_level, const U8* data_in, bool data_
         LLImageGL::generateTextures(1, &new_texname);
         {
             gGL.getTexUnit(0)->bind(this, false, false, new_texname);
+#ifndef DX_RENDER
+            // S24: glTexParameteri() is a NULL PFNGLTEXPARAMETERIPROC under
+            // DX_RENDER (no WGL context, initExtensions() never resolves it).
+            // The bind() on the line above is already safe - LLTexUnit::bind()
+            // and bindManual() carry DX_RENDER branches - but these two set
+            // base/max mip level on the bound object and have no DX equivalent
+            // to defer to: sampler state under DX_RENDER is built at bind time
+            // by DXSampler::getOrCreate() from the LLImageDX/LLTexture being
+            // bound (see LLTexUnit::setTextureAddressMode()'s comment).
             glTexParameteri(LLTexUnit::getInternalType(mBindTarget), GL_TEXTURE_BASE_LEVEL, 0);
             glTexParameteri(LLTexUnit::getInternalType(mBindTarget), GL_TEXTURE_MAX_LEVEL, mMaxDiscardLevel - discard_level);
+#endif
         }
     }
 
@@ -1747,6 +1944,30 @@ void LLImageGL::syncToMainThread(LLGLuint new_tex_name)
     LL_PROFILE_ZONE_SCOPED;
     llassert(!on_main_thread());
 
+#ifdef DX_RENDER
+    // S24: the fence/flush block below is the densest cluster of NULL PFNs in
+    // this file - glFenceSync(), glFlush() (3), glClientWaitSync(),
+    // glDeleteSync() and glWaitSync(), all uninitialised globals under DX_RENDER
+    // because no WGL context exists and initExtensions() never runs. The last
+    // one is worse than the rest: it runs inside a posted lambda on the main
+    // thread, so it would fault later, and on a different stack, than the media
+    // code that triggered it.
+    //
+    // There is nothing to wait for: no upload happened (setImage()/
+    // setSubImage()/setManualImage() are all inert under DX_RENDER - see
+    // there) and there is no GL context on this thread to order against. The
+    // name swap is pure bookkeeping and still has to happen, so it is kept.
+    // This mirrors LLImageDX::syncToMainThread() exactly, for the same reason.
+    ref();
+    LL::WorkQueue::postMaybe(
+        mMainQueue,
+        [=, this]()
+        {
+            LL_PROFILE_ZONE_NAMED_CATEGORY_TEXTURE("cglt - delete callback");
+            syncTexName(new_tex_name);
+            unref();
+        });
+#else
     {
         LL_PROFILE_ZONE_NAMED_CATEGORY_TEXTURE("cglt - sync");
         if (gGLManager.mIsNVIDIA)
@@ -1792,6 +2013,7 @@ void LLImageGL::syncToMainThread(LLGLuint new_tex_name)
             syncTexName(new_tex_name);
             unref();
         });
+#endif // DX_RENDER
 
     LL_PROFILER_GPU_COLLECT;
 }
@@ -1812,7 +2034,19 @@ void LLImageGL::syncTexName(LLGLuint texname)
 bool LLImageGL::readBackRaw(S32 discard_level, LLImageRaw* imageraw, bool compressed_ok) const
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
-
+#ifdef DX_RENDER
+    // S24: GPU->CPU readback. Reaches glGetTexLevelParameteriv() (3 sites),
+    // glGetCompressedTexImage(), glGetError() and glReadPixels() - all NULL
+    // PFNGL*PROC under DX_RENDER, and all meaningless with no GL context and
+    // no GL texture to read from (setImage()/setManualImage() upload nothing
+    // under DX_RENDER - see there).
+    //
+    // false is the "could not read back" answer, which is also what the
+    // mTexName == 0 / discard-level early-out two screens below already
+    // returns, so existing callers need no new handling.
+    (void)discard_level; (void)imageraw; (void)compressed_ok;
+    return false;
+#else
     if (discard_level < 0)
     {
         discard_level = mCurrentDiscardLevel;
@@ -1938,6 +2172,7 @@ bool LLImageGL::readBackRaw(S32 discard_level, LLImageRaw* imageraw, bool compre
     //-----------------------------------------------------------------------------------------------
 
     return true ;
+#endif // DX_RENDER
 }
 
 void LLImageGL::destroyGLTexture()
@@ -2009,6 +2244,15 @@ bool LLImageGL::getIsResident(bool test_now)
 {
     if (test_now)
     {
+#ifdef DX_RENDER
+        // S24: glAreTexturesResident() is a core GL 1.x symbol, so unlike the
+        // PFNGL*PROC globals elsewhere in this file it is a real dllimport and
+        // will not null-deref - but it has no context to query and its answer
+        // would be meaningless. Residency is driver/OS-managed under D3D11 and
+        // is not queried this way, so answer from the name we actually have.
+        // Mirrors LLImageDX::getIsResident() exactly, for the same reason.
+        mIsResident = mTexName != 0;
+#else
         if (mTexName != 0)
         {
             glAreTexturesResident(1, (GLuint*)&mTexName, &mIsResident);
@@ -2017,6 +2261,7 @@ bool LLImageGL::getIsResident(bool test_now)
         {
             mIsResident = false;
         }
+#endif // DX_RENDER
     }
 
     return mIsResident;
@@ -2468,7 +2713,25 @@ void LLImageGL::resetCurTexSizebar()
 bool LLImageGL::scaleDown(S32 desired_discard)
 {
     LL_PROFILE_ZONE_SCOPED_CATEGORY_TEXTURE;
-
+#ifdef DX_RENDER
+    // S24: GPU-side mip downscale. Heaviest single function in this file under
+    // DX_RENDER: glTexImage2D(), glGenBuffers(), glBindBuffer() (3),
+    // glBufferData(), glGetTexImage(), glGenerateMipmap() and glFlush() are all
+    // NULL PFNGL*PROC here, and the whole point of the function - reusing the
+    // GPU to build the smaller mip from the larger one - has no meaning with no
+    // GPU texture and no GL context.
+    //
+    // Critically, it must return false and NOT advance
+    // mCurrentDiscardLevel: advancing it would tell the rest of the texture
+    // layer that a coarser mip exists when nothing was uploaded, corrupting
+    // every later width()/height() query against this image.
+    //
+    // Reachable: LLViewerFetchedTexture::scaleDown() (llviewertexture.h:582)
+    // calls through to here, and the texture list drives that when the memory
+    // budget is exceeded.
+    (void)desired_discard;
+    return false;
+#else
     if (mTarget != GL_TEXTURE_2D
         || mFormatInternal == -1 // not initialized
         )
@@ -2562,6 +2825,7 @@ bool LLImageGL::scaleDown(S32 desired_discard)
     mCurrentDiscardLevel = desired_discard;
 
     return true;
+#endif // DX_RENDER
 }
 
 
