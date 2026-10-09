@@ -997,7 +997,39 @@ void LLFontDX::initClass(F32 screen_dpi, F32 x_scale, F32 y_scale, const std::st
         // Firestorm addition the donor does not have). 0.f is the neutral
         // value, i.e. exactly what the donor's single-argument call meant.
         sFontRegistry = new LLFontRegistry(create_gl_textures, 0.f);
-        sFontRegistry->parseFontInfo("fonts.xml");
+
+        // S24: the donor passes a bare "fonts.xml" here, which does not resolve
+        // from the viewer's working directory - the log then shows
+        // "no XML file: fonts.xml" followed by "createFontDX unrecognized size
+        // <size>" for every one of the six default fonts, and no UI text can be
+        // drawn at all. LLFontGL::initClass resolves this properly: it walks the
+        // install_dir, then user_settings, and finally falls back to
+        // findSkinnedFilenames() over the skin XUI directories. Do the same here,
+        // keeping the bare filename as a last resort.
+        const std::string xml_pathfont(gDirUtilp->getExpandedFilename(LL_PATH_FONTS, "", "fonts.xml"));
+        const std::string xml_pathusr(gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "fonts", "fonts.xml"));
+        if (!sFontRegistry->parseFontInfo(xml_pathfont) &&
+            !sFontRegistry->parseFontInfo(xml_pathusr))
+        {
+            const string_vec_t xml_paths = gDirUtilp->findSkinnedFilenames(LLDir::XUI, "fonts.xml");
+            if (xml_paths.empty())
+            {
+                // Nothing left to try; the donor's original behaviour.
+                sFontRegistry->parseFontInfo("fonts.xml");
+            }
+            else
+            {
+                for (string_vec_t::const_iterator path_it = xml_paths.begin();
+                        path_it != xml_paths.end();
+                        ++path_it)
+                {
+                    if (!sFontRegistry->parseFontInfo(*path_it))
+                    {
+                        LL_WARNS() << "Bad font info file: " << *path_it << LL_ENDL;
+                    }
+                }
+            }
+        }
     }
     else
     {
