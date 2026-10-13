@@ -40,6 +40,9 @@ LLGLTexture::LLGLTexture(const U32 width, const U32 height, const U8 components,
     mFullHeight = height ;
     mUseMipMaps = usemipmaps;
     mComponents = components ;
+#ifdef DX_RENDER
+    mDXTexturep = new LLImageDX(width, height, components, usemipmaps) ;
+#endif
     setTexelsPerImage();
 }
 
@@ -154,10 +157,13 @@ void LLGLTexture::generateGLTexture()
     if(mGLTexturep.isNull())
     {
         mGLTexturep = new LLImageGL(mFullWidth, mFullHeight, mComponents, mUseMipMaps) ;
-#ifdef DX_RENDER
-        mDXTexturep = new LLImageDX(mFullWidth, mFullHeight, mComponents, mUseMipMaps) ;
-#endif
     }
+#ifdef DX_RENDER
+    if(mDXTexturep.isNull())
+    {
+        mDXTexturep = new LLImageDX(mFullWidth, mFullHeight, mComponents, mUseMipMaps) ;
+    }
+#endif
 }
 
 LLImageGL* LLGLTexture::getGLTexture() const
@@ -181,13 +187,36 @@ bool LLGLTexture::createGLTexture()
         generateGLTexture() ;
     }
 
+#ifdef DX_RENDER
+    if(mDXTexturep.isNull())
+    {
+        generateGLTexture() ;
+    }
+    return mDXTexturep.notNull() && mDXTexturep->createGLTexture() ;
+#else
     return mGLTexturep->createGLTexture() ;
+#endif
 }
 
 bool LLGLTexture::createGLTexture(S32 discard_level, const LLImageRaw* imageraw, S32 usename, bool to_create, S32 category, bool defer_copy, LLGLuint* tex_name)
 {
     llassert(mGLTexturep.notNull());
 
+#ifdef DX_RENDER
+    if(mDXTexturep.isNull())
+    {
+        generateGLTexture() ;
+    }
+    bool ret = mDXTexturep.notNull() && mDXTexturep->createGLTexture(discard_level, imageraw, usename, to_create, category, defer_copy, tex_name) ;
+
+    if(ret)
+    {
+        mFullWidth = mDXTexturep->getCurrentWidth() ;
+        mFullHeight = mDXTexturep->getCurrentHeight() ;
+        mComponents = mDXTexturep->getComponents() ;
+        setTexelsPerImage();
+    }
+#else
     bool ret = mGLTexturep->createGLTexture(discard_level, imageraw, usename, to_create, category, defer_copy, tex_name) ;
 
     if(ret)
@@ -197,6 +226,7 @@ bool LLGLTexture::createGLTexture(S32 discard_level, const LLImageRaw* imageraw,
         mComponents = mGLTexturep->getComponents() ;
         setTexelsPerImage();
     }
+#endif
 
     return ret ;
 }
@@ -211,11 +241,23 @@ void LLGLTexture::setAddressMode(LLTexUnit::eTextureAddressMode mode)
 {
     llassert(mGLTexturep.notNull()) ;
     mGLTexturep->setAddressMode(mode) ;
+#ifdef DX_RENDER
+    if (mDXTexturep.notNull())
+    {
+        mDXTexturep->setAddressMode(mode) ;
+    }
+#endif
 }
 void LLGLTexture::setFilteringOption(LLTexUnit::eTextureFilterOptions option)
 {
     llassert(mGLTexturep.notNull()) ;
     mGLTexturep->setFilteringOption(option) ;
+#ifdef DX_RENDER
+    if (mDXTexturep.notNull())
+    {
+        mDXTexturep->setFilteringOption(option) ;
+    }
+#endif
 }
 
 //virtual
