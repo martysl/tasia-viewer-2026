@@ -28,6 +28,10 @@
 
 #include "llfontgl.h"
 #include "llui.h"
+#ifdef DX_RENDER
+#include "DXDevice.h"
+#include "DXUIBatch.h"
+#endif
 
 /*static*/ std::stack<LLRect> LLScreenClipRect::sClipRectStack;
 
@@ -82,8 +86,14 @@ void LLScreenClipRect::updateScissorRegion()
 {
     if (sClipRectStack.empty()) return;
 
+#ifdef DX_RENDER
+    // finish any deferred calls in the old clipping region
+    gDX.flush();
+    gDXUIBatch.flushPending();
+#else
     // finish any deferred calls in the old clipping region
     gGL.flush();
+#endif
 
     LLRect rect = sClipRectStack.top();
     stop_glerror();
@@ -92,7 +102,30 @@ void LLScreenClipRect::updateScissorRegion()
     y = llfloor(rect.mBottom * LLUI::getScaleFactor().mV[VY]);
     w = llmax(0, llceil(rect.getWidth() * LLUI::getScaleFactor().mV[VX])) + 1;
     h = llmax(0, llceil(rect.getHeight() * LLUI::getScaleFactor().mV[VY])) + 1;
+#ifndef DX_RENDER
     glScissor( x,y,w,h );
+#else
+    // GL's glScissor(x,y,w,h) is bottom-left-origin; D3D11_RECT is top-left,
+    // so y needs flipping - same convention mismatch as the viewport. Window
+    // height is read back off the currently-bound D3D11 viewport rather than
+    // pulling in a new llui->newview dependency just to get it.
+    ID3D11DeviceContext* ctx = gDXDevice.getContext();
+    if (ctx)
+    {
+        UINT num_vp = 1;
+        D3D11_VIEWPORT vp = {};
+        ctx->RSGetViewports(&num_vp, &vp);
+        if (num_vp > 0 && vp.Height > 0.0f)
+        {
+            D3D11_RECT scissor = {};
+            scissor.left   = (LONG)x;
+            scissor.right  = (LONG)(x + w);
+            scissor.top    = (LONG)(vp.Height - y - h);
+            scissor.bottom = (LONG)(vp.Height - y);
+            ctx->RSSetScissorRects(1, &scissor);
+        }
+    }
+#endif
     stop_glerror();
 }
 

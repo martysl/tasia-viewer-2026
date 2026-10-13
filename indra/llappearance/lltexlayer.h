@@ -28,7 +28,14 @@
 #define LL_LLTEXLAYER_H
 
 #include <deque>
+#ifdef DX_RENDER
+// gAlphaMaskProgram is declared in llhlslshader.h under DX_RENDER;
+// llglslshader.h hides it behind #if !defined(DX_RENDER), so 19 uses in
+// lltexlayer.cpp otherwise fail to compile.
+#include "llhlslshader.h"
+#else
 #include "llglslshader.h"
+#endif
 #include "llgltexture.h"
 #include "llavatarappearancedefines.h"
 #include "lltexlayerparams.h"

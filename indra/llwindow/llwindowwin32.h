@@ -271,6 +271,15 @@ protected:
     // of switchContext()'s GL pixel-format/wgl-context setup. See DXDevice,
     // DXSwapChain, DXContext (indra/dxrender/core).
     bool initDX11Context(const LLCoordScreen& size, bool enable_vsync);
+
+    // #5611: enumerate adapters and create a device on the hardware adapter
+    // with the most dedicated VRAM, before the window exists. Without this,
+    // D3D11CreateDevice(nullptr, ...) binds to the default adapter, which on a
+    // multi-adapter machine (e.g. one exposing a "USB Mobile Monitor Virtual
+    // Display") can be a virtual adapter with no D3D11 support at all, failing
+    // with DXGI_ERROR_UNSUPPORTED (0x887A002D). Called from the constructor;
+    // initDX11Context() then adopts the device this leaves in gD3D11Device.
+    void selectHighPerformanceAdapter();
 #endif
 
     friend class LLWindowManager;

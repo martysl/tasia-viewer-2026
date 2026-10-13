@@ -6868,7 +6868,19 @@ void LLViewerWindow::setup2DViewport(S32 x_offset, S32 y_offset)
     gGLViewport[1] = mWindowRectRaw.mBottom + y_offset;
     gGLViewport[2] = mWindowRectRaw.getWidth();
     gGLViewport[3] = mWindowRectRaw.getHeight();
+#ifdef DX_RENDER
+    // Under DX_RENDER there is no WGL context, so glViewport() is an inert
+    // core-GL-1.1 import and nothing ever sets a D3D11 viewport - the UI would
+    // render into whatever rectangle the 3D pipeline last left bound. The donor
+    // writes gDXViewport[] and pushes it through DXContext::setViewport().
+    gDXViewport[0] = gGLViewport[0];
+    gDXViewport[1] = gGLViewport[1];
+    gDXViewport[2] = gGLViewport[2];
+    gDXViewport[3] = gGLViewport[3];
+    llSetDXViewport(gDXViewport[0], gDXViewport[1], gDXViewport[2], gDXViewport[3]);
+#else
     glViewport(gGLViewport[0], gGLViewport[1], gGLViewport[2], gGLViewport[3]);
+#endif
 }
 
 
@@ -6886,7 +6898,15 @@ void LLViewerWindow::setup3DViewport(S32 x_offset, S32 y_offset)
     gGLViewport[1] = mWorldViewRectRaw.mBottom + y_offset;
     gGLViewport[2] = mWorldViewRectRaw.getWidth();
     gGLViewport[3] = mWorldViewRectRaw.getHeight();
+#ifdef DX_RENDER
+    gDXViewport[0] = gGLViewport[0];
+    gDXViewport[1] = gGLViewport[1];
+    gDXViewport[2] = gGLViewport[2];
+    gDXViewport[3] = gGLViewport[3];
+    llSetDXViewport(gDXViewport[0], gDXViewport[1], gDXViewport[2], gDXViewport[3]);
+#else
     glViewport(gGLViewport[0], gGLViewport[1], gGLViewport[2], gGLViewport[3]);
+#endif
 }
 
 void LLViewerWindow::revealIntroPanel()

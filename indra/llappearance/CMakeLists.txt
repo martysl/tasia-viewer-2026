@@ -53,9 +53,20 @@ set(llappearance_HEADER_FILES
 
 list(APPEND llappearance_SOURCE_FILES ${llappearance_HEADER_FILES})
 
+# Same need as llui: lltexlayer.cpp includes llrender2dutils.h (via llui.h) and
+# llrendertarget.h, both of which pull in DX headers under DX_RENDER.
+if(DX_RENDER)
+  include(DXRender)
+endif()
+
+if(DX_RENDER AND WIN32)
+  include_directories(${DXRENDER_INCLUDE_DIRS})
+endif()
+
 add_library (llappearance ${llappearance_SOURCE_FILES})
 
 target_link_libraries(llappearance
+  ${DXRENDER_LIBRARIES}
         llcharacter
         llinventory
         llimage

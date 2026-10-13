@@ -916,13 +916,19 @@ void LLFontGL::dumpTextures()
 // static
 void LLFontGL::dumpFonts()
 {
-    sFontRegistry->dump();
+    if (sFontRegistry)
+    {
+        sFontRegistry->dump();
+    }
 }
 
 // static
 void LLFontGL::dumpFontTextures()
 {
-    sFontRegistry->dumpTextures();
+    if (sFontRegistry)
+    {
+        sFontRegistry->dumpTextures();
+    }
 }
 
 // Force standard fonts to get generated up front.
@@ -959,9 +965,13 @@ void LLFontGL::loadCommonFonts()
 // static
 void LLFontGL::destroyDefaultFonts()
 {
-    // Remove the actual fonts.
-    delete sFontRegistry;
-    sFontRegistry = NULL;
+    // Remove the actual fonts. Guarded for DX_RENDER, where initClass() never
+    // ran and sFontRegistry is still NULL.
+    if (sFontRegistry)
+    {
+        delete sFontRegistry;
+        sFontRegistry = NULL;
+    }
 }
 
 //static
@@ -1229,6 +1239,19 @@ LLFontGL* LLFontGL::getFontCascadia()
 //static
 LLFontGL* LLFontGL::getFont(const LLFontDescriptor& desc)
 {
+    // Under DX_RENDER, LLFontGL::initClass() is excluded in favour of
+    // LLFontDX::initClass() (llviewerwindow.cpp), so sFontRegistry stays NULL.
+    // ~275 llui call sites still resolve fonts through here - they are the
+    // default arguments of every control's Params constructor, evaluated at XUI
+    // load, i.e. before login - and each one dereferenced this null pointer.
+    // LLFontGL cannot be given a second registry (the class is GL-only by
+    // construction), so return NULL and let callers' existing null checks
+    // stand. The donor's real answer is the tree-wide LLFontGL -> LLFontDX
+    // rename; see DX-GAPS.md.
+    if (!sFontRegistry)
+    {
+        return NULL;
+    }
     return sFontRegistry->getFont(desc);
 }
 

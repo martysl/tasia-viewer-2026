@@ -10,6 +10,14 @@ include(LLCoreHttp)
 include(LLWindow)
 include(LLCoreHttp)
 
+# llui/llui.h -> llrender2dutils.h -> llhlslshader.h -> DXShader.h/DXDevice.h,
+# and llappearance/lltexlayer.cpp -> llrendertarget.h -> DXRenderTarget.h.
+# DXRender.cmake only sets two variables and has its own include guard, so it is
+# inert on a non-Windows host. Mirrors indra/newview/CMakeLists.txt:59-63.
+if(DX_RENDER)
+  include(DXRender)
+endif()
+
 set(llui_SOURCE_FILES
     fsregistrarutils.cpp
 
@@ -258,11 +266,16 @@ set_source_files_properties(llurlentry.cpp
 
 list(APPEND llui_SOURCE_FILES ${llui_HEADER_FILES})
 
+if(DX_RENDER AND WIN32)
+  include_directories(${DXRENDER_INCLUDE_DIRS})
+endif()
+
 add_library (llui ${llui_SOURCE_FILES})
 target_include_directories( llui  INTERFACE   ${CMAKE_CURRENT_SOURCE_DIR})
 # Libraries on which this library depends, needed for Linux builds
 # Sort by high-level to low-level
 target_link_libraries(llui
+  ${DXRENDER_LIBRARIES}
         llrender
         llwindow
         llimage

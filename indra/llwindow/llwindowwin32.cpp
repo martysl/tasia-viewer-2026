@@ -68,6 +68,9 @@
 #include <d3d9.h>
 #include <dxgi1_4.h>
 #ifdef DX_RENDER
+// d3d11.h is needed directly for ID3D11Device/ID3D11DeviceContext/D3D_FEATURE_LEVEL
+// in selectHighPerformanceAdapter() below. dxgi1_4.h above does not pull it in.
+#include <d3d11.h>
 #include "DXDevice.h"
 #include "DXSwapChain.h"
 #include "DXContext.h"
@@ -128,8 +131,10 @@ LPDIRECTINPUT8 gDirectInput8;
 // initDX11Context() below. Null until something creates a device on them.
 namespace
 {
+	HMODULE gD3D11Library = nullptr;
 	ID3D11Device* gD3D11Device = nullptr;
 	ID3D11DeviceContext* gD3D11Context = nullptr;
+	LUID gExpectedAdapterLUID = {};
 }
 #endif
 LLW32MsgCallback gAsyncMsgCallback = NULL;
@@ -519,6 +524,17 @@ LLWindowWin32::LLWindowWin32(LLWindowCallbacks* callbacks,
     mMaxCores(max_cores)
 {
     sMainThreadId = LLThread::currentID();
+
+    // #5611: Select the discrete GPU early (before window creation). Without
+    // this, DXDevice::initialize() calls D3D11CreateDevice(nullptr, ...), which
+    // binds to the *default* adapter. On a multi-adapter machine that includes a
+    // virtual display ("USB Mobile Monitor Virtual Display" and friends) the
+    // default can be one with no D3D11 support at all, and device creation
+    // fails outright with DXGI_ERROR_UNSUPPORTED (0x887A002D).
+#ifdef DX_RENDER
+    selectHighPerformanceAdapter();
+#endif
+
     mWindowThread = new LLWindowWin32Thread();
 
     //MAINT-516 -- force a load of opengl32.dll just in case windows went sideways
@@ -1216,6 +1232,168 @@ bool LLWindowWin32::setSizeImpl(const LLCoordWindow size)
 // DX_RENDER: replaces switchContext()'s GL pixel-format/wgl-context setup.
 // Called after recreateWindow() has already given us a valid mWindowHandle -
 // this function's only job is to stand up a DX11 device + swap chain for it.
+#ifdef DX_RENDER
+// #5611: pick the discrete GPU before the window exists. On multi-adapter
+// systems - and especially ones that expose a "USB Mobile Monitor Virtual
+// Display" - the *default* adapter D3D11CreateDevice(nullptr, ...) binds to may
+// have no D3D11 support at all, and device creation fails with
+// DXGI_ERROR_UNSUPPORTED (0x887A002D). Enumerate instead, skip software
+// adapters, and prefer the one with the most dedicated VRAM.
+//
+// The device this creates is handed to DXDevice::initialize() by
+// initDX11Context() below, which adopts it rather than making a second one.
+void LLWindowWin32::selectHighPerformanceAdapter()
+{
+	gD3D11Library = LoadLibrary(L"d3d11.dll");
+	if (!gD3D11Library)
+	{
+		LL_WARNS("Window") << "Cannot load d3d11.dll; falling back to the default adapter." << LL_ENDL;
+		return;
+	}
+
+	typedef HRESULT(WINAPI* PFN_D3D11_CREATE_DEVICE)(
+		IDXGIAdapter*, D3D_DRIVER_TYPE, HMODULE, UINT,
+		const D3D_FEATURE_LEVEL*, UINT, UINT, ID3D11Device**,
+		D3D_FEATURE_LEVEL*, ID3D11DeviceContext**);
+
+	PFN_D3D11_CREATE_DEVICE pD3D11CreateDevice =
+		(PFN_D3D11_CREATE_DEVICE)GetProcAddress(gD3D11Library, "D3D11CreateDevice");
+	if (!pD3D11CreateDevice)
+	{
+		LL_WARNS("Window") << "Cannot resolve D3D11CreateDevice; falling back to the default adapter." << LL_ENDL;
+		FreeLibrary(gD3D11Library);
+		gD3D11Library = nullptr;
+		return;
+	}
+
+	IDXGIFactory1* pFactory = nullptr;
+	IDXGIAdapter1* pSelectedAdapter = nullptr;
+	std::string selected_descr;
+	HRESULT hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)&pFactory);
+
+	if (SUCCEEDED(hr) && pFactory)
+	{
+		IDXGIAdapter1* pAdapter = nullptr;
+		SIZE_T maxDedicatedMemory = 0;
+		UINT adapterIndex = 0;
+		S32 adapter_count = 0;
+
+		// Enumerate all adapters, skipping software ones, and keep the hardware
+		// adapter with the most dedicated video memory (the discrete GPU).
+		while (pFactory->EnumAdapters1(adapterIndex, &pAdapter) != DXGI_ERROR_NOT_FOUND)
+		{
+			DXGI_ADAPTER_DESC1 desc;
+			pAdapter->GetDesc1(&desc);
+
+			std::wstring description_w(desc.Description);
+			std::string description = ll_convert_wide_to_string(description_w);
+
+			if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+			{
+				LL_INFOS("Window") << "Adapter " << adapterIndex << ": " << description
+					<< " (software, skipped)" << LL_ENDL;
+			}
+			else
+			{
+				LL_INFOS("Window") << "Adapter " << adapterIndex << ": " << description
+					<< ", Dedicated VRAM: " << (desc.DedicatedVideoMemory / 1024 / 1024) << " MB"
+					<< ", Vendor: 0x" << std::hex << desc.VendorId << std::dec
+					<< ", Flags: " << desc.Flags << LL_ENDL;
+
+				adapter_count++;
+				if (desc.DedicatedVideoMemory > maxDedicatedMemory)
+				{
+					if (pSelectedAdapter)
+					{
+						pSelectedAdapter->Release();
+					}
+					pSelectedAdapter = pAdapter;
+					pSelectedAdapter->AddRef();
+					maxDedicatedMemory = desc.DedicatedVideoMemory;
+					gExpectedAdapterLUID = desc.AdapterLuid;
+					selected_descr = description;
+				}
+			}
+
+			pAdapter->Release();
+			adapterIndex++;
+		}
+		pFactory->Release();
+
+		if (adapter_count < 2 && !pSelectedAdapter)
+		{
+			// No usable hardware adapter found - nothing to choose between.
+			gExpectedAdapterLUID = { 0, 0 };
+			FreeLibrary(gD3D11Library);
+			gD3D11Library = nullptr;
+			return;
+		}
+
+		if (pSelectedAdapter)
+		{
+			LL_INFOS("Window") << "Selected as preferred adapter (highest VRAM): " << selected_descr << LL_ENDL;
+		}
+	}
+
+	D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
+	// Order matches DXDevice::initialize()'s own request list.
+	D3D_FEATURE_LEVEL requestedLevels[] = { D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0 };
+
+	bool adapterSelected = (pSelectedAdapter != nullptr);
+	if (adapterSelected)
+	{
+		hr = pD3D11CreateDevice(
+			pSelectedAdapter,
+			D3D_DRIVER_TYPE_UNKNOWN,
+			nullptr,
+			DXDevice::sDebugLayerEnabled ? D3D11_CREATE_DEVICE_DEBUG : 0,
+			requestedLevels,
+			_countof(requestedLevels),
+			D3D11_SDK_VERSION,
+			&gD3D11Device,
+			&featureLevel,
+			&gD3D11Context
+		);
+		pSelectedAdapter->Release();
+
+		if (FAILED(hr))
+		{
+			LL_WARNS("Window") << "D3D11 failed on preferred adapter " << selected_descr
+				<< " (hr=0x" << std::hex << (unsigned long)hr << std::dec << "); trying default." << LL_ENDL;
+			gExpectedAdapterLUID = { 0, 0 };
+			gD3D11Device = nullptr;
+			gD3D11Context = nullptr;
+			adapterSelected = false;
+		}
+	}
+
+	if (!adapterSelected)
+	{
+		hr = pD3D11CreateDevice(
+			nullptr,
+			D3D_DRIVER_TYPE_HARDWARE,
+			nullptr,
+			DXDevice::sDebugLayerEnabled ? D3D11_CREATE_DEVICE_DEBUG : 0,
+			requestedLevels,
+			_countof(requestedLevels),
+			D3D11_SDK_VERSION,
+			&gD3D11Device,
+			&featureLevel,
+			&gD3D11Context
+		);
+		if (FAILED(hr))
+		{
+			LL_WARNS("Window") << "D3D11 failed on the default hardware adapter (hr=0x"
+				<< std::hex << (unsigned long)hr << std::dec << ")" << LL_ENDL;
+			FreeLibrary(gD3D11Library);
+			gD3D11Library = nullptr;
+			gD3D11Device = nullptr;
+			gD3D11Context = nullptr;
+		}
+	}
+}
+#endif // DX_RENDER
+
 bool LLWindowWin32::initDX11Context(const LLCoordScreen& size, bool enable_vsync)
 {
 	// gD3D11Device/gD3D11Context (this file, anonymous namespace above) may
