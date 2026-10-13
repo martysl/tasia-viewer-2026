@@ -331,23 +331,22 @@ void LLTexUnit::bindFast(LLTexture* texture)
     // rather than binding null.
     if (mIndex < 0 || !texture) return;
 
-    // PORTING GAP (reported, not worked around silently): in the donor,
-    // LLTexture::getGLTexture() returns LLImageDX* (lltexture.h declares it as
-    // such, and LLDXTexture overrides it), so bindFast() can reach straight
-    // through the texture to its DXTexture and bind the real SRV. In this tree
-    // LLTexture::getGLTexture() still returns LLImageGL* and LLViewerTexture
-    // still derives from LLGLTexture - LLDXTexture exists (lldxtexture.cpp is in
-    // the DX_RENDER source list) but nothing derives from it, and there is no
-    // LLTexture::getDXTexture() virtual. So there is NO LLImageDX reachable
-    // from an LLTexture here and no SRV to bind; falling through to the GL
-    // body would be a null-deref of a NULL PFN. Bind the white fallback so the
-    // slot is left in a defined, neutral state (a null SRV samples as
-    // (0,0,0,0) in HLSL, which is not neutral) and let the real per-texture DX
-    // path arrive with the LLDXTexture/LLViewerTexture type swap - i.e. the
-    // same porting step that changed lltexture.h's declaration in the donor.
+    // LLTexture now carries a getDXTexture() virtual (lltexture.h), overridden by
+    // LLGLTexture - the base of every texture in the viewer - which maintains an
+    // LLImageDX alongside its LLImageGL. So a real SRV is finally reachable from
+    // here; this used to be an unconditional white fallback, which made every
+    // texture in the viewer draw as flat white.
+    LLImageDX* image_dx = texture->getDXTexture();
+
     bool bound_image_changed = true;
 
-    ID3D11ShaderResourceView* srv = getWhiteTextureSRV();
+    // Same shape as LLTexUnit::bind(LLImageDX*) below: mDXTexture.getSRV(),
+    // with a null SRV falling back to white rather than sampling as (0,0,0,0).
+    ID3D11ShaderResourceView* srv = image_dx ? image_dx->mDXTexture.getSRV() : nullptr;
+    if (!srv)
+    {
+        srv = getWhiteTextureSRV();
+    }
     bool srv_changed = bound_image_changed || mCurrDXSRV != (void*)srv;
     bool generation_stale = mDXSRVGeneration != DXStateCache::getRTVGeneration();
     if (srv_changed)
@@ -361,11 +360,14 @@ void LLTexUnit::bindFast(LLTexture* texture)
         mCurrDXSRV = (void*)srv;
     }
     mDXSRVGeneration = DXStateCache::getRTVGeneration();
-    mCurrBoundImageDX = nullptr;
-    // No LLImageDX to read address-mode/filter from (see the porting gap
-    // above) - TAM_WRAP / TFO_BILINEAR are this codebase's established
-    // defaults.
-    ID3D11SamplerState* sampler = DXSampler::getOrCreate((int)LLTexUnit::TAM_WRAP, (int)LLTexUnit::TFO_BILINEAR);
+    mCurrBoundImageDX = image_dx;
+    // Address mode and filtering now read from the texture that is actually
+    // bound, instead of always falling back to this codebase's defaults.
+    const LLTexUnit::eTextureAddressMode addr = image_dx ? image_dx->getAddressMode()
+                                                        : LLTexUnit::TAM_WRAP;
+    const LLTexUnit::eTextureFilterOptions filt = image_dx ? image_dx->getFilteringOption()
+                                                         : LLTexUnit::TFO_BILINEAR;
+    ID3D11SamplerState* sampler = DXSampler::getOrCreate((int)addr, (int)filt);
 
     if (srv_changed || generation_stale)
     {

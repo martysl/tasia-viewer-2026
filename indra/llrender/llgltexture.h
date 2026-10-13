@@ -30,6 +30,9 @@
 
 #include "lltexture.h"
 #include "llgl.h"
+#ifdef DX_RENDER
+#include "llimagedx.h"
+#endif
 
 class LLImageRaw;
 
@@ -184,6 +187,20 @@ protected:
 
 public:
     /*virtual*/ LLImageGL* getGLTexture() const ;
+
+#ifdef DX_RENDER
+    // DX_RENDER twin of getGLTexture() above. LLGLTexture is the base of every
+    // texture in the viewer (LLViewerTexture derives from it, and nothing
+    // derives from LLDXTexture), so this is where the LLImageDX has to live for
+    // LLTexUnit::bindFast()'s DX_RENDER branch to have a real SRV to bind.
+    // Overrides LLTexture::getDXTexture().
+    LLImageDX* getDXTexture() const override;
+
+    // Maintained in lockstep with mGLTexturep: same size, same components, and
+    // the same raw pixels handed to both, so either backend's image is
+    // complete. mGLTexturep stays the GL half and is inert under DX_RENDER.
+    LLPointer<LLImageDX> mDXTexturep;
+#endif
 
 protected:
     S32 mBoostLevel;                // enum describing priority level

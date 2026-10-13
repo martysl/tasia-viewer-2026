@@ -34,6 +34,9 @@
 
 #include "llrefcount.h"
 #include "lltrace.h"
+#ifdef DX_RENDER
+#include "llimagedx.h"
+#endif
 
 class LLImageGL ;
 class LLTexUnit ;
@@ -67,6 +70,19 @@ public:
     virtual S32        getHeight(S32 discard_level = -1) const;
     virtual bool       isActiveFetching();
     virtual LLImageGL* getGLTexture() const;
+
+#ifdef DX_RENDER
+    // The donor types this as `virtual LLImageDX* getGLTexture() const` and
+    // overrides it in LLDXTexture, because there one virtual serves both
+    // backends. Here the GL and DX textures are separate classes with separate
+    // getters, and nothing derives from LLDXTexture - LLViewerTexture derives
+    // from LLGLTexture, which is what every texture in the viewer actually is.
+    // So the DX side gets its own virtual on the shared base: LLGLTexture
+    // returns the LLImageDX it maintains alongside mGLTexturep, LLDXTexture
+    // overrides it to return its own, and LLTexUnit::bindFast()'s DX_RENDER
+    // branch calls this instead of falling back to the white SRV.
+    virtual LLImageDX* getDXTexture() const;
+#endif
 
 private:
     virtual void updateBindStatsForTester();

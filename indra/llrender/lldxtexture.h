@@ -175,7 +175,8 @@ protected:
 	void setTexelsPerImage();
 
 public:
-	/*virtual*/ LLImageDX* getDXTexture() const ;
+	// Overrides LLTexture::getDXTexture().
+	LLImageDX* getDXTexture() const override;
 
 protected:
 	S32 mBoostLevel;				// enum describing priority level

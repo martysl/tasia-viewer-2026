@@ -49,6 +49,11 @@ LLGLTexture::LLGLTexture(const LLImageRaw* raw, bool usemipmaps)
     mUseMipMaps = usemipmaps ;
     // Create an empty image of the specified size and width
     mGLTexturep = new LLImageGL(raw, usemipmaps) ;
+#ifdef DX_RENDER
+    // Same raw image, same flags - the DX half stays complete rather than being
+    // an empty placeholder, so LLTexUnit::bindFast() has a real SRV to bind.
+    mDXTexturep = new LLImageDX(raw, usemipmaps) ;
+#endif
     mFullWidth = mGLTexturep->getWidth();
     mFullHeight = mGLTexturep->getHeight();
     mComponents = mGLTexturep->getComponents();
@@ -149,6 +154,9 @@ void LLGLTexture::generateGLTexture()
     if(mGLTexturep.isNull())
     {
         mGLTexturep = new LLImageGL(mFullWidth, mFullHeight, mComponents, mUseMipMaps) ;
+#ifdef DX_RENDER
+        mDXTexturep = new LLImageDX(mFullWidth, mFullHeight, mComponents, mUseMipMaps) ;
+#endif
     }
 }
 
@@ -158,6 +166,13 @@ LLImageGL* LLGLTexture::getGLTexture() const
 
     return mGLTexturep ;
 }
+
+#ifdef DX_RENDER
+LLImageDX* LLGLTexture::getDXTexture() const
+{
+    return mDXTexturep ;
+}
+#endif
 
 bool LLGLTexture::createGLTexture()
 {
