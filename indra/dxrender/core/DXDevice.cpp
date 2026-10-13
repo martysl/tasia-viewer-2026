@@ -1,6 +1,5 @@
 #include "DXDevice.h"
 #include "llerror.h"
-#include "llstring.h"
 #include <dxgi.h>
 #include <dxgi1_2.h>   // IDXGIFactory1 / IDXGIAdapter1 / DXGI_ADAPTER_DESC1
 #include <vector>
@@ -12,6 +11,25 @@ DXDevice gDXDevice;
 // S24 (2026-08-26, task #260): shared by both initialize() branches below -
 // QI's mDevice for IDXGIDevice to find which physical adapter it landed on,
 // regardless of whether the device was adopted or created here.
+
+static std::string dx_wide_to_utf8(const WCHAR* text)
+{
+    if (!text || !text[0])
+    {
+        return std::string();
+    }
+
+    const int len = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 1)
+    {
+        return std::string();
+    }
+
+    std::string out((size_t)len - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), len, nullptr, nullptr);
+    return out;
+}
+
 static LUID queryAdapterLuid(ID3D11Device* device)
 {
     LUID luid = { 0, 0 };
@@ -155,7 +173,7 @@ bool DXDevice::initialize(ID3D11Device* existing_device, ID3D11DeviceContext* ex
                 {
                     const bool software = (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0;
                     LL_WARNS("DXRender") << "  adapter " << i << ": "
-                        << ll_convert_wide_to_string(std::wstring(desc.Description))
+                        << dx_wide_to_utf8(desc.Description)
                         << " (vendor 0x" << std::hex << desc.VendorId << std::dec
                         << ", device 0x" << std::hex << desc.DeviceId << std::dec
                         << ", VRAM " << (desc.DedicatedVideoMemory / 1024 / 1024) << " MB"
