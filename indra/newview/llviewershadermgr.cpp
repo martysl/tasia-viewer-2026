@@ -704,29 +704,52 @@ void LLViewerShaderMgr::setShaders()
         mShaderLevel[SHADER_AVATAR] = 3;
         mMaxAvatarShaderLevel = 3;
 
+        LL_INFOS("Shader") << "Loading object shaders." << LL_ENDL;
         if (loadShadersObject())
         { //hardware skinning is enabled and rigged attachment shaders loaded correctly
+            LL_INFOS("Shader") << "Loaded object shaders." << LL_ENDL;
+
             // cloth is a class3 shader
             S32 avatar_class = 1;
 
             // Set the actual level
             mShaderLevel[SHADER_AVATAR] = avatar_class;
 
+            LL_INFOS("Shader") << "Loading avatar shaders." << LL_ENDL;
             loaded = loadShadersAvatar();
+            if (loaded)
+            {
+                LL_INFOS("Shader") << "Loaded avatar shaders." << LL_ENDL;
+            }
+            else
+            {
+                LL_WARNS("Shader") << "Failed to load avatar shaders." << LL_ENDL;
+            }
             llassert(loaded);
         }
         else
         { //hardware skinning not possible, neither is deferred rendering
+            LL_WARNS("Shader") << "Failed to load object shaders." << LL_ENDL;
             llassert(false); // SHOULD NOT BE POSSIBLE
         }
     }
 
     llassert(loaded);
+    LL_INFOS("Shader") << "Loading deferred shaders." << LL_ENDL;
     loaded = loaded && loadShadersDeferred();
+    if (loaded)
+    {
+        LL_INFOS("Shader") << "Loaded deferred shaders." << LL_ENDL;
+    }
+    else
+    {
+        LL_WARNS("Shader") << "Failed to load deferred shaders." << LL_ENDL;
+    }
     llassert(loaded);
 
     if (!LLAppViewer::instance()->isSecondInstance())
     {
+        LL_INFOS("ShaderMgr") << "Persisting shader cache metadata after shader load." << LL_ENDL;
         persistShaderCacheMetadata();
     }
 
@@ -734,9 +757,13 @@ void LLViewerShaderMgr::setShaders()
     {
         gViewerWindow->setCursor(UI_CURSOR_ARROW);
     }
+    LL_INFOS("Pipeline") << "Creating GL/DX buffers after shader load." << LL_ENDL;
     gPipeline.createGLBuffers();
+    LL_INFOS("Pipeline") << "Created GL/DX buffers after shader load." << LL_ENDL;
 
+    LL_INFOS("Shader") << "Finalizing shader list." << LL_ENDL;
     finalizeShaderList();
+    LL_INFOS("Shader") << "Finalized shader list." << LL_ENDL;
 
     reentrance = false;
 }
