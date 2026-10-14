@@ -53,6 +53,10 @@ LLHLSLShader* LLHLSLShader::sCurBoundShaderPtr = NULL;
 S32 LLHLSLShader::sIndexedTextureChannels = 0;
 U32 LLHLSLShader::sMaxGLTFMaterials = 0;
 U32 LLHLSLShader::sMaxGLTFNodes = 0;
+namespace
+{
+	void (*sCompileYieldFunc)() = nullptr;
+}
 bool LLHLSLShader::sProfileEnabled = false;
 bool LLHLSLShader::sCanProfile = true;
 std::set<LLHLSLShader*> LLHLSLShader::sInstances;
@@ -395,6 +399,11 @@ LLHLSLShader::~LLHLSLShader()
 {
 }
 
+void LLHLSLShader::setCompileYieldFunc(void (*func)())
+{
+	sCompileYieldFunc = func;
+}
+
 void LLHLSLShader::unload()
 {
 	mShaderFiles.clear();
@@ -424,6 +433,10 @@ bool LLHLSLShader::createShader()
 	if (LLSplashScreen::isVisible())
 	{
 		LLSplashScreen::update("Compiling shader: " + mName);
+	}
+	if (sCompileYieldFunc)
+	{
+		sCompileYieldFunc();
 	}
 
 	return createShaderDX();
@@ -598,6 +611,10 @@ bool LLHLSLShader::createShaderDX()
 	if (!mDXVertexSource.empty())
 	{
 		bool vs_ok = mDXVertexShader.compileVertexShader(mDXVertexSource, mName);
+		if (sCompileYieldFunc)
+		{
+			sCompileYieldFunc();
+		}
 		success = vs_ok && success;
 		if (vs_ok)
 		{
@@ -610,6 +627,10 @@ bool LLHLSLShader::createShaderDX()
 	if (!mDXPixelSource.empty())
 	{
 		success = mDXPixelShader.compilePixelShader(mDXPixelSource, mName) && success;
+		if (sCompileYieldFunc)
+		{
+			sCompileYieldFunc();
+		}
 	}
 
 	if (!success)
