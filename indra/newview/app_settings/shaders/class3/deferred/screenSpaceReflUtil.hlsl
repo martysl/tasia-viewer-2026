@@ -87,12 +87,15 @@ bool ssrProject(float3 pos, float4x4 proj, out float2 uv)
 // Called externally by pbralphaF.hlsl - only for flip-invariant purposes
 // (vignette falloff, jitter seed), never a direct texture sample, so the
 // unflipped return convention is safe there.
+#ifndef LL_GENERATE_PROJECTED_POSITION_DEFINED
+#define LL_GENERATE_PROJECTED_POSITION_DEFINED
 float2 generateProjectedPosition(float3 pos)
 {
     float2 uv;
     ssrProject(pos, projection_matrix, uv);
     return uv;
 }
+#endif
 
 static bool isBinarySearchEnabled = true;
 static bool isAdaptiveStepEnabled = true;

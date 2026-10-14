@@ -92,11 +92,20 @@ void calcDiffuseSpecular(float3 baseColor, float metallic, inout float3 diffuseC
 float sampleDirectionalShadow(float3 pos, float3 norm, float2 pos_screen);
 #endif
 // S24: tc's divide-by-z approximation (pbralphaV.hlsl's vary_fragcoord has no
-// real .w) is fine for the shadow lookup but not for SSR, which needs a true
-// perspective-correct screen UV - generateProjectedPosition() (screenSpaceReflUtil.hlsl,
-// same helper tapScreenSpaceReflection()'s real callers use, incl. its Y-flip)
-// is used for the probe/SSR call instead, leaving tc for shadow only.
-float2 generateProjectedPosition(float3 pos);
+// real .w) is fine for the shadow lookup but not for SSR/probes, which need a
+// true perspective-correct screen UV. screenSpaceReflUtil.hlsl normally provides
+// generateProjectedPosition(), but the skinned PBR alpha permutation can compile
+// this file without that utility getting appended. Keep the tiny helper local so
+// the reflection-probe call below cannot lose its implementation.
+#ifndef LL_GENERATE_PROJECTED_POSITION_DEFINED
+#define LL_GENERATE_PROJECTED_POSITION_DEFINED
+uniform float4x4 projection_matrix;
+float2 generateProjectedPosition(float3 pos)
+{
+    float4 clip = mul(projection_matrix, float4(pos, 1.0));
+    return (clip.xy / max(clip.w, 0.00001)) * 0.5 + 0.5;
+}
+#endif
 void sampleReflectionProbes(inout float3 ambenv, inout float3 glossenv,
     float2 tc, float3 pos, float3 norm, float glossiness, bool transparent, float3 amblit_linear);
 // pbrBaseLight (deferredUtil.hlsl, attached here via isDeferred=true) does
