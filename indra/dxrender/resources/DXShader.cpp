@@ -22,16 +22,9 @@ namespace
 #if defined(_DEBUG)
         flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #else
-        // DX_RENDER bring-up: prefer a stable/fast startup compiler pass over
-        // maximum shader optimization. On test hardware the viewer reaches
-        // deferred alpha shader startup, then the process dies/hangs while the
-        // long Release/O3 deferred batch is compiling. Level 1 still emits
-        // optimized DXBC, but avoids the very slow/aggressive compiler path so
-        // we can boot far enough to validate region rendering.
-        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL1;
+        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
 
-        LL_INFOS("Shader") << "D3DCompile begin " << debugName << " (" << target << ")" << LL_ENDL;
         HRESULT hr = D3DCompile(
             source.c_str(), source.size(),
             debugName.c_str(),
@@ -39,8 +32,6 @@ namespace
             entry_point, target,
             flags, 0,
             out_blob, &error_blob);
-        LL_INFOS("Shader") << "D3DCompile end " << debugName << " (" << target << ") hr=0x"
-            << std::hex << (U32)hr << std::dec << LL_ENDL;
 
         if (FAILED(hr))
         {
@@ -135,10 +126,9 @@ namespace
         HBXXH128 hash_obj;
         hash_obj.update(source);
         hash_obj.update(std::string(target));
-        // Include the DX compile policy in the cache key. The startup bring-up
-        // path now uses optimization level 1 instead of the previous O3 path;
-        // stale O3 DXBC must not be reused under the same source hash.
-        hash_obj.update(std::string("dxcompile-o1-20261014"));
+        // O1 DXBC may exist from an earlier startup bring-up build. Salt this
+        // cache generation so normal Release/O3 shaders replace it cleanly.
+        hash_obj.update(std::string("dxcompile-o3-20261014"));
         return gDirUtilp->add(getDXShaderCacheDir(), hash_obj.digest().asString() + ".dxbc");
     }
 
@@ -264,9 +254,7 @@ bool DXShader::compileVertexShader(const std::string& source, const std::string&
         return false;
     }
 
-    LL_INFOS("Shader") << "CreateVertexShader begin " << debugName << LL_ENDL;
     HRESULT hr = gDXDevice.getDevice()->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &mVS);
-    LL_INFOS("Shader") << "CreateVertexShader end " << debugName << " hr=0x" << std::hex << (U32)hr << std::dec << LL_ENDL;
     if (FAILED(hr) && used_cache)
     {
         // S24: cached bytecode rejected (e.g. a truncated file from a crash
@@ -283,9 +271,7 @@ bool DXShader::compileVertexShader(const std::string& source, const std::string&
         {
             saveCachedBlob(cache_path, blob->GetBufferPointer(), blob->GetBufferSize());
         }
-        LL_INFOS("Shader") << "CreateVertexShader retry begin " << debugName << LL_ENDL;
         hr = gDXDevice.getDevice()->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &mVS);
-        LL_INFOS("Shader") << "CreateVertexShader retry end " << debugName << " hr=0x" << std::hex << (U32)hr << std::dec << LL_ENDL;
     }
 
     if (FAILED(hr))
@@ -310,9 +296,7 @@ bool DXShader::compilePixelShader(const std::string& source, const std::string& 
         return false;
     }
 
-    LL_INFOS("Shader") << "CreatePixelShader begin " << debugName << LL_ENDL;
     HRESULT hr = gDXDevice.getDevice()->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &mPS);
-    LL_INFOS("Shader") << "CreatePixelShader end " << debugName << " hr=0x" << std::hex << (U32)hr << std::dec << LL_ENDL;
     if (FAILED(hr) && used_cache)
     {
         // S24: see compileVertexShader()'s matching comment.
@@ -327,9 +311,7 @@ bool DXShader::compilePixelShader(const std::string& source, const std::string& 
         {
             saveCachedBlob(cache_path, blob->GetBufferPointer(), blob->GetBufferSize());
         }
-        LL_INFOS("Shader") << "CreatePixelShader retry begin " << debugName << LL_ENDL;
         hr = gDXDevice.getDevice()->CreatePixelShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &mPS);
-        LL_INFOS("Shader") << "CreatePixelShader retry end " << debugName << " hr=0x" << std::hex << (U32)hr << std::dec << LL_ENDL;
     }
 
     if (FAILED(hr))

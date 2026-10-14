@@ -49,6 +49,13 @@
 #include "lljoint.h"
 #include "llskinningutil.h"
 
+#ifdef DX_RENDER
+#include "DXShader.h"
+#include "workqueue.h"
+#include <condition_variable>
+#include <mutex>
+#endif
+
 static LLStaticHashedString sTexture0("texture0");
 static LLStaticHashedString sTexture1("texture1");
 static LLStaticHashedString sTex0("tex0");
@@ -1352,6 +1359,16 @@ bool LLViewerShaderMgr::loadShadersDeferred()
     gDeferredMaterialProgram[9+LLMaterial::SHADER_COUNT].mFeatures.hasLighting = false;
     gDeferredMaterialProgram[13+LLMaterial::SHADER_COUNT].mFeatures.hasLighting = false;
 
+#ifdef DX_RENDER
+    // Kirsten's DX renderer warms these expensive material permutations off
+    // the UI thread. Build source remains on the main thread because it uses
+    // shared shader-source caches; only D3DCompile() is dispatched.
+    int material_prefetch_pending = 0;
+    std::mutex material_prefetch_mutex;
+    std::condition_variable material_prefetch_cv;
+    auto material_prefetch_queue = DXShader::sShaderCacheEnabled ? LL::WorkQueue::getInstance("DXPool") : nullptr;
+#endif
+
     for (U32 i = 0; i < LLMaterial::SHADER_COUNT*2; ++i)
     {
         if (success)
@@ -1422,10 +1439,75 @@ bool LLViewerShaderMgr::loadShadersDeferred()
                 gDeferredMaterialProgram[i].mRiggedVariant = &gDeferredMaterialProgram[i + 0x10];
             }
 
+#ifdef DX_RENDER
+            if (material_prefetch_queue && gDeferredMaterialProgram[i].buildDXSource())
+            {
+                const std::string debug_name = gDeferredMaterialProgram[i].mName;
+                const std::string vs_source = gDeferredMaterialProgram[i].mDXVertexSource;
+                const std::string ps_source = gDeferredMaterialProgram[i].mDXPixelSource;
+
+                auto prefetch = [&](const std::string& source, bool vertex)
+                {
+                    if (source.empty())
+                    {
+                        return;
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lock(material_prefetch_mutex);
+                        ++material_prefetch_pending;
+                    }
+                    const bool posted = material_prefetch_queue->post(
+                        [source, debug_name, vertex, &material_prefetch_pending, &material_prefetch_mutex, &material_prefetch_cv]()
+                        {
+                            if (vertex)
+                            {
+                                DXShader::prefetchVertexShader(source, debug_name);
+                            }
+                            else
+                            {
+                                DXShader::prefetchPixelShader(source, debug_name);
+                            }
+                            {
+                                std::lock_guard<std::mutex> lock(material_prefetch_mutex);
+                                --material_prefetch_pending;
+                            }
+                            material_prefetch_cv.notify_one();
+                        });
+
+                    if (!posted)
+                    {
+                        std::lock_guard<std::mutex> lock(material_prefetch_mutex);
+                        --material_prefetch_pending;
+                    }
+                };
+
+                prefetch(vs_source, true);
+                prefetch(ps_source, false);
+            }
+#else
+            success = gDeferredMaterialProgram[i].createShader();
+            llassert(success);
+#endif
+        }
+    }
+
+#ifdef DX_RENDER
+    if (material_prefetch_queue)
+    {
+        std::unique_lock<std::mutex> lock(material_prefetch_mutex);
+        material_prefetch_cv.wait(lock, [&material_prefetch_pending] { return material_prefetch_pending == 0; });
+    }
+
+    for (U32 i = 0; i < LLMaterial::SHADER_COUNT*2; ++i)
+    {
+        if (success)
+        {
             success = gDeferredMaterialProgram[i].createShader();
             llassert(success);
         }
     }
+#endif
 
     gDeferredMaterialProgram[1].mFeatures.hasLighting = true;
     gDeferredMaterialProgram[5].mFeatures.hasLighting = true;
