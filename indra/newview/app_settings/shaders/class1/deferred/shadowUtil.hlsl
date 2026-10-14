@@ -205,6 +205,7 @@ float sampleDirectionalShadow(float3 pos, float3 norm, float2 pos_screen)
 
 float sampleSpotShadow(float3 pos, float3 norm, int index, float2 pos_screen)
 {
+    float result = 1.0f;
 #if defined(SPOT_SHADOW)
     pos += norm * spot_shadow_offset;
 
@@ -221,21 +222,21 @@ float sampleSpotShadow(float3 pos, float3 norm, int index, float2 pos_screen)
         // a genuine divide-by-zero/NaN if that weight ever landed on exactly 0), and the extra
         // term added an unrelated, sun-cascade-distance-derived contribution to a spot light's
         // own occlusion test. Removed - this is a direct single-sample lookup now, matching what
-        // a spot light with one shadow map actually needs.
+        // a spot light with one shadow map actually needs. Keep the initialized local + single
+        // return shape so FXC does not warn about a potentially uninitialized return value in
+        // permutations where SPOT_SHADOW compiles but one branch is optimized away.
         float4 lpos;
         if (index == 0)
         {
             lpos = mul(shadow_matrix[4], spos);
-            return pcfSpotShadow(shadowMap4, shadowMap4Sampler, lpos, 0.8, spos.xy);
+            result = pcfSpotShadow(shadowMap4, shadowMap4Sampler, lpos, 0.8, spos.xy);
         }
         else
         {
             lpos = mul(shadow_matrix[5], spos);
-            return pcfSpotShadow(shadowMap5, shadowMap5Sampler, lpos, 0.8, spos.xy);
+            result = pcfSpotShadow(shadowMap5, shadowMap5Sampler, lpos, 0.8, spos.xy);
         }
     }
-    return 1.0f;
-#else
-    return 1.0;
 #endif
+    return result;
 }
