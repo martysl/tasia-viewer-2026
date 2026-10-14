@@ -7684,6 +7684,19 @@ static LLTrace::BlockTimerStatHandle FTM_RENDER_BLOOM("Bloom");
 
 void LLPipeline::visualizeBuffers(LLRenderTarget* src, LLRenderTarget* dst, U32 bufferIndex)
 {
+#ifdef DX_RENDER
+    // Keep this developer-only shader out of mandatory startup. Kirsten's DX
+    // renderer loads it only when Buffer Visualization is actually requested.
+    if (!gDeferredBufferVisualProgram.isComplete())
+    {
+        if (!LLViewerShaderMgr::instance()->loadShaderBufferVisualization())
+        {
+            LL_WARNS_ONCE("Shader") << "Failed to compile Deferred Buffer Visualization Shader" << LL_ENDL;
+            return;
+        }
+    }
+#endif
+
     dst->bindTarget();
     gDeferredBufferVisualProgram.bind();
     gDeferredBufferVisualProgram.bindTexture(LLShaderMgr::DEFERRED_DIFFUSE, src, false, LLTexUnit::TFO_BILINEAR, bufferIndex);

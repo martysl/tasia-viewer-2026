@@ -3068,6 +3068,7 @@ bool LLViewerShaderMgr::loadShadersDeferred()
         success = gDeferredGenBrdfLutProgram.createShader();
     }
 
+#ifndef DX_RENDER
     if (success) {
         gPostScreenSpaceReflectionProgram.mName = "Screen Space Reflection Post";
         gPostScreenSpaceReflectionProgram.mShaderFiles.clear();
@@ -3078,7 +3079,9 @@ bool LLViewerShaderMgr::loadShadersDeferred()
         gPostScreenSpaceReflectionProgram.mShaderLevel = 3;
         success = gPostScreenSpaceReflectionProgram.createShader();
     }
+#endif
 
+#ifndef DX_RENDER
     if (success) {
         gDeferredBufferVisualProgram.mName = "Deferred Buffer Visualization Shader";
         gDeferredBufferVisualProgram.mShaderFiles.clear();
@@ -3090,6 +3093,7 @@ bool LLViewerShaderMgr::loadShadersDeferred()
 
         success = gDeferredBufferVisualProgram.createShader();
     }
+#endif
     // [RLVa:KB] - @setsphere
     if(success)
     {
@@ -3104,6 +3108,19 @@ bool LLViewerShaderMgr::loadShadersDeferred()
     // [/RLV:KB]
     return success;
 }
+
+#ifdef DX_RENDER
+bool LLViewerShaderMgr::loadShaderBufferVisualization()
+{
+    gDeferredBufferVisualProgram.mName = "Deferred Buffer Visualization Shader";
+    gDeferredBufferVisualProgram.mShaderFiles.clear();
+    gDeferredBufferVisualProgram.mShaderFiles.push_back(make_pair("deferred/postDeferredNoTCV.glsl", GL_VERTEX_SHADER));
+    gDeferredBufferVisualProgram.mShaderFiles.push_back(make_pair("deferred/postDeferredVisualizeBuffers.glsl", GL_FRAGMENT_SHADER));
+    gDeferredBufferVisualProgram.mShaderLevel = mShaderLevel[SHADER_DEFERRED];
+    add_common_permutations(&gDeferredBufferVisualProgram);
+    return gDeferredBufferVisualProgram.createShader();
+}
+#endif
 
 bool LLViewerShaderMgr::loadShadersObject()
 {

@@ -73,6 +73,9 @@ public:
     std::string loadBasicShaders();
     bool loadShadersEffects();
     bool loadShadersDeferred();
+#ifdef DX_RENDER
+    bool loadShaderBufferVisualization();
+#endif
     bool loadShadersObject();
     bool loadShadersAvatar();
     bool loadShadersWater();
