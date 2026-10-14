@@ -63,19 +63,6 @@ using std::pair;
 using std::make_pair;
 using std::string;
 
-#ifdef DX_RENDER
-namespace
-{
-    void yieldDuringDXShaderCompile()
-    {
-        if (gViewerWindow && gViewerWindow->getWindow())
-        {
-            gViewerWindow->getWindow()->gatherInput();
-        }
-    }
-}
-#endif
-
 bool                LLViewerShaderMgr::sInitialized = false;
 bool                LLViewerShaderMgr::sSkipReload = false;
 
@@ -592,10 +579,6 @@ void LLViewerShaderMgr::setShaders()
 
     reentrance = true;
 
-#ifdef DX_RENDER
-    LLHLSLShader::setCompileYieldFunc(yieldDuringDXShaderCompile);
-#endif
-
     // Make sure the compiled shader map is cleared before we recompile shaders.
     mVertexShaderObjects.clear();
     mFragmentShaderObjects.clear();
@@ -781,10 +764,6 @@ void LLViewerShaderMgr::setShaders()
     LL_INFOS("Shader") << "Finalizing shader list." << LL_ENDL;
     finalizeShaderList();
     LL_INFOS("Shader") << "Finalized shader list." << LL_ENDL;
-
-#ifdef DX_RENDER
-    LLHLSLShader::setCompileYieldFunc(nullptr);
-#endif
 
     reentrance = false;
 }

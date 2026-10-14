@@ -102,11 +102,6 @@ public:
     bool readProfileQuery(bool for_runtime = false, bool force_read = false);
 
     bool createShader();
-
-    // Optional startup hook used by the viewer to keep native window input
-    // drained during long DX shader compile batches. Kept as a plain function
-    // pointer so llrender does not depend on newview symbols.
-    static void setCompileYieldFunc(void (*func)());
     // DX_RENDER's createShader() equivalent - see llhlslshader.cpp. Does not
     // reuse a GL body at all (no glCreateProgram/glCompileShader concept
     // applies); instead concatenates mShaderFiles' entry-file HLSL text with
