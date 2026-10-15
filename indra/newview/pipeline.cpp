@@ -908,6 +908,15 @@ bool LLPipeline::allocateScreenBufferInternal(U32 resX, U32 resY)
     { // hacky -- allocate auxillary buffer
         LL_PROFILE_ZONE_NAMED_CATEGORY_DISPLAY("check reflection map setup"); // <FS:Beq/> improve Tracy scoping 
 
+#ifdef DX_RENDER
+        // Reflection probes still allocate LLCubeMapArray through the OpenGL
+        // texture unit path. Do not enter that path in the DX renderer until
+        // the complete DXCubeMapArray lifecycle is ported.
+        if (sReflectionProbesEnabled || RenderMirrors)
+        {
+            LL_WARNS("RenderInit") << "Skipping OpenGL reflection probes in DX renderer" << LL_ENDL;
+        }
+#else
         gCubeSnapshot = true;
 
         if (sReflectionProbesEnabled)
@@ -929,6 +938,7 @@ bool LLPipeline::allocateScreenBufferInternal(U32 resX, U32 resY)
 
         mRT = &mMainRT;
         gCubeSnapshot = false;
+#endif
     }
 
     // remember these dimensions
