@@ -3168,6 +3168,7 @@ LLViewerMediaTexture* LLViewerMediaImpl::updateMediaImage()
     if ( mNeedsNewTexture
         || (media_tex->getWidth() != mMediaSource->getTextureWidth())
         || (media_tex->getHeight() != mMediaSource->getTextureHeight())
+        || (media_tex->getComponents() != mMediaSource->getTextureDepth())
         || (mTextureUsedWidth != mMediaSource->getWidth())
         || (mTextureUsedHeight != mMediaSource->getHeight())
         )
@@ -3210,6 +3211,13 @@ LLViewerMediaTexture* LLViewerMediaImpl::updateMediaImage()
         if (!media_tex->createGLTexture(discard_level, raw))
         {
             LL_WARNS("Media") << "Failed to create media texture" << LL_ENDL;
+            return nullptr;
+        }
+
+        if (media_tex->getComponents() < 1 || media_tex->getComponents() > 4)
+        {
+            LL_WARNS("Media") << "Media texture initialization produced invalid component count: "
+                              << (S32)media_tex->getComponents() << LL_ENDL;
             return nullptr;
         }
         //media_tex->setBoostLevel(LLViewerTexture::BOOST_HIGH);
