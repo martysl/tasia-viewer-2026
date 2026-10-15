@@ -42,6 +42,10 @@
 #include "llrender.h"
 #include "pipeline.h"
 #include "llglslshader.h"
+#ifdef DX_RENDER
+#include "llhlslshader.h"
+#include "DXContext.h"
+#endif
 
 // static
 LLViewerDynamicTexture::instance_list_t LLViewerDynamicTexture::sInstances[ LLViewerDynamicTexture::ORDER_COUNT ];
@@ -208,7 +212,13 @@ bool LLViewerDynamicTexture::updateAllInstances()
     preview_target.bindTarget();
     preview_target.clear();
 
+#ifdef DX_RENDER
+    LLPipeline::RenderTargetPack* saved_rt = gPipeline.mRT;
+    gPipeline.mRT = &gPipeline.mAuxillaryRT;
+    LLHLSLShader::unbind();
+#else
     LLGLSLShader::unbind();
+#endif
     LLVertexBuffer::unbind();
 
     bool result = false;
@@ -222,9 +232,13 @@ bool LLViewerDynamicTexture::updateAllInstances()
                 llassert(dynamicTexture->getFullWidth() <= width);
                 llassert(dynamicTexture->getFullHeight() <= height);
 
+#ifdef DX_RENDER
+                renderTarget.clear(GL_DEPTH_BUFFER_BIT);
+                gDX.color4f(1.f, 1.f, 1.f, 1.f);
+#else
                 glClear(GL_DEPTH_BUFFER_BIT);
-
                 gGL.color4f(1.f, 1.f, 1.f, 1.f);
+#endif
                 dynamicTexture->setBoundTarget(&renderTarget);
                 dynamicTexture->preRender();    // Must be called outside of startRender()
                 result = false;
@@ -239,7 +253,11 @@ bool LLViewerDynamicTexture::updateAllInstances()
                 }
                 {
                     LL_PROFILE_ZONE_NAMED_CATEGORY_TEXTURE("flush");
+#ifdef DX_RENDER
+                gDX.flush();
+#else
                 gGL.flush();
+#endif
                 }
                 LLVertexBuffer::unbind();
                 dynamicTexture->setBoundTarget(nullptr);
@@ -257,6 +275,10 @@ bool LLViewerDynamicTexture::updateAllInstances()
     }
     preview_target.flush();
 
+#ifdef DX_RENDER
+    gPipeline.mRT = saved_rt;
+#endif
+
     // ORDER_LAST is baked skin preview, ORDER_RESET resets appearance parameters and does not render.
     bake_target.bindTarget();
     bake_target.clear();
@@ -272,7 +294,11 @@ bool LLViewerDynamicTexture::updateAllInstances()
     }
     bake_target.flush();
 
+#ifdef DX_RENDER
+    gDX.flush();
+#else
     gGL.flush();
+#endif
 
     return ret;
 }
