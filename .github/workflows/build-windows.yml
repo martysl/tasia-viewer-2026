@@ -47,7 +47,7 @@ jobs:
     name: Build Tasia Viewer - Windows - FMOD
     # DX builds use Acer's persistent Windows workspace for incremental MSVC
     # rebuilds. Non-DX builds retain the GitHub-hosted Windows image.
-    runs-on: ${{ inputs.dx_render && 'windows-dx' || 'windows-2022' }}
+    runs-on: ${{ inputs.dx_render && fromJSON('["self-hosted", "windows-dx"]') || 'windows-2022' }}
     timeout-minutes: 240
 
     steps:
