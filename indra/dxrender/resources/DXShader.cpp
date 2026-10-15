@@ -800,20 +800,11 @@ void DXShader::injectTextureIndexInputs(std::string& vertex_source)
         return;
     }
 
-    // Guard-macro detection mirrors injectSkinningInputs()'s approach -
-    // each entry file's own "int texture_index : TEXTUREINDEX;" VSInput
-    // field may or may not be macro-gated (added per-file as this gets
-    // wired up; see the project's open-issues ledger for which currently
-    // do). Declarations stay unconditional regardless (passTextureIndex()
-    // is attached and fully compiled whenever indexedTextureV.hlsl is,
-    // independent of whether this specific permutation defines the guard).
-    static const std::regex guarded_pattern(R"(#ifdef\s+(\w+)(?:(?!#endif)[\s\S])*?\w+\s+texture_index\s*:\s*TEXTUREINDEX)");
-    std::smatch guard_match;
-    std::string guard_macro;
-    if (std::regex_search(vertex_source, guard_match, guarded_pattern))
-    {
-        guard_macro = guard_match[1];
-    }
+    // Indexed-texture permutations consistently use HAS_DIFFUSE_LOOKUP.
+    // Do not parse the full shader source with std::regex here: MSVC's
+    // regex engine recurses once per repeated source segment for the former
+    // negative-lookahead pattern, overflowing the startup thread's stack.
+    const std::string guard_macro = "HAS_DIFFUSE_LOOKUP";
 
     // We only got here because indexed texturing is definitely active for
     // this compile, so define the same guard macro every entry file's
