@@ -179,8 +179,14 @@ jobs:
           unset CC || true
           unset CXX || true
 
-          # Use VS-bundled CMake if available (better VS 2022 compatibility)
-          VS_CMAKE="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"
+          # Use CMake bundled with the installed VS 2022 edition. Self-hosted
+          # builders use Build Tools while GitHub-hosted images use Enterprise.
+          VS_CMAKE=""
+          VSWHERE="C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+          if [ -x "$VSWHERE" ]; then
+            VS_INSTALL="$($VSWHERE -latest -products '*' -property installationPath)"
+            VS_CMAKE="$VS_INSTALL/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"
+          fi
           if [ -f "$VS_CMAKE" ]; then
             VS_CMAKE_DIR="$(dirname "$VS_CMAKE")"
             echo "Using VS-bundled CMake from: $VS_CMAKE_DIR"
