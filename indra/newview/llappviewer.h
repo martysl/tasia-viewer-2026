@@ -227,6 +227,9 @@ public:
     void addOnIdleCallback(const std::function<void()>& cb); // add a callback to fire (once) when idle
 
     void initGeneralThread();
+#ifdef DX_RENDER
+    void initDXPool();
+#endif
     void purgeUserDataOnExit() { mPurgeUserDataOnExit = true; }
     void purgeCefStaleCaches();  // Remove old, stale CEF cache folders
     void purgeCache(); // Clear the local cache.
@@ -357,6 +360,9 @@ private:
     static LLTextureFetch* sTextureFetch;
     static LLPurgeDiskCacheThread* sPurgeDiskCacheThread;
     LL::ThreadPool* mGeneralThreadPool;
+#ifdef DX_RENDER
+    LL::ThreadPool* mDXPool;
+#endif
 
     S32 mNumSessions;
 

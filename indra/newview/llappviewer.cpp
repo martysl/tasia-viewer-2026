@@ -768,6 +768,9 @@ LLAppViewer::LLAppViewer()
     mReportedCrash(false),
     mNumSessions(0),
     mGeneralThreadPool(nullptr),
+#ifdef DX_RENDER
+    mDXPool(nullptr),
+#endif
     mPurgeCache(false),
     mPurgeCacheOnExit(false),
     mPurgeUserDataOnExit(false),
@@ -2445,6 +2448,12 @@ bool LLAppViewer::cleanup()
     {
         mGeneralThreadPool->close();
     }
+#ifdef DX_RENDER
+    if (mDXPool)
+    {
+        mDXPool->close();
+    }
+#endif
 
     sTextureFetch->shutDownTextureCacheThread() ;
     LLLFSThread::sLocal->shutdown();
@@ -2510,6 +2519,10 @@ bool LLAppViewer::cleanup()
     sPurgeDiskCacheThread = NULL;
     delete mGeneralThreadPool;
     mGeneralThreadPool = NULL;
+#ifdef DX_RENDER
+    delete mDXPool;
+    mDXPool = NULL;
+#endif
     // <FS:TJ> For CEF cache purging in a background thread
     delete mCefCachePurgeThread;
     mCefCachePurgeThread = NULL;
@@ -2616,6 +2629,21 @@ void LLAppViewer::initGeneralThread()
     mGeneralThreadPool->start();
 }
 
+#ifdef DX_RENDER
+void LLAppViewer::initDXPool()
+{
+    if (mDXPool)
+    {
+        return;
+    }
+
+    // Donor DX shader precompile workers. D3DCompile is CPU-only here; GPU
+    // object creation remains on the main thread after the work completes.
+    mDXPool = new LL::ThreadPool("DXPool", 3);
+    mDXPool->start();
+}
+#endif
+
 bool LLAppViewer::initThreads()
 {
     static const bool enable_threads = true;
@@ -2664,6 +2692,9 @@ bool LLAppViewer::initThreads()
 
     // general task background thread (LLPerfStats, etc)
     LLAppViewer::instance()->initGeneralThread();
+#ifdef DX_RENDER
+    LLAppViewer::instance()->initDXPool();
+#endif
 
     LLAppViewer::sPurgeDiskCacheThread = new LLPurgeDiskCacheThread();
 
