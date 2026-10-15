@@ -305,7 +305,7 @@ jobs:
           # storageto writes its progress lines to stdout alongside the JSON, so
           # json.load() on the whole file fails with "Extra data". Pull the URL
           # out with a regex instead.
-          ./storageto.exe upload Tasia-Viewer-Windows-FMOD.zip --expire 7d --json \
+          ./storageto.exe upload Tasia-Viewer-Windows-FMOD.zip --expire 4h --json \
             | tee storage-to-result.txt
           URL="$(grep -oE '"url": *"[^"]+"' storage-to-result.txt | head -1 | cut -d'"' -f4)"
           test -n "$URL"
