@@ -2124,6 +2124,15 @@ LLViewerWindow::LLViewerWindow(const Params& p)
         mDisplayScale.mV[VX],
         mDisplayScale.mV[VY],
         gDirUtilp->getAppRODataDir());
+    // Most Tasia UI controls still use LLFontGL for layout and text metrics.
+    // Keep that registry live without creating OpenGL texture resources.
+    LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
+        mDisplayScale.mV[VX],
+        mDisplayScale.mV[VY],
+        gDirUtilp->getAppRODataDir(),
+        gSavedSettings.getString("FSFontSettingsFile"),
+        gSavedSettings.getF32("FSFontSizeAdjustment"),
+        false);
 #else
     LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
         mDisplayScale.mV[VX],
