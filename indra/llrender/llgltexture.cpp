@@ -263,32 +263,57 @@ void LLGLTexture::setFilteringOption(LLTexUnit::eTextureFilterOptions option)
 //virtual
 S32 LLGLTexture::getWidth(S32 discard_level) const
 {
+#ifdef DX_RENDER
+    llassert(mDXTexturep.notNull());
+    return mDXTexturep->getWidth(discard_level);
+#else
     llassert(mGLTexturep.notNull()) ;
     return mGLTexturep->getWidth(discard_level) ;
+#endif
 }
 
 //virtual
 S32 LLGLTexture::getHeight(S32 discard_level) const
 {
+#ifdef DX_RENDER
+    llassert(mDXTexturep.notNull());
+    return mDXTexturep->getHeight(discard_level);
+#else
     llassert(mGLTexturep.notNull()) ;
     return mGLTexturep->getHeight(discard_level) ;
+#endif
 }
 
 S32 LLGLTexture::getMaxDiscardLevel() const
 {
+#ifdef DX_RENDER
+    llassert(mDXTexturep.notNull());
+    return mDXTexturep->getMaxDiscardLevel();
+#else
     llassert(mGLTexturep.notNull()) ;
     return mGLTexturep->getMaxDiscardLevel() ;
+#endif
 }
 S32 LLGLTexture::getDiscardLevel() const
 {
+#ifdef DX_RENDER
+    llassert(mDXTexturep.notNull());
+    return mDXTexturep->getDiscardLevel();
+#else
     llassert(mGLTexturep.notNull()) ;
     return mGLTexturep->getDiscardLevel() ;
+#endif
 }
 S8  LLGLTexture::getComponents() const
 {
+#ifdef DX_RENDER
+    llassert(mDXTexturep.notNull());
+    return mDXTexturep->getComponents();
+#else
     llassert(mGLTexturep.notNull()) ;
 
     return mGLTexturep->getComponents() ;
+#endif
 }
 
 LLGLuint LLGLTexture::getTexName() const
