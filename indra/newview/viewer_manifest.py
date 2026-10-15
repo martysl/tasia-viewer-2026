@@ -761,6 +761,12 @@ class Windows_x86_64_Manifest(ViewerManifest):
             #self.path('aprutil-1.pdb', 'libaprutil.pdb')
             # </FS:ND>
 
+        # MsQuic is a direct dependency of the Windows viewer executable.
+        # It is downloaded as a prebuilt DLL outside sharedlibs by MsQuic.cmake.
+        with self.prefix(src=os.path.join(self.args['build'], os.pardir,
+                                          'msquic-prebuilt', 'bin')):
+            self.path('msquic.dll')
+
         self.path(src="licenses-win32.txt", dst="licenses.txt")
         self.path("featuretable.txt")
         self.path("cube.dae")
