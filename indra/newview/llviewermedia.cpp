@@ -3179,6 +3179,17 @@ LLViewerMediaTexture* LLViewerMediaImpl::updateMediaImage()
         int texture_height = mMediaSource->getTextureHeight();
         int texture_depth = mMediaSource->getTextureDepth();
 
+        // CEF can report a dirty frame before it has negotiated a pixel
+        // format. Do not create (or mark as ready) a zero-component texture;
+        // retain mNeedsNewTexture so a later valid frame initializes it.
+        if (texture_width <= 0 || texture_height <= 0 || texture_depth < 1 || texture_depth > 4)
+        {
+            LL_DEBUGS("Media") << "Media texture is not ready: "
+                               << texture_width << "x" << texture_height
+                               << "x" << texture_depth << LL_ENDL;
+            return nullptr;
+        }
+
         // MEDIAOPT: check to see if size actually changed before doing work
         media_tex->destroyGLTexture();
 
@@ -3199,6 +3210,7 @@ LLViewerMediaTexture* LLViewerMediaImpl::updateMediaImage()
         if (!media_tex->createGLTexture(discard_level, raw))
         {
             LL_WARNS("Media") << "Failed to create media texture" << LL_ENDL;
+            return nullptr;
         }
         //media_tex->setBoostLevel(LLViewerTexture::BOOST_HIGH);
 
