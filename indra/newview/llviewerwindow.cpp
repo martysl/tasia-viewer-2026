@@ -27,6 +27,9 @@
 #include "llviewerprecompiledheaders.h"
 #include "llviewerwindow.h"
 
+#ifdef DX_RENDER
+#include "DXContext.h"
+#endif
 
 // system library includes
 #include <stdio.h>
@@ -2962,6 +2965,22 @@ void LLViewerWindow::setMenuBackgroundColor(bool god_mode, bool dev_grid)
 
 void LLViewerWindow::drawDebugText()
 {
+#ifdef DX_RENDER
+    // Direct DX UI path from Kirsten: the GL renderer has no active context
+    // in this build, so all UI transforms and batches must use gDX.
+    gUIProgram.bind();
+    gDX.color4f(1, 1, 1, 1);
+    gDX.pushMatrix();
+    gDX.pushUIMatrix();
+    {
+        gDX.scaleUI(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
+        mDebugText->draw();
+    }
+    gDX.popUIMatrix();
+    gDX.popMatrix();
+    gDX.flush();
+    gUIProgram.unbind();
+#else
     gUIProgram.bind();
     gGL.color4f(1,1,1,1);
     gGL.pushMatrix();
@@ -2976,10 +2995,101 @@ void LLViewerWindow::drawDebugText()
 
     gGL.flush();
     gUIProgram.unbind();
+#endif
 }
 
 void LLViewerWindow::draw()
 {
+#ifdef DX_RENDER
+    LLView::sIsDrawing = true;
+    LLUI::setLineWidth(1.f);
+    gDX.matrixMode(LLRender::MM_MODELVIEW);
+    gDX.loadIdentity();
+
+    if (!LLPipeline::RenderUIBuffer)
+    {
+        LLView::sDirtyRect = getWindowRectScaled();
+    }
+
+    static LLCachedControl<bool> displayTimecode(gSavedSettings, "DisplayTimecode");
+    gUIProgram.bind();
+    gDX.color4f(1, 1, 1, 1);
+
+    if (displayTimecode)
+    {
+        std::string text;
+        gDX.loadIdentity();
+        microsecondsToTimecodeString(gFrameTime, text);
+        const LLFontDX* font = LLFontDX::getFontSansSerif();
+        font->renderUTF8(text, 0,
+            ll_round((getWindowWidthScaled() / 2) - 100.f),
+            ll_round((getWindowHeightScaled() - 60.f)),
+            LLColor4(1.f, 1.f, 1.f, 1.f),
+            LLFontDX::LEFT, LLFontDX::TOP);
+    }
+
+    gDX.pushMatrix();
+    LLUI::pushMatrix();
+    {
+        gDX.scaleUI(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
+
+        LLVector2 old_scale_factor = LLUI::getScaleFactor();
+        F32 zoom_factor = LLViewerCamera::getInstance()->getZoomFactor();
+        S16 sub_region = LLViewerCamera::getInstance()->getZoomSubRegion();
+        if (zoom_factor > 1.f)
+        {
+            int pos_y = sub_region / llceil(zoom_factor);
+            int pos_x = sub_region - (pos_y * llceil(zoom_factor));
+            gDX.translatef((F32)getWindowWidthScaled() * -(F32)pos_x,
+                (F32)getWindowHeightScaled() * -(F32)pos_y, 0.f);
+            gDX.scalef(zoom_factor, zoom_factor, 1.f);
+            LLUI::getScaleFactor() *= zoom_factor;
+        }
+
+        LLToolMgr::getInstance()->getCurrentTool()->draw();
+
+        if (gAgentCamera.cameraMouselook() || LLFloaterCamera::inFreeCameraMode())
+        {
+            drawMouselookInstructions();
+        }
+
+        mRootView->draw();
+
+        if (LLView::sDebugRects)
+        {
+            gToolTipView->drawStickyRect();
+        }
+
+        LLUICtrl* top_ctrl = gFocusMgr.getTopCtrl();
+        if (top_ctrl && top_ctrl->getVisible())
+        {
+            S32 screen_x, screen_y;
+            top_ctrl->localPointToScreen(0, 0, &screen_x, &screen_y);
+            gDX.matrixMode(LLRender::MM_MODELVIEW);
+            LLUI::pushMatrix();
+            LLUI::translate((F32)screen_x, (F32)screen_y);
+            top_ctrl->draw();
+            LLUI::popMatrix();
+        }
+
+        if (gShowOverlayTitle && !mOverlayTitle.empty())
+        {
+            gUIProgram.bind();
+            const S32 DIST_FROM_TOP = 20;
+            LLFontDX::getFontSansSerifBig()->renderUTF8(mOverlayTitle, 0,
+                ll_round(getWindowWidthScaled() * 0.5f),
+                getWindowHeightScaled() - DIST_FROM_TOP,
+                LLColor4(1, 1, 1, 0.4f), LLFontDX::HCENTER, LLFontDX::TOP);
+        }
+
+        LLUI::setScaleFactor(old_scale_factor);
+    }
+    LLUI::popMatrix();
+    gDX.popMatrix();
+    gUIProgram.unbind();
+    LLView::sIsDrawing = false;
+    return;
+#else
 
 //#if LL_DEBUG
     LLView::sIsDrawing = true;
@@ -3202,6 +3312,7 @@ void LLViewerWindow::draw()
     gUIProgram.unbind();
 
     LLView::sIsDrawing = false;
+#endif
 }
 
 // <FS:TT> Window Title Access
