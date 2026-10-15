@@ -40,6 +40,9 @@
 #include "lldrawpoolalpha.h"
 #include "lldrawpoolbump.h"
 #include "lldrawpoolwater.h"
+#ifdef DX_RENDER
+#include "dxpipeline.h"
+#endif
 #include "lldynamictexture.h"
 #include "llenvironment.h"
 #include "llfasttimer.h"
@@ -184,7 +187,11 @@ void display_startup()
     // Required for HTML update in login screen
     static S32 frame_count = 0;
 
+#ifdef DX_RENDER
+    DXState::checkStates();
+#else
     LLGLState::checkStates();
+#endif
 
     if (frame_count++ > 1) // make sure we have rendered a frame first
     {
@@ -195,9 +202,12 @@ void display_startup()
         LL_DEBUGS("Window") << "First display_startup frame" << LL_ENDL;
     }
 
+#ifdef DX_RENDER
+    DXState::checkStates();
+#else
     LLGLState::checkStates();
-
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT); // | GL_STENCIL_BUFFER_BIT);
+#endif
     LLGLSUIDefault gls_ui;
     gPipeline.disableLights();
 
@@ -205,16 +215,26 @@ void display_startup()
     gViewerWindow->setup2DRender();
     if (gViewerWindow)
     gViewerWindow->draw();
+#ifdef DX_RENDER
+    gDX.flush();
+#else
     gGL.flush();
+#endif
 
     LLVertexBuffer::unbind();
 
+#ifdef DX_RENDER
+    DXState::checkStates();
+#else
     LLGLState::checkStates();
+#endif
 
     if (gViewerWindow && gViewerWindow->getWindow())
     gViewerWindow->getWindow()->swapBuffers();
 
+#ifndef DX_RENDER
     glClear(GL_DEPTH_BUFFER_BIT);
+#endif
 }
 
 void display_update_camera()
