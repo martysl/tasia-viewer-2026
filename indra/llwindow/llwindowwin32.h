@@ -37,6 +37,7 @@
 #include "llthreadsafequeue.h"
 #include "llmutex.h"
 #include "workqueue.h"
+#include <thread>
 
 // Hack for async host by name
 #define LL_WM_HOST_RESOLVED      (WM_APP + 1)
@@ -307,6 +308,7 @@ public:
 private:
 #if LL_WINDOWS
     HWND mWindow;
+    std::thread mSplashThread;
 #endif
 };
 

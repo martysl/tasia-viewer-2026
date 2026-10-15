@@ -62,6 +62,7 @@
 #include <Imm.h>
 #include <iomanip>
 #include <future>
+#include <thread>
 #include <sstream>
 #include <utility>                  // std::pair
 
@@ -4170,18 +4171,34 @@ LLSplashScreenWin32::~LLSplashScreenWin32()
 
 void LLSplashScreenWin32::showImpl()
 {
-    // This appears to work.  ???
-    HINSTANCE hinst = GetModuleHandle(NULL);
+    std::promise<void> ready;
+    auto ready_future = ready.get_future();
 
-    mWindow = CreateDialog(hinst,
-        TEXT("SPLASHSCREEN"),
-        NULL,   // no parent
-        (DLGPROC) LLSplashScreenWin32::windowProc);
-    ShowWindow(mWindow, SW_SHOW);
+    mSplashThread = std::thread([this, &ready]
+        {
+            HINSTANCE hinst = GetModuleHandle(NULL);
+            mWindow = CreateDialog(hinst,
+                TEXT("SPLASHSCREEN"),
+                NULL,
+                (DLGPROC)LLSplashScreenWin32::windowProc);
+            ShowWindow(mWindow, SW_SHOW);
+            SetWindowText(mWindow, ll_convert<std::wstring>(APP_NAME).c_str());
+            ready.set_value();
 
-    // Should set taskbar text without creating a header for the window (caption)
-    //SetWindowText(mWindow, TEXT("Second Life"));
-    SetWindowText(mWindow, ll_convert<std::wstring>(APP_NAME).c_str());
+            MSG msg;
+            BOOL got_msg;
+            while ((got_msg = GetMessage(&msg, NULL, 0, 0)) != 0)
+            {
+                if (got_msg == -1)
+                {
+                    break;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        });
+
+    ready_future.wait();
 }
 
 
@@ -4212,9 +4229,11 @@ void LLSplashScreenWin32::hideImpl()
 {
     if (mWindow)
     {
-        if (!destroy_window_handler(mWindow))
+        PostMessage(mWindow, WM_CLOSE, 0, 0);
+
+        if (mSplashThread.joinable())
         {
-            LL_WARNS("Window") << "Failed to properly close splash screen window!" << LL_ENDL;
+            mSplashThread.join();
         }
         mWindow = NULL;
     }
@@ -4225,7 +4244,17 @@ void LLSplashScreenWin32::hideImpl()
 LRESULT CALLBACK LLSplashScreenWin32::windowProc(HWND h_wnd, UINT u_msg,
                                             WPARAM w_param, LPARAM l_param)
 {
-    // Just give it to windows
+    switch (u_msg)
+    {
+    case WM_CLOSE:
+        if (!destroy_window_handler(h_wnd))
+        {
+            LL_WARNS("Window") << "Failed to properly close splash screen window!" << LL_ENDL;
+        }
+        PostQuitMessage(0);
+        return 0;
+    }
+
     return DefWindowProc(h_wnd, u_msg, w_param, l_param);
 }
 
