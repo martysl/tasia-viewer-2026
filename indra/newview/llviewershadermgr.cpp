@@ -428,7 +428,9 @@ void LLViewerShaderMgr::finalizeShaderList()
     //ONLY shaders that need WL Param management should be added here
     mShaderList.push_back(&gAvatarProgram);
     mShaderList.push_back(&gWaterProgram);
+#ifndef DX_RENDER
     mShaderList.push_back(&gAvatarEyeballProgram);
+#endif
     mShaderList.push_back(&gImpostorProgram);
     mShaderList.push_back(&gObjectBumpProgram);
     mShaderList.push_back(&gObjectFullbrightAlphaMaskProgram);
@@ -3332,6 +3334,7 @@ bool LLViewerShaderMgr::loadShadersAvatar()
         }
     }
 
+#ifndef DX_RENDER
     if (success)
     {
         gAvatarEyeballProgram.mName = "Avatar Eyeball Program";
@@ -3348,6 +3351,7 @@ bool LLViewerShaderMgr::loadShadersAvatar()
         gAvatarEyeballProgram.mShaderLevel = mShaderLevel[SHADER_AVATAR];
         success = gAvatarEyeballProgram.createShader();
     }
+#endif
 
     if( !success )
     {
