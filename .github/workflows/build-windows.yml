@@ -184,7 +184,7 @@ jobs:
           VS_CMAKE=""
           VSWHERE="C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
           if [ -x "$VSWHERE" ]; then
-            VS_INSTALL="$($VSWHERE -latest -products '*' -property installationPath)"
+            VS_INSTALL="$("$VSWHERE" -latest -products '*' -property installationPath)"
             VS_CMAKE="$VS_INSTALL/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"
           fi
           if [ -f "$VS_CMAKE" ]; then
