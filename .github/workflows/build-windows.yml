@@ -79,13 +79,13 @@ jobs:
           path: .build-variables
 
       - name: Remove KDU (proprietary, cannot use)
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           autobuild installables remove kdu || true
           echo "KDU installable removed."
 
       - name: Download private FMOD autobuild package
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         env:
           GH_TOKEN: ${{ secrets.FMOD_DEPS_TOKEN }}
         run: |
@@ -117,7 +117,7 @@ jobs:
           echo "FMOD_FILE_URL=$FMOD_FILE_URL" >> "$GITHUB_ENV"
 
       - name: Point autobuild to private FMOD package
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           set -euo pipefail
           autobuild installables edit fmodstudio \
@@ -126,7 +126,7 @@ jobs:
             url="$FMOD_FILE_URL"
 
       - name: Load autobuild environment
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           set -euo pipefail
           autobuild source_environment > .source_env
@@ -152,13 +152,13 @@ jobs:
           vsversion: 2022
 
       - name: Install Windows build prerequisites
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           cmake --version
           where cl
 
       - name: Set Tasia build metadata
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           # Do not export lowercase 'revision': MSBuild property lookup is
           # case-insensitive and can collide with the existing REVISION key.
@@ -169,7 +169,7 @@ jobs:
           echo "TASIA_BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
 
       - name: Configure Windows with FMOD
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         env:
           TASIA_GIPHY_API_KEY: ${{ secrets.TASIA_GIPHY_API_KEY }}
           TASIA_KLIPY_API_KEY: ${{ secrets.TASIA_KLIPY_API_KEY }}
@@ -241,7 +241,7 @@ jobs:
           & (Join-Path $stage 'tasia-ffmpeg.exe') -version | Select-Object -First 1
 
       - name: Build Windows with FMOD
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           set -euo pipefail
           autobuild build \
@@ -254,7 +254,7 @@ jobs:
             --jobs 2
 
       - name: Copy Microsoft-signed msquic.dll to output
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           set -euo pipefail
           DIST_DIR="build-vc170-64/newview/unpacked"
@@ -272,7 +272,7 @@ jobs:
           echo "Copied Microsoft-signed msquic.dll to $DIST_DIR"
 
       - name: Create Windows ZIP artifact
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -303,7 +303,7 @@ jobs:
       # it is not machine-retrievable.
       - name: Upload artifact to storage.to
         if: inputs.upload_github_artifact != 'true'
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         run: |
           set -euo pipefail
           # The Windows release asset is a .zip, not a .tar.gz like the Unix ones.
@@ -329,7 +329,7 @@ jobs:
 
       - name: Publish GitHub prerelease - Windows
         if: inputs.publish_release == 'true'
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -364,7 +364,7 @@ jobs:
 
       - name: Post to Discord
         if: inputs.publish_release == 'true'
-        shell: '"C:\Program Files\Git\bin\bash.exe" --noprofile --norc -e -o pipefail {0}'
+        shell: 'C:\PROGRA~1\Git\bin\bash.exe --noprofile --norc -e -o pipefail {0}'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
