@@ -133,6 +133,7 @@ public:
     F32 getAscenderHeight() const;
     F32 getDescenderHeight() const;
     S32 getLineHeight() const;
+    bool isLoaded() const { return mFontFreetype.notNull(); }
 
     S32 getWidth(const std::string& utf8text) const;
     S32 getWidth(const llwchar* wchars) const;
