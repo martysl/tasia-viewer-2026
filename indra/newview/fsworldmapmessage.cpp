@@ -44,7 +44,6 @@
 #include "fsgridhandler.h"
 #include "llworldmapmessage.h"
 #include "message.h"
-#include <regex>
 
 #define htxhop_log(format, ...) LL_DEBUGS("GridManager") << llformat(format, __VA_ARGS__) << LL_ENDL;
 
@@ -52,21 +51,22 @@ namespace hypergrid
 {
     static inline std::string extract_region(const std::string& s)
     {
-        static auto const& patterns = {
-            std::regex { R"(/ ([^/:=]+)$)" }, // TODO: figure out where the spec lives for hop "slash space" embedding...
-            std::regex { R"(([^/:=]+)$)" }, // TODO: figure out where the spec lives for hop "grid:port:region" embedding...
-        };
-        std::smatch match_results;
-        std::string ls{ s };
-        LLStringUtil::toLower(ls);
-        for (const auto& pattern : patterns)
+        // The final path/grid segment is the region name. Avoid std::regex here:
+        // it is needlessly expensive for this simple parse and its static regex
+        // construction has proved unstable during Windows viewer startup.
+        const std::string::size_type delimiter = s.find_last_of("/:=");
+        std::string::size_type begin = delimiter == std::string::npos ? 0 : delimiter + 1;
+
+        // Hypergrid's "slash space" form embeds a display name after "/ ".
+        if (delimiter != std::string::npos && s[delimiter] == '/' &&
+            begin < s.size() && s[begin] == ' ')
         {
-            if (std::regex_search(ls, match_results, pattern))
-            {
-                return match_results[1].str();
-            }
+            ++begin;
         }
-        return {};
+
+        std::string region = s.substr(begin);
+        LLStringUtil::toLower(region);
+        return region;
     }
 
     // helper to encapsulate Region Map Block responses
