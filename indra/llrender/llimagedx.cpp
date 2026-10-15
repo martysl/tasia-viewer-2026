@@ -1017,7 +1017,13 @@ bool LLImageDX::createGLTexture(S32 discard_level, const LLImageRaw* imageraw, S
             mFormatType = GL_UNSIGNED_BYTE;
             break;
         default:
-            LL_ERRS() << "Bad number of components for texture: " << (U32)getComponents() << LL_ENDL;
+            // Media textures can briefly report an empty/not-yet-negotiated
+            // frame during startup. Reject that frame and let the next media
+            // update retry instead of terminating the whole DX viewer.
+            LL_WARNS("Media") << "Skipping texture with invalid component count: "
+                              << (U32)getComponents() << LL_ENDL;
+            mGLTextureCreated = false;
+            return false;
         }
 
         calcAlphaChannelOffsetAndStride() ;
@@ -1888,4 +1894,3 @@ void LLImageDXThread::run()
     gDX.shutdown();
     mWindow->destroySharedContext(mContext);
 }
-
