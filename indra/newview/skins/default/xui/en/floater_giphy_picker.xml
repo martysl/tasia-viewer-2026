@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<floater
+ name="floater_giphy_picker"
+ title="GIPHY Picker"
+ width="720"
+ height="480"
+ min_width="560"
+ min_height="360">
+
+  <text
+   name="instructions_text"
+   font="SansSerifSmall"
+   follows="top|left|right"
+   layout="topleft"
+   left="10"
+   top="10"
+   width="700"
+   height="18">
+Search GIPHY, browse categories, or pick stickers and emoji.
+  </text>
+
+  <line_editor
+   name="search_edit"
+   follows="top|left|right"
+   layout="topleft"
+   left="10"
+   top="35"
+   width="345"
+   height="24"
+   max_length="128"
+   length="1" />
+
+  <button
+   name="search_btn"
+   label="Search"
+   follows="top|right"
+   layout="topleft"
+   left_pad="8"
+   top_delta="0"
+   width="70"
+   height="24" />
+
+  <button
+   name="trending_btn"
+   label="Trending"
+   follows="top|right"
+   layout="topleft"
+   left_pad="6"
+   top_delta="0"
+   width="80"
+   height="24" />
+
+  <button
+   name="stickers_btn"
+   label="Stickers"
+   follows="top|right"
+   layout="topleft"
+   left_pad="6"
+   top_delta="0"
+   width="80"
+   height="24" />
+
+  <button
+   name="emoji_btn"
+   label="Emoji"
+   follows="top|right"
+   layout="topleft"
+   left_pad="6"
+   top_delta="0"
+   width="70"
+   height="24" />
+
+  <button
+   name="random_btn"
+   label="Random"
+   follows="top|right"
+   layout="topleft"
+   left_pad="6"
+   top_delta="0"
+   width="70"
+   height="24" />
+
+  <button
+   name="translate_btn"
+   label="Translate"
+   follows="top|right"
+   layout="topleft"
+   left_pad="6"
+   top_delta="0"
+   width="80"
+   height="24" />
+
+  <scroll_list
+   name="suggestion_list"
+   follows="top|left|right"
+   layout="topleft"
+   left="10"
+   top="63"
+   width="345"
+   height="80"
+   draw_heading="false"
+   multi_select="false"
+   visible="false">
+    <scroll_list.columns
+     name="term"
+     label="Suggestions"
+     width="335" />
+  </scroll_list>
+
+  <scroll_list
+   name="category_list"
+   follows="top|left|bottom"
+   layout="topleft"
+   left="10"
+   top="150"
+   width="150"
+   height="255"
+   draw_heading="true"
+   multi_select="false">
+    <scroll_list.columns
+     name="category"
+     label="Categories"
+     width="140" />
+  </scroll_list>
+
+  <scroll_list
+   name="results_list"
+   follows="top|left|right|bottom"
+   layout="topleft"
+   left_pad="8"
+   top="150"
+   width="540"
+   height="255"
+   draw_heading="true"
+   multi_select="false">
+    <scroll_list.columns
+     name="title"
+     label="Title"
+     width="220" />
+    <scroll_list.columns
+     name="url"
+     label="URL"
+     width="300" />
+  </scroll_list>
+
+  <text
+   name="status_text"
+   font="SansSerifSmall"
+   follows="left|right|bottom"
+   layout="topleft"
+   left="10"
+   bottom="38"
+   width="350"
+   height="18">
+Powered by GIPHY
+  </text>
+
+  <text
+   name="powered_by_giphy_text"
+   font="SansSerifSmall"
+   follows="right|bottom"
+   layout="topleft"
+   right="-110"
+   bottom="38"
+   width="120"
+   height="18">
+Powered by GIPHY
+  </text>
+
+  <button
+   name="use_btn"
+   label="Use Selected"
+   follows="right|bottom"
+   layout="topleft"
+   right="-10"
+   bottom="10"
+   width="100"
+   height="24" />
+</floater>

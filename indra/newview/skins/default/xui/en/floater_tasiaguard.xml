@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<floater
+    name="tasiaguard"
+    title="TasiaGuard - Unban IP"
+    width="420"
+    height="360"
+    can_minimize="false"
+    can_resize="false">
+
+    <text
+        name="desc_text"
+        type="string"
+        length="1"
+        follows="left|top"
+        height="35"
+        left="15"
+        top="15"
+        width="390"
+        font.size="Medium">
+        Request removal of your IP from the I-Grid firewall.
+        Your avatar details will be sent for verification.
+    </text>
+
+    <text
+        name="ip_label"
+        type="string"
+        length="1"
+        follows="left|top"
+        height="20"
+        left="15"
+        top_pad="10"
+        width="390">
+        Your IP address:
+    </text>
+
+    <line_editor
+        name="unban_ip"
+        follows="left|top|right"
+        height="22"
+        left="15"
+        max_length_chars="45"
+        top_pad="2"
+        width="390" />
+
+    <text
+        name="first_name_label"
+        type="string"
+        length="1"
+        follows="left|top"
+        height="20"
+        left="15"
+        top_pad="8"
+        width="390">
+        Avatar first name:
+    </text>
+
+    <line_editor
+        name="unban_first_name"
+        follows="left|top|right"
+        height="22"
+        left="15"
+        max_length_chars="64"
+        top_pad="2"
+        width="390" />
+
+    <text
+        name="last_name_label"
+        type="string"
+        length="1"
+        follows="left|top"
+        height="20"
+        left="15"
+        top_pad="8"
+        width="390">
+        Avatar last name:
+    </text>
+
+    <line_editor
+        name="unban_last_name"
+        follows="left|top|right"
+        height="22"
+        left="15"
+        max_length_chars="64"
+        top_pad="2"
+        width="390" />
+
+    <text
+        name="unban_status"
+        type="string"
+        length="1"
+        follows="left|top"
+        height="20"
+        left="15"
+        top_pad="8"
+        width="390"
+        text_color="LtGray_75">
+    </text>
+
+    <button
+        label="Request Unban"
+        name="unban_btn"
+        follows="left|top"
+        height="22"
+        left="15"
+        top_pad="8"
+        width="140">
+        <button.commit_callback
+            function="TasiaGuard.Unban" />
+    </button>
+
+</floater>

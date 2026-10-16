@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <mimetypes name="default">
 	<defaultlabel>
 		(Nieznane)
@@ -57,7 +57,7 @@
 	</widgetset>
 	<scheme name="rtsp">
 		<label name="rtsp_label">
-			Real Time Streaming
+			Strumień w czasie rzeczywistym
 		</label>
 	</scheme>
 	<mimetype name="blank">
@@ -188,6 +188,16 @@
 	<mimetype name="video/mp4">
 		<label name="video/mp4_label">
 			Film (MP4)
+		</label>
+	</mimetype>
+	<mimetype name="video/x-flv">
+		<label name="video/x-flv_label">
+			Film (flv)
+		</label>
+	</mimetype>
+	<mimetype name="application/octet-stream">
+		<label name="video/octet-stream">
+			Film
 		</label>
 	</mimetype>
 	<mimetype name="video/quicktime">
