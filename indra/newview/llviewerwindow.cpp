@@ -3094,6 +3094,11 @@ void LLViewerWindow::draw()
     }
     LLUI::popMatrix();
     gDX.popMatrix();
+    // Firestorm controls still include immediate-mode gGL draws. In DX builds
+    // those are submitted by LLRender through the currently bound DX UI
+    // shader, so drain both queues before unbinding it.
+    gDX.flush();
+    gGL.flush();
     gUIProgram.unbind();
     LLView::sIsDrawing = false;
     return;
