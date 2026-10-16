@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater
+ can_resize="true"
+ can_minimize="false"
+ can_close="true"
+ min_width="295"
+ min_height="260"
+ width="340"
+ height="480"
+ layout="topleft"
+ name="floater_buy_currency_html"
+ save_rect="true"
+ single_instance="true"
+ title="BUY L$">
+  <web_browser
+    trusted_content="true"
+    follows="all"
+    layout="topleft"
+    left="0"
+    top="0"
+    width="340"
+    height="480"
+    name="browser"/>
+</floater>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<!-- KV Quick Chat - Compact chat bar for immersive in-world chatting
+     Copyright (C) 2024 KV - Licensed under MIT License -->
+<floater
+  bg_opaque_image="Window_NoTitle_Foreground"
+  bg_alpha_image="Window_NoTitle_Background"
+  can_resize="true"
+  can_minimize="false"
+  can_close="false"
+  can_drag_on_left="false"
+  can_tear_off="false"
+  can_dock="false"
+  show_title="false"
+  header_height="0"
+  legacy_header_height="0"
+  save_rect="true"
+  save_visibility="false"
+  single_instance="true"
+  height="36"
+  min_height="36"
+  max_height="36"
+  layout="topleft"
+  name="kv_quick_chat"
+  title="Q Chat"
+  width="400"
+  min_width="200"
+  max_width="800">
+
+  <!-- S24: 8px of empty space above the controls (top="8" below, vs the floater's own
+       header-less top edge) is a deliberate grab strip. LLFloater's drag handle
+       (LLDragHandleTop, built by layoutDragHandle() in llfloater.cpp) always covers the
+       floater's ENTIRE local rect regardless of header_height/show_title - it's not a
+       separate thin title-bar area. With no gap, the chat_box + emoji button covered 100%
+       of the floater's surface, leaving zero pixels for that drag handle to ever receive a
+       mousedown - the floater was completely undraggable, and once docked/positioned badly
+       (e.g. its toolbar anchor button moved/removed), there was no way to grab it back out. -->
+
+  <!-- Chat input field -->
+  <line_editor
+   border_style="line"
+   border_thickness="1"
+   follows="left|right|top"
+   height="23"
+   label="Type to chat..."
+   layout="topleft"
+   left="4"
+   right="-32"
+   top="8"
+   max_length_bytes="1023"
+   name="chat_box"
+   spellcheck="true"
+   text_pad_left="5"
+   text_pad_right="5"
+   tool_tip="Press Enter to say, Ctrl+Enter to shout, ESC to close" />
+
+  <!-- Emoji picker button -->
+  <button
+   follows="right|top"
+   height="23"
+   image_overlay="Emoji_Picker_Icon"
+   layout="topleft"
+   name="emoji_picker_btn"
+   tool_tip="Insert emoji"
+   top="8"
+   right="-4"
+   width="23" />
+
+</floater>

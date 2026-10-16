@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater
+ legacy_header_height="18"
+ can_resize="true"
+ height="600"
+ layout="topleft"
+ name="floater_test_textbox"
+ help_topic="floater_test_textbox"
+ translate="false"
+ width="800">
+ <text
+    clip_partial="true"
+    top_pad="10"
+    left="10"
+    width="267"
+    height="28"
+    layout="topleft"
+    follows="right|left"
+    text_color="white"
+    use_ellipses="true"
+    word_wrap="true"
+    mouse_opaque="false"
+    name="title" >
+    This text has word_wrap set true, use_ellipses set true, and clip_partial set true, so it should wrap around, spilling over to the last line, then clip the last partial line and show ellipses to indicate there is more text
+  </text>
+
+  <text
+   font="SansSerif"
+   font.style="BOLD"
+   height="10"
+   layout="topleft"
+   left_delta="0"
+   top_pad="10"
+   width="300">
+    SansSerif BOLD
+  </text>
+  <text
+   font="SansSerif"
+   font.style="BOLD|UNDERLINE"
+   height="10"
+   layout="topleft"
+   left_delta="0"
+   top_pad="10"
+   width="300">
+    SansSerif BOLD UNDERLINE
+  </text>
+  <text
+ bottom="390"
+ left="10"
+ name="right_aligned_text"
+ width="300"
+ halign="right"
+ top_pad="10">
+    Right aligned text
+  </text>
+  <text
+ bottom="390"
+ left="10"
+ name="centered_text"
+ width="300"
+ halign="center"
+ top_pad="10">
+    Centered text
+  </text>
+  <text
+ left="10"
+ name="left_aligned_text"
+ width="300"
+ halign="left"
+ top_pad="10">
+    Left aligned text
+  </text>
+  <text
+ left="10"
+ name="v_pad_text"
+ height="40"
+ width="300"
+ halign="left"
+ top_pad="10"
+ v_pad="10">
+    v_pad = 10, height = 40
+  </text>
+  <text
+ left="10"
+ name="v_pad_text1"
+ height="40"
+ width="300"
+ halign="left"
+ top_pad="10"
+ h_pad="30">
+    h_pad = 30, height = 40
+  </text>
+  <text
+ top_pad="10"
+ left="10"
+ right="-10"
+ height="20"
+ follows="top|left"
+ font.name="SansSerifSmall"
+ name="test_text10"
+ tool_tip="text">
+    SansSerif
+    The 华文细黑 brown fox ヒラキjumped over the lazy dog.
+  </text>
+  <text
+   top_pad="10"
+   left="10"
+   right="-10"
+   height="25"
+   follows="top|left"
+   font.name="SansSerifMedium"
+   name="test_text11"
+   tool_tip="text">
+    SansSerifMedium
+    The 华文细黑 brown fox ヒラキjumped over the lazy dog.
+  </text>
+  <text
+   top_pad="10"
+   left="10"
+   right="-10"
+   follows="top|left"
+   height="26"
+   font.name="SansSerifLarge"
+   name="test_text12"
+   tool_tip="text">
+    SansSerifLarge
+    The 华文细黑 brown fox ヒラキjumped over the lazy dog.
+  </text>
+  <text
+   top_pad="10"
+   left="10"
+   height="35"
+   right="-10"
+   follows="top|left"
+   font.name="SansSerifHuge"
+   name="test_text13"
+   tool_tip="text">
+    SansSerifHuge
+    The 华文细黑 brown fox ヒラキjumped over the lazy dog.
+  </text>
+  
+<!-- next column -->
+  <text_editor
+ height="50"
+ follows="top|left|bottom"
+ left="400"
+ name="test_text_editor"
+ tool_tip="text editor"
+ top="25"
+ width="200">
+    Text Editor
+  </text_editor>
+  <text_editor
+ height="50"
+ follows="top|left|bottom"
+ left_delta="0"
+ name="long_text_editor"
+ tool_tip="text editor"
+ top_pad="10"
+ width="200">
+Text Editor
+with multiple
+lines of text
+and hence a
+scroll bar
+  </text_editor>
+  <text_editor
+ height="50"
+ follows="top|left|bottom"
+ left_delta="0"
+ max_length="65536" 
+ name="blob_text_editor"
+ tool_tip="text editor"
+ top_pad="10"
+ width="200"
+ word_wrap="true">
+Second Life brought to you by Kirstenlee Cinquetti.
+  </text_editor>
+    <text_editor
+ height="50"
+ follows="top|left|bottom"
+ font="Monospace"
+ left_delta="0"
+ name="monospace_text_editor"
+ tool_tip="text editor"
+ top_pad="10"
+ width="200">
+Text Editor
+with multiple
+lines of text
+and hence a
+scroll bar gjyrrr
+  </text_editor>
+    <text_editor
+      border_visible="true"
+      height="50"
+      follows="top|left|bottom"
+      font="Monospace"
+ left_delta="0"
+ name="monospace_text_editor1"
+ tool_tip="text editor"
+ top_pad="10"
+ width="200">
+Text Editor
+with multiple
+lines of text
+and hence a
+scroll bar gjyrrr
+  </text_editor>
+    <text_editor
+ height="50"
+ follows="top|left|bottom"
+ font="SansSerif"
+ left_delta="0"
+ name="sansserif_text_editor"
+ tool_tip="text editor"
+ top_pad="10"
+ width="200">
+Text Editor
+with multiple
+lines of text
+and hence a
+scroll bar gjyrrr
+  </text_editor>
+
+  <text
+   height="40"
+   follows="top|left|bottom"
+   layout="topleft"
+   name="test_text_box"
+   tool_tip="text box"
+   top_pad="5"
+   width="200">
+Text box
+with
+multiple lines
+and too many lines
+to actually fit
+  </text>
+</floater>
