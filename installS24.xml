@@ -682,12 +682,18 @@
 	<!-- NETWORKING & WEB                                                 -->
 	<!-- ================================================================ -->
 
+	<!--
+		OpenSSL ships as a prebuilt tarball rather than a vcpkg port.
+
+		The 1.1.1n#1 override below only resolves against a 2020-era vcpkg
+		registry; current vcpkg no longer carries that port, so the prepare
+		step could never satisfy it. The tarball provides the same 1.1.1 series
+		(1.1.1w) that libcurl is linked against, so the ABI matches.
+	-->
 	<package>
-		<type>vcpkg</type>
+		<type>tarball</type>
 		<name>openssl</name>
-		<version>1.1.1n#1</version>
-		<triplet>x64-windows-static-extreme</triplet>
-		<args>--overlay-triplets=triplets</args>
+		<url>openssl.tar.gz</url>
 	</package>
 
 	<package>
