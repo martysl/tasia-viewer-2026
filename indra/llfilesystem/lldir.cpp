@@ -630,6 +630,38 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 	expanded_filename += mDirDelimiter;
 	expanded_filename += in_filename;
 
+	// Portable mode: if portable-data exists next to the executable,
+	// redirect user-writable directories there instead of %APPDATA%/
+	// %LOCALAPPDATA%.
+	if (location == LL_PATH_USER_SETTINGS || location == LL_PATH_LOGS ||
+		location == LL_PATH_CACHE)
+	{
+		std::string portable_dir = add(getExecutableDir(), "portable-data");
+		if (LLFile::isdir(portable_dir))
+		{
+			std::string subdir;
+			if (location == LL_PATH_USER_SETTINGS)
+			{
+				subdir = "user_settings";
+			}
+			else if (location == LL_PATH_LOGS)
+			{
+				subdir = "logs";
+			}
+			else if (location == LL_PATH_CACHE)
+			{
+				subdir = "cache";
+			}
+			std::string portable_path = add(portable_dir, subdir);
+			// Ensure the portable subdirectory exists.
+			LLFile::mkdir(portable_path);
+			std::string portable_filename = portable_path + mDirDelimiter + in_filename;
+			LL_DEBUGS("LLDir") << "Portable mode: " << ELLPathToString(location)
+							   << " => '" << portable_filename << "'" << LL_ENDL;
+			return portable_filename;
+		}
+	}
+
 	LL_DEBUGS("LLDir") << ELLPathToString(location)
 					   << ", '" << subdir1 << "', '" << subdir2 << "', '" << in_filename
 					   << "' => '" << expanded_filename << "'" << LL_ENDL;
