@@ -37,7 +37,7 @@
      min_width="0"
      expanded_min_dim="0"
      width="1">
-    </layout_panel>
+   </layout_panel>
     <layout_panel
       auto_resize="false"
      user_resize="false"
@@ -338,9 +338,13 @@
                width="220"
                height="35"
                left="40"
-               top_pad="25"
-               pad_bottom="1" />
-  </layout_panel>
+                top_pad="25"
+                pad_bottom="1" />
+              <button name="manage_grids" label="Manage Grids..." left="40" top="146"
+               width="220" height="23" follows="left|top" layout="topleft">
+                  <button.commit_callback function="Floater.Show" parameter="grid_manager" />
+              </button>
+   </layout_panel>
           </layout_stack>
         </layout_panel>
   <layout_panel

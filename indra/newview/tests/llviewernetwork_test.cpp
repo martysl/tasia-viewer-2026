@@ -30,6 +30,7 @@
 #include "../test/lltut.h"
 #include "../../llxml/llcontrol.h"
 #include "llfile.h"
+#include "llsdserialize.h"
 
 namespace
 {
@@ -185,6 +186,7 @@ namespace tut
         ~viewerNetworkTest()
         {
             LLFile::remove(TEST_FILENAME);
+            LLFile::remove(std::string(TEST_FILENAME) + ".tmp");
         }
     };
 
@@ -395,6 +397,100 @@ namespace tut
 
     }
 
+
+    template<> template<>
+    void viewerNetworkTestObject::test<3>()
+    {
+        LLGridManager* manager = LLGridManager::getInstance();
+        manager->initialize(TEST_FILENAME);
+        std::string error;
+        ensure("add explicit OpenSim URI", manager->addCustomGrid("http://localhost:8002/", "Local OpenSim", error));
+        ensure("success clears error", error.empty());
+        ensure_equals("label", manager->getGridLabel("localhost:8002"), std::string("Local OpenSim"));
+        std::vector<std::string> uris;
+        manager->getLoginURIs("localhost:8002", uris);
+        ensure_equals("one endpoint", uris.size(), size_t(1));
+        ensure_equals("no invented CGI path", uris[0], std::string("http://localhost:8002/"));
+
+        LLSD saved;
+        llifstream stream(TEST_FILENAME);
+        LLSDSerialize::fromXMLDocument(saved, stream);
+        stream.close();
+        ensure("only custom grids are saved", saved.isMap() && saved.size() == 1);
+        ensure("Agni is not serialized", !saved.has(MAINGRID));
+        manager->initialize(TEST_FILENAME);
+        ensure_equals("survives reload", manager->getGridLabel("localhost:8002"), std::string("Local OpenSim"));
+        ensure("duplicate rejected", !manager->addCustomGrid("http://LOCALHOST:8002/", "Duplicate", error));
+        manager->setGridChoice("localhost:8002");
+        ensure("selected grid protected", !manager->removeCustomGrid("localhost:8002", error));
+        manager->setGridChoice(MAINGRID);
+        ensure("remove custom grid", manager->removeCustomGrid("localhost:8002", error));
+        manager->initialize(TEST_FILENAME);
+        ensure("removal survives reload", manager->getGrid("localhost:8002").empty());
+    }
+
+    template<> template<>
+    void viewerNetworkTestObject::test<4>()
+    {
+        LLGridManager* manager = LLGridManager::getInstance();
+        manager->initialize(TEST_FILENAME);
+        const char* invalid[] = {
+            "", "example.org:8002", "ftp://example.org/", "https:///",
+            "https://user:password@example.org/", "https://example.org/?token=private",
+            "https://example.org/#fragment", "http://example.org:0/",
+            "http://example.org:65536/", "http://example.org:8002junk/",
+            "http://example.org:/", "http://example.org:123456789/",
+            "http://bad host:8002/", "http://example.org\\other/"
+        };
+        std::string error;
+        for (const char* endpoint : invalid)
+        {
+            ensure("invalid endpoint rejected", !manager->addCustomGrid(endpoint, "Invalid", error));
+            ensure("error explains rejection", !error.empty());
+        }
+        ensure("system grid cannot be replaced", !manager->addCustomGrid("https://util.agni.lindenlab.com/", "Fake SL", error));
+        ensure("Agni cannot be removed", !manager->removeCustomGrid("Agni", error));
+        ensure("Aditi cannot be removed", !manager->removeCustomGrid("Aditi", error));
+        ensure_equals("built-in list intact", manager->getKnownGrids().size(), size_t(2));
+    }
+
+    template<> template<>
+    void viewerNetworkTestObject::test<5>()
+    {
+        LLGridManager* manager = LLGridManager::getInstance();
+        // No destination forces a persistence failure without touching user data.
+        manager->initialize("");
+        std::string error;
+        ensure("save failure reported", !manager->addCustomGrid("https://example.org:8002/Login", "Example", error));
+        ensure("failed addition rolled back", manager->getGrid("example.org:8002").empty());
+
+        llofstream gridfile(TEST_FILENAME);
+        gridfile << gSampleGridFile;
+        gridfile.close();
+        manager->initialize(TEST_FILENAME);
+        ensure("unknown grid rejected", !manager->removeCustomGrid("not-a-grid", error));
+        ensure("existing custom grid preserved", !manager->getGrid("altgrid.long.name").empty());
+    }
+
+    template<> template<>
+    void viewerNetworkTestObject::test<6>()
+    {
+        LLGridManager* manager = LLGridManager::getInstance();
+        manager->initialize(TEST_FILENAME);
+        std::string error;
+        ensure("add grid before failed removal", manager->addCustomGrid("http://localhost:8002/", "Local", error));
+        // A directory at the temporary-file path forces stream creation to fail
+        // on both Windows and POSIX, without depending on permission semantics.
+        const std::string temporary = std::string(TEST_FILENAME) + ".tmp";
+        const int created = LLFile::mkdir(temporary);
+        ensure_equals("create blocking directory", created, 0);
+        const bool removed = manager->removeCustomGrid("localhost:8002", error);
+        LLFile::rmdir(temporary);
+        ensure("failed save prevents removal", !removed);
+        ensure("in-memory grid restored", !manager->getGrid("localhost:8002").empty());
+        manager->initialize(TEST_FILENAME);
+        ensure("previous disk configuration intact", !manager->getGrid("localhost:8002").empty());
+    }
 
     // validate grid selection
     template<> template<>

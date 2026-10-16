@@ -79,6 +79,7 @@ public:
     // inherited from LLViewerMediaObserver
     /*virtual*/ void handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event);
     static void updateServer();  // update the combo box, change the login page to the new server, clear the combo
+    static void refreshGridList(); // refresh entries without changing credentials or the selected grid
 
     /// to be called from LLStartUp::setStartSLURL
     static void onUpdateStartSLURL(const LLSLURL& new_start_slurl);

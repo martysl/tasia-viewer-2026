@@ -103,3 +103,62 @@ The linker still emits the upstream `/FORCE:MULTIPLE` warnings for duplicate
 libxml2/llprimitive UTF conversion symbols. The verified package starts despite
 them, but they remain technical debt and should be removed in a dedicated
 linkage cleanup rather than masked further.
+
+## Custom grid manager: data layer
+
+`LLGridManager::addCustomGrid()` accepts an explicit HTTP(S) login endpoint and
+an optional label. It preserves the endpoint path and port, uses first/last-name
+credentials, and does not invent a Second Life CGI path or splash page. Current
+URI parsing supports DNS/IPv4 hosts, not IPv6 literals. Credentials in URIs,
+queries, fragments, invalid ports and duplicate authorities are rejected.
+
+`removeCustomGrid()` protects built-in grids and the currently selected grid.
+Both operations persist only custom entries to the existing user `grids.xml`,
+using a temporary file and replacement rename. On write failure the in-memory
+change is rolled back. Agni/Aditi initialization and selection remain unchanged.
+
+Regression cases were added to `tests/llviewernetwork_test.cpp`; this branch has
+no CMake unit-test targets, so these cases have not been executed. Windows
+Release compilation of the data layer passed (`build-grid-data.log`,
+`EXITCODE=0` on Acer).
+
+`LLFloaterGridManager` adds a login-screen "Manage Grids..." button, a saved
+grid list, label/URI inputs and add/remove actions. List changes refresh the
+login selector without changing the current grid or touching credential fields.
+The selector becomes visible automatically when custom entries exist. English
+and Polish floater XML parses successfully; Windows UI compilation is pending.
+
+Next: verify the management window in the viewer, adding/removing a grid,
+persistence across restart, and actual
+OpenSim authentication. A grid list alone is not full OpenSim compatibility.
+
+## Custom grid manager: data layer + UI
+
+`LLGridManager::addCustomGrid()` accepts an explicit HTTP(S) login endpoint and
+an optional label. It preserves the endpoint path and port, uses first/last-name
+credentials, and does not invent a Second Life CGI path or splash page. Current
+URI parsing supports DNS/IPv4 hosts, not IPv6 literals. Credentials in URIs,
+queries, fragments, invalid ports and duplicate authorities are rejected.
+
+`removeCustomGrid()` protects built-in grids and the currently selected grid.
+Both operations persist only custom entries to the existing user `grids.xml`,
+using a temporary file and replacement rename. On write failure the in-memory
+change is rolled back. Agni/Aditi initialization and selection remain unchanged.
+
+`LLFloaterGridManager` adds a login-screen "Manage Grids..." button, a saved
+grid list, label/URI inputs and add/remove actions. List changes refresh the
+login selector without changing the current grid or touching credential fields.
+The selector becomes visible automatically when custom entries exist. English
+and Polish floater XML parses successfully.
+
+Regression cases were added to `tests/llviewernetwork_test.cpp`; this branch has
+no CMake unit-test targets, so these cases have not been executed. Windows
+compilation of data layer + UI passed (`EXITCODE=0` on Acer).
+
+Verified end-to-end on Acer 2026-10-16: package contains 11,146 files including
+`llplugin\media_plugin_cef.dll` and both `floater_grid_manager.xml` skins;
+viewer remained running after 120 s in the active GPU session with RTX 4050
+detected and audio initialized; startup log contains no fatal/critical errors.
+Runtime interaction with the Manage Grids window and OpenSim login itself has
+not yet been exercised — that requires an actual OpenSim grid to test against.
+A grid list alone is not full OpenSim compatibility.

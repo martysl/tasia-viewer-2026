@@ -740,6 +740,7 @@ set(viewer_SOURCE_FILES
     llviewermenufile.cpp
     llviewermessage.cpp
     llviewernetwork.cpp
+    llfloatergridmanager.cpp
     llviewerobject.cpp
     llviewerobjectlist.cpp
     llvieweroctree.cpp
@@ -1435,6 +1436,7 @@ set(viewer_HEADER_FILES
     llviewermenufile.h
     llviewermessage.h
     llviewernetwork.h
+    llfloatergridmanager.h
     llviewerobject.h
     llviewerobjectlist.h
     llvieweroctree.h
@@ -1999,4 +2001,3 @@ endif (PACKAGE)
 
 # KV S24: PowerShell-only template verification (Python removed!)
 check_message_template_modern(${VIEWER_BINARY_NAME})
-

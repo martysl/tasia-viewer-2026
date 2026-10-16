@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="grid_manager" title="MANAGE GRIDS" width="620" height="420"
+ layout="topleft" can_resize="false" can_minimize="false" help_topic="grid_manager">
+    <floater.string name="choose_grid">Add a grid, then choose it in the login screen's Grid list.</floater.string>
+    <floater.string name="added_grid">Grid saved. Select it in the login screen's Grid list.</floater.string>
+    <floater.string name="removed_grid">Grid removed from your saved list.</floater.string>
+    <text name="uri_label" left="20" top="35" width="580" height="18" layout="topleft">OpenSim login URI (HTTP or HTTPS, including port if needed)</text>
+    <line_editor name="login_uri" left="20" top="58" width="580" height="23"
+     max_length_chars="2048" label="http://grid.example.org:8002/" layout="topleft" />
+    <line_editor name="grid_label" left="20" top="91" width="450" height="23"
+     max_length_chars="128" label="Grid name (optional)" layout="topleft" />
+    <button name="add_grid" label="Add" left="480" top="91" width="120" height="23" layout="topleft" />
+    <scroll_list name="grid_list" left="20" top="128" width="580" height="180"
+     draw_heading="true" multi_select="false" layout="topleft">
+        <scroll_list.columns name="label" label="Grid name" width="185" />
+        <scroll_list.columns name="login_uri" label="Login URI" dynamic_width="true" />
+    </scroll_list>
+    <text name="status" left="20" top="320" width="580" height="45" word_wrap="true" layout="topleft" />
+    <button name="remove_grid" label="Remove selected" left="20" top="378" width="150" height="23" layout="topleft" />
+    <button name="close" label="Close" left="480" top="378" width="120" height="23" layout="topleft" />
+</floater>

@@ -33,6 +33,8 @@
 #include "llsecapi.h"
 #include "lltrans.h"
 #include "llweb.h"
+#include "lluri.h"
+#include <algorithm>
 
 
 /// key used to store the grid, and the name attribute in the grid data
@@ -243,6 +245,136 @@ void LLGridManager::initialize(const std::string& grid_file)
 
 LLGridManager::~LLGridManager()
 {
+}
+
+bool LLGridManager::addCustomGrid(const std::string& login_uri, const std::string& label, std::string& error)
+{
+    error.clear();
+    std::string endpoint = login_uri;
+    LLStringUtil::trim(endpoint);
+    const LLURI uri(endpoint);
+    const std::string scheme = uri.scheme();
+    const std::string authority = uri.authority();
+    const std::string host = uri.hostName();
+    // Never persist embedded credentials or ambiguous/query-bearing endpoints.
+    if ((scheme != "http" && scheme != "https") || host.empty() ||
+        endpoint.find("://") == std::string::npos ||
+        endpoint.find_first_of("?#\\") != std::string::npos ||
+        std::any_of(endpoint.begin(), endpoint.end(), [](unsigned char c) { return c <= 32 || c == 127; }) ||
+        authority.find('@') != std::string::npos || uri.hostPort() == 0)
+    {
+        error = "Enter an HTTP or HTTPS login URI without credentials, query or fragment.";
+        return false;
+    }
+
+    // LLURI::hostPort() uses atoi and narrows to U16, so it alone does not
+    // reject malformed or overflowing ports. This viewer's LLURI supports
+    // DNS/IPv4 authorities, not bracketed IPv6 literals.
+    if (host.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.") != std::string::npos)
+    {
+        error = "Use a DNS hostname or IPv4 address for this grid.";
+        return false;
+    }
+    const std::size_t colon = authority.find(':');
+    if (colon != std::string::npos)
+    {
+        const std::string port = authority.substr(colon + 1);
+        if (port.empty() || port.size() > 5 || port.find_first_not_of("0123456789") != std::string::npos ||
+            std::stoul(port) == 0 || std::stoul(port) > 65535)
+        {
+            error = "The login port must be a number between 1 and 65535.";
+            return false;
+        }
+    }
+
+    // The host and port identify a grid, while the exact login path is kept
+    // untouched in login_uri (OpenSim endpoints are not SL CGI endpoints).
+    const std::string key = utf8str_tolower(authority);
+    if (!getGrid(key).empty())
+    {
+        error = "This grid is already in the list.";
+        return false;
+    }
+
+    LLSD data = LLSD::emptyMap();
+    std::string display_label = label;
+    LLStringUtil::trim(display_label);
+    data[GRID_VALUE] = key;
+    data[GRID_LABEL_VALUE] = display_label.empty() ? key : display_label;
+    data[GRID_ID_VALUE] = key;
+    data[GRID_LOGIN_URI_VALUE] = LLSD::emptyArray();
+    data[GRID_LOGIN_URI_VALUE].append(endpoint);
+    data[GRID_LOGIN_PAGE_VALUE] = "about:blank";
+    data[GRID_HELPER_URI_VALUE] = "";
+    data[GRID_WEB_PROFILE_VALUE] = "";
+    data[GRID_LOGIN_IDENTIFIER_TYPES] = LLSD::emptyArray();
+    data[GRID_LOGIN_IDENTIFIER_TYPES].append(CRED_IDENTIFIER_TYPE_AGENT);
+    if (!addGrid(data))
+    {
+        error = "The grid conflicts with an existing entry.";
+        return false;
+    }
+    if (!saveCustomGrids(error))
+    {
+        mGridList.erase(key);
+        return false;
+    }
+    return true;
+}
+
+bool LLGridManager::removeCustomGrid(const std::string& grid, std::string& error)
+{
+    error.clear();
+    const std::string key = getGrid(grid);
+    if (key.empty() || isSystemGrid(key) || key == mGrid)
+    {
+        error = "Cannot remove an unknown, built-in or currently selected grid.";
+        return false;
+    }
+    const LLSD previous = mGridList[key];
+    mGridList.erase(key);
+    if (!saveCustomGrids(error))
+    {
+        mGridList[key] = previous;
+        return false;
+    }
+    return true;
+}
+
+bool LLGridManager::saveCustomGrids(std::string& error)
+{
+    if (mGridFile.empty())
+    {
+        error = "No user grid configuration file is available.";
+        return false;
+    }
+    LLSD custom_grids = LLSD::emptyMap();
+    for (LLSD::map_const_iterator it = mGridList.beginMap(); it != mGridList.endMap(); ++it)
+    {
+        if (!isSystemGrid(it->first))
+        {
+            custom_grids[it->first] = it->second;
+        }
+    }
+
+    // Replace only after a complete write; a failed save leaves the old file
+    // intact, and callers roll the in-memory change back as well.
+    const std::string temporary = mGridFile + ".tmp";
+    llofstream stream(temporary.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+    if (stream.is_open())
+    {
+        LLSDSerialize::toPrettyXML(custom_grids, stream);
+        stream.flush();
+        const bool written = stream.good();
+        stream.close();
+        if (written && !stream.fail() && LLFile::rename(temporary, mGridFile) == 0)
+        {
+            return true;
+        }
+    }
+    LLFile::remove(temporary);
+    error = "Could not save the user grid configuration.";
+    return false;
 }
 
 //

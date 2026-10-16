@@ -732,7 +732,8 @@ void LLPanelLogin::updateLocationSelectorsVisibility()
 {
     if (sInstance)
     {
-        bool show_server = gSavedSettings.getBOOL("ForceShowGrid");
+        bool show_server = gSavedSettings.getBOOL("ForceShowGrid") ||
+            LLGridManager::getInstance()->getKnownGrids().size() > 2;
         LLComboBox* server_combo = sInstance->getChild<LLComboBox>("server_combo");
         if ( server_combo )
         {
@@ -1149,6 +1150,25 @@ void LLPanelLogin::onPassKey(LLLineEditor* caller, void* user_data)
     self->updateLoginButtons();
 }
 
+
+void LLPanelLogin::refreshGridList()
+{
+    if (!sInstance)
+    {
+        return;
+    }
+    LLGridManager* manager = LLGridManager::getInstance();
+    LLComboBox* combo = sInstance->getChild<LLComboBox>("server_combo");
+    const std::string current = manager->getGrid();
+    combo->removeall();
+    for (const auto& grid : manager->getKnownGrids())
+    {
+        combo->add(grid.second, grid.first);
+    }
+    combo->sortByName();
+    combo->setSelectedByValue(current, true);
+    updateLocationSelectorsVisibility();
+}
 
 void LLPanelLogin::updateServer()
 {

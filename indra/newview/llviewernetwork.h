@@ -208,7 +208,13 @@ class LLGridManager : public LLSingleton<LLGridManager>
 	 * @returns true if the login uri for the grid is the uri for MAINGRID
 	 */
 
+	/// Manage custom grids. Changes are persisted before success is reported.
+	/// Built-in Second Life grids cannot be replaced or removed.
+	bool addCustomGrid(const std::string& login_uri, const std::string& label, std::string& error);
+	bool removeCustomGrid(const std::string& grid, std::string& error);
+
   private:
+	bool saveCustomGrids(std::string& error);
 	
 	/// Add a grid to the list of grids 
 	bool addGrid(LLSD& grid_info);

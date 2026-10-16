@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="grid_manager" title="ZARZĄDZANIE GRIDAMI">
+    <floater.string name="choose_grid">Dodaj grid, a następnie wybierz go z listy na ekranie logowania.</floater.string>
+    <floater.string name="added_grid">Grid zapisany. Wybierz go z listy na ekranie logowania.</floater.string>
+    <floater.string name="removed_grid">Grid usunięty z zapisanej listy.</floater.string>
+    <text name="uri_label">URI logowania OpenSim (HTTP lub HTTPS, z portem, jeśli wymagany)</text>
+    <line_editor name="grid_label" label="Nazwa gridu (opcjonalnie)" />
+    <button name="add_grid" label="Dodaj" />
+    <scroll_list name="grid_list">
+        <scroll_list.columns name="label" label="Nazwa gridu" />
+        <scroll_list.columns name="login_uri" label="URI logowania" />
+    </scroll_list>
+    <button name="remove_grid" label="Usuń zaznaczony" />
+    <button name="close" label="Zamknij" />
+</floater>
