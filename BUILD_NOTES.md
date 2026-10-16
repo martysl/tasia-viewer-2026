@@ -81,3 +81,25 @@ them on Windows.
 cmake -S F:\tasia-kirsten\indra -B F:\tasia-kirsten\build -G "Visual Studio 17 2022" -A x64
 cmake --build F:\tasia-kirsten\build --config Release --target Kirstens-S24 -- /m:8 /v:minimal
 ```
+
+## Runtime verification (Acer, 2026-10-16)
+
+The Release package was tested from `F:\tasia-kirsten\indra\S24-Packaged`
+in the active Windows desktop session, not over SSH (an SSH session has no
+usable DX11 swapchain). The tested package contained 11,144 files and includes
+`llplugin\media_plugin_cef.dll`.
+
+After 120 seconds the viewer remained running on the NVIDIA GeForce RTX 4050
+Laptop GPU, with the startup log confirming both the rendering adapter and
+audio-engine initialization. The initial failure was a stack overflow in
+MSVC's `std::regex` engine while assembling HLSL. `DXShader::resolveIncludes()`
+and texture-index guard detection now use line parsers instead.
+
+`Kirstens-S24` explicitly depends on `media_plugin_cef`; without that
+dependency, building only the viewer executable omitted the CEF plugin and the
+login splash could not load HTML content.
+
+The linker still emits the upstream `/FORCE:MULTIPLE` warnings for duplicate
+libxml2/llprimitive UTF conversion symbols. The verified package starts despite
+them, but they remain technical debt and should be removed in a dedicated
+linkage cleanup rather than masked further.
