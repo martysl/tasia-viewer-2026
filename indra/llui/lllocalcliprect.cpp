@@ -92,7 +92,7 @@ void LLScreenClipRect::updateScissorRegion()
     gDXUIBatch.flushPending();
 #else
     // finish any deferred calls in the old clipping region
-    gGL.flush();
+    gDX.flush();
 #endif
 
     LLRect rect = sClipRectStack.top();

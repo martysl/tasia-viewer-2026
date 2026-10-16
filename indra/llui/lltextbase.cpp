@@ -496,7 +496,7 @@ void LLTextBase::drawHighlightsBackground(const highlight_list_t& highlights, co
         }
 
         // Draw the selection box (we're using a box instead of reversing the colors on the selected text).
-        gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+        gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
         F32 alpha = hasFocus() ? 0.7f : 0.3f;
         alpha *= getDrawContext().mAlpha;
         LLColor4 selection_color(color.mV[VRED], color.mV[VGREEN], color.mV[VBLUE], alpha);
@@ -666,7 +666,7 @@ void LLTextBase::drawSelectionBackground()
         std::vector<LLRect> selection_rects = getSelectionRects();
 
         // Draw the selection box (we're using a box instead of reversing the colors on the selected text).
-        gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+        gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
         const LLColor4& color = mSelectedBGColor;
         F32 alpha = hasFocus() ? 0.7f : 0.3f;
         alpha *= getDrawContext().mAlpha;
@@ -735,7 +735,7 @@ void LLTextBase::drawHighlightedBackground()
         if (highlight_rects.empty())
             return;
 
-        gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+        gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
         LLRect content_display_rect = getVisibleDocumentRect();
 
@@ -837,10 +837,10 @@ void LLTextBase::drawCursor()
                 cursor_rect.mRight = cursor_rect.mLeft + CURSOR_THICKNESS;
             }
 
-            gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+            gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
             LLColor4 cursor_color = mCursorColor.get() % alpha;
-            gGL.color4fv( cursor_color.mV );
+            gDX.color4fv( cursor_color.mV );
 
             gl_rect_2d(cursor_rect);
 
@@ -1077,7 +1077,7 @@ void LLTextBase::drawText()
 
                 S32 squiggle_bottom = (S32)text_rect.mBottom + (S32)cur_segment->getStyle()->getFont()->getDescenderHeight();
 
-                gGL.color4ub(255, 0, 0, 200);
+                gDX.color4ub(255, 0, 0, 200);
                 while (squiggle_start + 1 < squiggle_end)
                 {
                     gl_line_2d(squiggle_start, squiggle_bottom, squiggle_start + 2, squiggle_bottom - 2);
