@@ -162,3 +162,23 @@ detected and audio initialized; startup log contains no fatal/critical errors.
 Runtime interaction with the Manage Grids window and OpenSim login itself has
 not yet been exercised — that requires an actual OpenSim grid to test against.
 A grid list alone is not full OpenSim compatibility.
+
+## QUIC (MsQuic) - OpenSim grid transport
+
+Added `indra/llquic/` module (api, registration, configuration, stream,
+connection, global) wrapping Microsoft MsQuic v2.4.10 for QUIC client
+connections to OpenSim simulators.
+
+- `indra/cmake/MsQuic.cmake`: downloads Microsoft-signed msquic.dll
+  prebuilt from GitHub releases (v2.4.10). The signed DLL avoids Windows
+  Defender false positives on unsigned DLLs, and ships with its own
+  quictls/OpenSSL isolated from the viewer's libcurl OpenSSL.
+- `indra/CMakeLists.txt`: `add_subdirectory(llquic)` guarded by WIN32.
+- `indra/newview/CMakeLists.txt`: links `Kirstens-S24` to `llquic` and
+  copies `msquic.dll` next to the viewer EXE after build (imported
+  targets don't support POST_BUILD).
+
+Build verified: `EXITCODE=0` on Acer VS2022/v143, `msquic.dll` (2.6 MB)
+copied to `build/newview/Release/`. OpenSim login over QUIC itself
+requires an actual OpenSim grid to test against; the library compiles,
+links, and the viewer starts with it present.
