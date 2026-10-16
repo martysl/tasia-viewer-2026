@@ -182,3 +182,10 @@ Build verified: `EXITCODE=0` on Acer VS2022/v143, `msquic.dll` (2.6 MB)
 copied to `build/newview/Release/`. OpenSim login over QUIC itself
 requires an actual OpenSim grid to test against; the library compiles,
 links, and the viewer starts with it present.
+
+## QUIC runtime packaging
+
+`Invoke-Package.ps1` Stage 4 now copies `msquic.dll` from the build output
+into `S24-Packaged\` alongside the viewer EXE, so the QUIC library loads at
+runtime. Without this, the packaged viewer would start but QUIC connections
+to OpenSim grids would fail with a missing DLL.

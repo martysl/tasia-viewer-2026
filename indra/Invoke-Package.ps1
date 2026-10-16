@@ -228,7 +228,8 @@ $configPath = $Configuration.ToLower()
 $binaryCopies = @(
     @{ Src = (Join-Path $BuildDir "newview\$configPath\Kirstens-S24.exe"); Dest = 'S24-Packaged'; Name = 'Viewer executable' },
     @{ Src = (Join-Path $BuildDir "llplugin\slplugin\$configPath\SLPlugin.exe"); Dest = 'S24-Packaged'; Name = 'Plugin host' },
-    @{ Src = (Join-Path $BuildDir "llwebrtc\$configPath\llwebrtc.dll"); Dest = 'S24-Packaged'; Name = 'WebRTC library' }
+    @{ Src = (Join-Path $BuildDir "llwebrtc\$configPath\llwebrtc.dll"); Dest = 'S24-Packaged'; Name = 'WebRTC library' },
+    @{ Src = (Join-Path $BuildDir "newview\$configPath\msquic.dll");   Dest = 'S24-Packaged'; Name = 'MsQuic QUIC library' }
 )
 
 for ($i = 0; $i -lt $binaryCopies.Count; $i++) {
