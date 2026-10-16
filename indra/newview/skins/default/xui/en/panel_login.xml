@@ -290,7 +290,20 @@
              name="login_panel"
              background_visible="false"
              height="172"
-             width="300">
+             width="300"
+             auto_resize="true">
+   <text
+     follows="left|top"
+     font="SansSerifMedium"
+     text_color="EmphasisColor"
+                height="15"
+     name="forgot_password_text"
+            left="60"
+            top_pad="6"
+            width="180"
+     halign="center">
+            Need help logging in?
+   </text>
               <button
                follows="left|top"
                image_unselected="PushButton_Login"
@@ -310,18 +323,6 @@
                left="40"
                top="25"
                pad_bottom="1" />
-  <text
-    follows="left|top"
-    font="SansSerifMedium"
-    text_color="EmphasisColor"
-               height="15"
-    name="forgot_password_text"
-               left="60"
-               top_pad="9"
-               width="180"
-    halign="center">
-               Need help logging in?
-  </text>
               <button
                follows="left|top"
                image_unselected="PushButton_Sign"
