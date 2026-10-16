@@ -60,6 +60,13 @@ endif()
 add_subdirectory(${VIEWER_PREFIX}newview)
 add_dependencies(viewer Kirstens-S24)
 
+# The packaged login/splash page uses the CEF media plugin. Building only the
+# viewer executable previously left media_plugin_cef.dll absent, producing a
+# working login window with no HTML content at runtime.
+if(ENABLE_MEDIA_PLUGINS)
+    add_dependencies(Kirstens-S24 media_plugin_cef)
+endif()
+
 add_custom_command(
     COMMENT "Obtaining prebuilt binaries..."
     OUTPUT ${CMAKE_BINARY_DIR}/prepare/prebuilt
@@ -70,4 +77,3 @@ add_custom_command(
 
 set(LLCONVEXDECOMPOSITION_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/${LIBS_OPEN_PREFIX}llconvexdecomposition)
 set(LLCONVEXDECOMPOSITION_LIBRARIES llconvexdecomposition)
-
