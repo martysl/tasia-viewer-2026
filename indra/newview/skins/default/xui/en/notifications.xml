@@ -1470,7 +1470,25 @@ You need to enter either the Username or both the First and Last name of your av
    <tag>fail</tag>
 Your start location did not specify a valid grid.
   </notification>
-  
+
+  <notification
+   icon="alertmodal.tga"
+   name="TasiaFeedUploadComplete"
+   type="alertmodal">
+   <tag>success</tag>
+   Snapshot uploaded to TasiaFeed!
+   [URL]
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="TasiaFeedUploadFailed"
+   type="alertmodal">
+   <tag>fail</tag>
+   Snapshot upload to TasiaFeed failed.
+   [MESSAGE]
+  </notification>
+
   <notification
    icon="alertmodal.tga"
    name="DeleteClassified"

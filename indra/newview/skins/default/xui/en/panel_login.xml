@@ -25,36 +25,6 @@
    border_size="0"
    animate="false"
    top="0"
-   left="0"
-   height="768"
-  width="1024">
-    <layout_panel
-      auto_resize="true"
-     user_resize="false"
-     layout="topleft"
-     name="left_spacer"
-     background_visible="false"
-     min_width="0"
-     expanded_min_dim="0"
-     width="1">
-   </layout_panel>
-    <layout_panel
-      auto_resize="false"
-     user_resize="false"
-     layout="topleft"
-     name="center_stage"
-     background_visible="true"
-     bg_opaque_color="DkGrayLogin"
-     background_opaque="true"
-     width="1008"
-     height="768">
-      <layout_stack
-       follows="all"
-       layout="topleft"
-       orientation="horizontal"
-       name="ui_stack"
-       border_size="0"
-       animate="false"
       top="0"
        left="0"
        height="768"
@@ -290,20 +260,7 @@
              name="login_panel"
              background_visible="false"
              height="172"
-             width="300"
-             auto_resize="true">
-   <text
-     follows="left|top"
-     font="SansSerifMedium"
-     text_color="EmphasisColor"
-                height="15"
-     name="forgot_password_text"
-            left="60"
-            top_pad="6"
-            width="180"
-     halign="center">
-            Need help logging in?
-   </text>
+             width="300">
               <button
                follows="left|top"
                image_unselected="PushButton_Login"
@@ -323,6 +280,18 @@
                left="40"
                top="25"
                pad_bottom="1" />
+  <text
+    follows="left|top"
+    font="SansSerifMedium"
+    text_color="EmphasisColor"
+               height="15"
+    name="forgot_password_text"
+               left="60"
+               top_pad="9"
+               width="180"
+    halign="center">
+               Need help logging in?
+  </text>
               <button
                follows="left|top"
                image_unselected="PushButton_Sign"
@@ -339,13 +308,9 @@
                width="220"
                height="35"
                left="40"
-                top_pad="25"
-                pad_bottom="1" />
-              <button name="manage_grids" label="Manage Grids..." left="40" top="146"
-               width="220" height="23" follows="left|top" layout="topleft">
-                  <button.commit_callback function="Floater.Show" parameter="grid_manager" />
-              </button>
-   </layout_panel>
+               top_pad="25"
+               pad_bottom="1" />
+  </layout_panel>
           </layout_stack>
         </layout_panel>
   <layout_panel

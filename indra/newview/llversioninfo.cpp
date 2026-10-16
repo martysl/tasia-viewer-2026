@@ -171,6 +171,12 @@ std::string LLVersionInfo::getBuildConfig() const
     return build_configuration;
 }
 
+// TasiaFeed: return short git hash of HEAD commit
+std::string LLVersionInfo::getGitHash()
+{
+    return LL_VIEWER_VERSION_GITHASH;
+}
+
 std::string LLVersionInfo::getReleaseNotes() const
 {
     return mReleaseNotes;

@@ -348,6 +348,7 @@ set(viewer_SOURCE_FILES
     llfloatersidepanelcontainer.cpp
     llfloaterslapptest.cpp
     llfloatersnapshot.cpp
+    llfloatertasiafeed.cpp
     llfloaterspellchecksettings.cpp
     llfloatertelehub.cpp
     llfloatertestinspectors.cpp
@@ -760,6 +761,7 @@ set(viewer_SOURCE_FILES
     llviewertexture.cpp
     llviewertextureanim.cpp
     llviewertexturelist.cpp
+    tasiafeedconnect.cpp
     llviewerthrottle.cpp
     llviewerwearable.cpp
     llviewerwindow.cpp
@@ -1056,6 +1058,7 @@ set(viewer_HEADER_FILES
     llfloatersidepanelcontainer.h
     llfloaterslapptest.h
     llfloatersnapshot.h
+    llfloatertasiafeed.h
     llfloaterspellchecksettings.h
     llfloatertelehub.h
     llfloatertestinspectors.h
@@ -1457,6 +1460,7 @@ set(viewer_HEADER_FILES
     llviewertexture.h
     llviewertextureanim.h
     llviewertexturelist.h
+    tasiafeedconnect.h
     llviewerthrottle.h
     llviewerwearable.h
     llviewerwindow.h

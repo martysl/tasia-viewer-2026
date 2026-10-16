@@ -10,9 +10,6 @@
 			</combo_box>
 			<button label="Zaloguj" name="connect_btn" />
 			<check_box label="Pamiętaj mnie" name="remember_check" />
-			<text name="forgot_password_text">
-				Zapomniałem/am hasła
-			</text>
 			<combo_box label="Wybierz siatkę" name="server_combo" />
 		</layout_panel>
 	</layout_stack>

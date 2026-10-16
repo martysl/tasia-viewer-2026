@@ -27,12 +27,30 @@ if (NOT DEFINED VIEWER_SHORT_VERSION) # will be true in indra/, false in indra/n
       set(VIEWER_VERSION_REVISION 0)
     endif ("${VIEWER_VERSION_REVISION}" STREQUAL "")
 
+    # Get short git hash for viewer version identification
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR} git rev-parse --short HEAD
+        OUTPUT_VARIABLE VIEWER_VERSION_GITHASH
+        ERROR_VARIABLE _git_error
+        RESULT_VARIABLE _git_result
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_STRIP_TRAILING_WHITESPACE
+    )
+    if (_git_result EQUAL 0 AND NOT VIEWER_VERSION_GITHASH STREQUAL "")
+        set(VIEWER_VERSION_GITHASH_DEFINES "LL_VIEWER_VERSION_GITHASH=\"${VIEWER_VERSION_GITHASH}\"")
+        message(STATUS "Git hash: ${VIEWER_VERSION_GITHASH}")
+    else()
+        set(VIEWER_VERSION_GITHASH_DEFINES "LL_VIEWER_VERSION_GITHASH=\"unknown\"")
+        message(STATUS "Could not get git hash, using 'unknown'")
+    endif()
+
     set(VIEWER_CHANNEL_VERSION_DEFINES
         "LL_VIEWER_CHANNEL=\"${VIEWER_CHANNEL}\""
         "LL_VIEWER_VERSION_MAJOR=${VIEWER_VERSION_MAJOR}"
         "LL_VIEWER_VERSION_MINOR=${VIEWER_VERSION_MINOR}"
         "LL_VIEWER_VERSION_PATCH=${VIEWER_VERSION_PATCH}"
         "LL_VIEWER_VERSION_BUILD=${VIEWER_VERSION_REVISION}"
+        "LL_VIEWER_VERSION_GITHASH=\"${VIEWER_VERSION_GITHASH}\""
         "LLBUILD_CONFIG=\"${CMAKE_BUILD_TYPE}\""
         )
 endif (NOT DEFINED VIEWER_SHORT_VERSION)
