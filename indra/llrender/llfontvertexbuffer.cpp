@@ -31,7 +31,14 @@
 #include "llvertexbuffer.h"
 
 
+// LLRender's legacy display-list capture is not a DX11 UI batch.  Route text
+// directly to LLFontDX/DXUIBatch instead; this preserves the Firestorm UI
+// while avoiding the incompatible immediate-mode vertex-cache path.
+#ifdef DX_RENDER
+bool LLFontVertexBuffer::sEnableBufferCollection = false;
+#else
 bool LLFontVertexBuffer::sEnableBufferCollection = true;
+#endif
 
 LLFontVertexBuffer::LLFontVertexBuffer()
 {
@@ -236,4 +243,3 @@ void LLFontVertexBuffer::renderBuffers()
     }
     gDX.popUIMatrix();
 }
-
