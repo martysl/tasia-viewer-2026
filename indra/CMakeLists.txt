@@ -43,6 +43,12 @@ add_subdirectory(${LIBS_OPEN_PREFIX}llconvexdecomposition)
 add_subdirectory(${LIBS_OPEN_PREFIX}llprimitive)
 add_subdirectory(${LIBS_OPEN_PREFIX}llrender)
 add_subdirectory(dxrender)
+
+# QUIC (MsQuic) support for OpenSim grids - Windows only via pre-built
+# Microsoft-signed DLL (avoids Windows Defender false positives on unsigned DLLs).
+if(WIN32)
+    add_subdirectory(llquic)
+endif()
 add_subdirectory(${LIBS_OPEN_PREFIX}llfilesystem)
 add_subdirectory(${LIBS_OPEN_PREFIX}llwebrtc)
 add_subdirectory(${LIBS_OPEN_PREFIX}llwindow)

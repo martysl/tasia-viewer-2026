@@ -1853,6 +1853,18 @@ if(WINDOWS)
 	# S24 no crash logger
 	)
 
+	# QUIC: copy the Microsoft-signed msquic.dll next to the viewer EXE so it
+	# loads at runtime (cannot use POST_BUILD on an imported target, so hook
+	# the viewer target instead).
+	if(WIN32 AND EXISTS "${CMAKE_BINARY_DIR}/msquic-prebuilt/bin/msquic.dll")
+		add_custom_command(
+			TARGET ${VIEWER_BINARY_NAME} POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different
+				"${CMAKE_BINARY_DIR}/msquic-prebuilt/bin/msquic.dll"
+				"$<TARGET_FILE_DIR:${VIEWER_BINARY_NAME}>"
+			COMMENT "Copying msquic.dll to output directory")
+	endif(WIN32 AND EXISTS "${CMAKE_BINARY_DIR}/msquic-prebuilt/bin/msquic.dll")
+
     # sets the 'working directory' for visual studio.
     if(NOT UNATTENDED)
         set(WORKING_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -1932,6 +1944,10 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${LLMATH_LIBRARIES}
     ${LLCONVEXDECOMPOSITION_LIBRARIES}   # <-- added
     ${LLCOREHTTP_LIBRARIES}
+
+    # QUIC (MsQuic) for OpenSim grid transport - links the llquic wrapper
+    # library, which transitively links fs::msquic (pre-built DLL on Windows).
+    llquic
     ${LLCOMMON_LIBRARIES}
     ${NDOF_LIBRARY}
     ${NVAPI_LIBRARY}
