@@ -2148,6 +2148,14 @@ LLViewerWindow::LLViewerWindow(const Params& p)
     LLVertexBuffer::initClass(mWindow);
     LL_INFOS("RenderInit") << "LLVertexBuffer initialization done." << LL_ENDL ;
 #ifdef DX_RENDER
+    // Existing Firestorm controls still contain gGL immediate-mode calls;
+    // under DX_RENDER LLRender routes those safely through the DX backend.
+    // Keep gGL's shared buffer alive alongside the native gDX UI context.
+    if (!gGL.init(true))
+    {
+        LLError::LLUserWarningMsg::show(LLTrans::getString("MBVideoDrvErr"));
+        LL_ERRS() << "gGL not initialized" << LL_ENDL;
+    }
     if (!gDX.init(true))
     {
         LLError::LLUserWarningMsg::show(LLTrans::getString("MBVideoDrvErr"));
