@@ -60,7 +60,7 @@ if (-not (Test-Path $appSettingsDir)) {
 }
 
 # Copy message template
-$msgTemplate = Join-Path $scriptsDir "messages" "message_template.msg"
+$msgTemplate = Join-Path (Join-Path $scriptsDir "messages") "message_template.msg"
 if (Test-Path $msgTemplate) {
     Copy-Item $msgTemplate (Join-Path $appSettingsDir "message_template.msg") -Force
     Write-Host "  ✓ message_template.msg" -ForegroundColor Green
