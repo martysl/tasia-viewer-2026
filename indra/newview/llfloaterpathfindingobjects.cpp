@@ -42,7 +42,7 @@
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llfloater.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llnotifications.h"
 #include "llnotificationsutil.h"
 #include "llpathfindingmanager.h"
@@ -390,7 +390,7 @@ void LLFloaterPathfindingObjects::buildObjectsScrollList(const LLPathfindingObje
 void LLFloaterPathfindingObjects::addObjectToScrollList(const LLPathfindingObjectPtr pObjectPtr, const LLSD &pScrollListItemData)
 {
     LLScrollListCell::Params cellParams;
-    cellParams.font = LLFontGL::getFontSansSerif();
+    cellParams.font = LLFontDX::getFontSansSerif();
 
     LLScrollListItem::Params rowParams;
     rowParams.value = pObjectPtr->getUUID().asString();

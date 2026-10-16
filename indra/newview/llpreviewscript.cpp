@@ -1904,7 +1904,7 @@ LLUUID LLScriptEdCore::getAssociatedExperience()const
 
 void LLScriptEdCore::onFontChanged()
 {
-    LLFontGL* font = LLFontGL::getFont(LLFontDescriptor(gSavedSettings.getString("FSScriptingFontName"), gSavedSettings.getString("FSScriptingFontSize"), LLFontGL::NORMAL));
+    LLFontDX* font = LLFontDX::getFont(LLFontDescriptor(gSavedSettings.getString("FSScriptingFontName"), gSavedSettings.getString("FSScriptingFontSize"), LLFontDX::NORMAL));
     if (font)
     {
         mEditor->setFont(font);

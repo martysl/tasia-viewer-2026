@@ -33,7 +33,7 @@
 
 #include "indra_constants.h"        // for key and mask constants
 #include "llfloaterreg.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llmd5.h"
 #include "v4color.h"
 

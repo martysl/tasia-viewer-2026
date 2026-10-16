@@ -137,6 +137,7 @@ public:
     F32 getAscenderHeight() const;
     F32 getDescenderHeight() const;
     S32 getLineHeight() const;
+    bool isLoaded() const { return mFontFreetype.notNull(); }
 
     S32 getWidth(const std::string& utf8text) const;
     S32 getWidth(const llwchar* wchars) const;
@@ -198,10 +199,10 @@ public:
 
     static void setFontDisplay(bool flag) { sDisplayFont = flag; }
 
-    static LLFontDX* getFontEmojiSmall();
-    static LLFontDX* getFontEmojiMedium();
-    static LLFontDX* getFontEmojiLarge();
-    static LLFontDX* getFontEmojiHuge();
+    static LLFontDX* getFontEmojiSmall(bool useBW = false);
+    static LLFontDX* getFontEmojiMedium(bool useBW = false);
+    static LLFontDX* getFontEmojiLarge(bool useBW = false);
+    static LLFontDX* getFontEmojiHuge(bool useBW = false);
     static LLFontDX* getFontMonospace();
     static LLFontDX* getFontSansSerifSmall();
     static LLFontDX* getFontSansSerifSmallBold();

@@ -34,7 +34,7 @@
 
 #include "lluictrl.h"
 #include "llctrlselectioninterface.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llui.h"
 #include "llstring.h"   // LLWString
 #include "lleditmenuhandler.h"

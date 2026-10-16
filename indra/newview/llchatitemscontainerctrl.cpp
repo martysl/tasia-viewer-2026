@@ -166,14 +166,14 @@ void LLFloaterIMNearbyChatToastPanel::addMessage(LLSD& notification)
 
     S32 font_size = notification["font_size"].asInteger();
 
-    LLFontGL*       messageFont;
+    LLFontDX*       messageFont;
     switch(font_size)
     {
-        case 0: messageFont = LLFontGL::getFontSansSerifSmall(); break;
+        case 0: messageFont = LLFontDX::getFontSansSerifSmall(); break;
         default:
-        case 1: messageFont = LLFontGL::getFontSansSerif();     break;
-        case 2: messageFont = LLFontGL::getFontSansSerifBig();  break;
-        case 3: messageFont = LLFontGL::getFontSansSerifHuge(); break;
+        case 1: messageFont = LLFontDX::getFontSansSerif();     break;
+        case 2: messageFont = LLFontDX::getFontSansSerifBig();  break;
+        case 3: messageFont = LLFontDX::getFontSansSerifHuge(); break;
     }
 
     //append text
@@ -181,8 +181,8 @@ void LLFloaterIMNearbyChatToastPanel::addMessage(LLSD& notification)
         LLStyle::Params style_params;
         style_params.color(textColor);
         style_params.alpha(textAlpha);
-        std::string font_name = LLFontGL::nameFromFont(messageFont);
-        std::string font_style_size = LLFontGL::sizeFromFont(messageFont);
+        std::string font_name = LLFontDX::nameFromFont(messageFont);
+        std::string font_style_size = LLFontDX::sizeFromFont(messageFont);
         style_params.font.name(font_name);
         style_params.font.size(font_style_size);
 
@@ -230,14 +230,14 @@ void LLFloaterIMNearbyChatToastPanel::init(LLSD& notification)
 
     S32 font_size = notification["font_size"].asInteger();
 
-    LLFontGL*       messageFont;
+    LLFontDX*       messageFont;
     switch(font_size)
     {
-        case 0: messageFont = LLFontGL::getFontSansSerifSmall(); break;
+        case 0: messageFont = LLFontDX::getFontSansSerifSmall(); break;
         default:
-        case 1: messageFont = LLFontGL::getFontSansSerif();     break;
-        case 2: messageFont = LLFontGL::getFontSansSerifBig();  break;
-        case 3: messageFont = LLFontGL::getFontSansSerifHuge(); break;
+        case 1: messageFont = LLFontDX::getFontSansSerif();     break;
+        case 2: messageFont = LLFontDX::getFontSansSerifBig();  break;
+        case 3: messageFont = LLFontDX::getFontSansSerifHuge(); break;
     }
 
     mMsgText = getChild<LLChatMsgBox>("msg_text", false);
@@ -259,8 +259,8 @@ void LLFloaterIMNearbyChatToastPanel::init(LLSD& notification)
         {
             LLStyle::Params style_params_name;
             style_params_name.color = LLUIColorTable::instance().getColor("HTMLLinkColor");
-            style_params_name.font.name = LLFontGL::nameFromFont(messageFont);
-            style_params_name.font.size = LLFontGL::sizeFromFont(messageFont);
+            style_params_name.font.name = LLFontDX::nameFromFont(messageFont);
+            style_params_name.font.size = LLFontDX::sizeFromFont(messageFont);
 
 //          style_params_name.link_href = notification["sender_slurl"].asString();
 //          style_params_name.is_link = true;
@@ -313,8 +313,8 @@ void LLFloaterIMNearbyChatToastPanel::init(LLSD& notification)
         LLStyle::Params style_params;
         style_params.color(textColor);
         style_params.alpha(textAlpha);
-        std::string font_name = LLFontGL::nameFromFont(messageFont);
-        std::string font_style_size = LLFontGL::sizeFromFont(messageFont);
+        std::string font_name = LLFontDX::nameFromFont(messageFont);
+        std::string font_style_size = LLFontDX::sizeFromFont(messageFont);
         style_params.font.name(font_name);
         style_params.font.size(font_style_size);
 

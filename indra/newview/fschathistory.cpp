@@ -1242,7 +1242,7 @@ protected:
 // [/RLVa:KB]
 
     S32                 mMinUserNameWidth;
-    const LLFontGL*     mUserNameFont;
+    const LLFontDX*     mUserNameFont;
     LLTextBox*          mUserNameTextBox;
     LLTextBox*          mTimeBoxTextBox;
     LLLayoutStack*      mHeaderLayoutStack;
@@ -1273,7 +1273,7 @@ FSChatHistory::FSChatHistory(const FSChatHistory::Params& p)
     mUnreadChatSources(0)
 {
     mLineSpacingPixels = llclamp(gSavedSettings.getS32("FSFontChatLineSpacingPixels"), 0, 36);
-    mTextVAlign = LLFontGL::VAlign::VCENTER;
+    mTextVAlign = LLFontDX::VAlign::VCENTER;
     mUseColor = true;
 
     setIsObjectBlockedCallback(boost::bind(&LLMuteList::isMuted, LLMuteList::getInstance(), _1, _2, 0));
@@ -1459,9 +1459,9 @@ void FSChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
     LLUIColor txt_color = LLUIColorTable::instance().getColor("White");
     LLUIColor name_color = LLUIColorTable::instance().getColor("ChatNameColor");
     LLViewerChat::getChatColor(chat, txt_color, alpha, LLSD().with("is_local", is_local));
-    LLFontGL* fontp = LLViewerChat::getChatFont();
-    std::string font_name = LLFontGL::nameFromFont(fontp);
-    std::string font_size = LLFontGL::sizeFromFont(fontp);
+    LLFontDX* fontp = LLViewerChat::getChatFont();
+    std::string font_name = LLFontDX::nameFromFont(fontp);
+    std::string font_size = LLFontDX::sizeFromFont(fontp);
 
     LLStyle::Params body_message_params;
     body_message_params.color(txt_color);

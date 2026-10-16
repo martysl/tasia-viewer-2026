@@ -1930,8 +1930,8 @@ void render_ui_2d()
         int pos_y = sub_region / llceil(zoom_factor);
         int pos_x = sub_region - (pos_y*llceil(zoom_factor));
         // offset for this tile
-        LLFontGL::sCurOrigin.mX -= ll_round((F32)gViewerWindow->getWindowWidthScaled() * (F32)pos_x / zoom_factor);
-        LLFontGL::sCurOrigin.mY -= ll_round((F32)gViewerWindow->getWindowHeightScaled() * (F32)pos_y / zoom_factor);
+        LLFontDX::sCurOrigin.mX -= ll_round((F32)gViewerWindow->getWindowWidthScaled() * (F32)pos_x / zoom_factor);
+        LLFontDX::sCurOrigin.mY -= ll_round((F32)gViewerWindow->getWindowHeightScaled() * (F32)pos_y / zoom_factor);
     }
 
     stop_glerror();
@@ -2024,7 +2024,7 @@ void render_ui_2d()
     }
 
     // reset current origin for font rendering, in case of tiling render
-    LLFontGL::sCurOrigin.set(0, 0);
+    LLFontDX::sCurOrigin.set(0, 0);
 }
 
 void render_disconnected_background()

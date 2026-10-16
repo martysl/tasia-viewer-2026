@@ -622,7 +622,7 @@ void LLPanelGroupSubTab::buildActionCategory(LLScrollListCtrl* ctrl,
 
         LLScrollListText* name_textp = dynamic_cast<LLScrollListText*>(title_row->getColumn(2)); //?? I have no idea fix getColumn(1) return column spacer...
         if (name_textp)
-            name_textp->setFontStyle(LLFontGL::BOLD);
+            name_textp->setFontStyle(LLFontDX::BOLD);
 
         bool category_matches_filter = (filter) ? matchesActionSearchFilter(action_set->mActionSetData->mName) : true;
 

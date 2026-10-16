@@ -173,7 +173,7 @@ void LLThumbnailCtrl::draw()
         && !mTexturep->isFullyLoaded())
     {
         U32 v_offset = 25;
-        LLFontGL* font = LLFontGL::getFontSansSerif();
+        LLFontDX* font = LLFontDX::getFontSansSerif();
 
         // Don't show as loaded if the texture is almost fully loaded (i.e. discard1) unless god
         if ((mTexturep->getDiscardLevel() > 1) || gAgent.isGodlike())
@@ -184,9 +184,9 @@ void LLThumbnailCtrl::draw()
                 (draw_rect.mLeft+3),
                 (draw_rect.mTop-v_offset),
                 LLColor4::white,
-                LLFontGL::LEFT,
-                LLFontGL::BASELINE,
-                LLFontGL::DROP_SHADOW);
+                LLFontDX::LEFT,
+                LLFontDX::BASELINE,
+                LLFontDX::DROP_SHADOW);
         }
     }
 

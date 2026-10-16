@@ -363,9 +363,9 @@ void LLSidepanelItemInfo::refreshFromItem(LLViewerInventoryItem* item)
     style_params.color = link_color;
     style_params.readonly_color = link_color;
     style_params.is_link = true; // link will be added later
-    const LLFontGL* fontp = mLabelCreatorName->getFont();
-    style_params.font.name = LLFontGL::nameFromFont(fontp);
-    style_params.font.size = LLFontGL::sizeFromFont(fontp);
+    const LLFontDX* fontp = mLabelCreatorName->getFont();
+    style_params.font.name = LLFontDX::nameFromFont(fontp);
+    style_params.font.size = LLFontDX::sizeFromFont(fontp);
     style_params.font.style = "UNDERLINE";
 
     //////////////////

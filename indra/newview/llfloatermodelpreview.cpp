@@ -623,13 +623,13 @@ void add_row_to_list(LLScrollListCtrl *listp,
 
     cell_params.column = "model_name";
     cell_params.value = name;
-    cell_params.font_halign = LLFontGL::LEFT; // <FS:Beq> Fix ugly alignment
+    cell_params.font_halign = LLFontDX::LEFT; // <FS:Beq> Fix ugly alignment
 
     item_params.columns.add(cell_params);
 
     cell_params.column = "axis_x";
     cell_params.value = vx;
-    cell_params.font_halign = LLFontGL::RIGHT; // <FS:Beq> Fix ugly alignment
+    cell_params.font_halign = LLFontDX::RIGHT; // <FS:Beq> Fix ugly alignment
     item_params.columns.add(cell_params);
 
     cell_params.column = "axis_y";
@@ -655,9 +655,9 @@ void populate_list_with_overrides(LLScrollListCtrl *listp, const LLJointOverride
 
     S32 count = 0;
     LLScrollListCell::Params cell_params;
-    cell_params.font = LLFontGL::getFontSansSerif();
+    cell_params.font = LLFontDX::getFontSansSerif();
     // Start out right justifying numeric displays
-    cell_params.font_halign = LLFontGL::HCENTER;
+    cell_params.font_halign = LLFontDX::HCENTER;
 
     std::map<std::string, LLVector3>::const_iterator map_iter = data.mPosOverrides.begin();
     std::map<std::string, LLVector3>::const_iterator map_end = data.mPosOverrides.end();
@@ -1771,7 +1771,7 @@ void LLFloaterModelPreview::updateAvatarTab(bool highlight_overrides)
             item_params.value(listName);
 
             LLScrollListCell::Params cell_params;
-            cell_params.font = LLFontGL::getFontSansSerif();
+            cell_params.font = LLFontDX::getFontSansSerif();
             cell_params.value = listName;
             if (joint_alias_map.find(listName) == joint_alias_map.end())
             {

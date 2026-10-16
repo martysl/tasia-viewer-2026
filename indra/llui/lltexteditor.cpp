@@ -31,7 +31,7 @@
 #include "lltexteditor.h"
 
 #include "llfontfreetype.h" // for LLFontFreetype::FIRST_CHAR
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llgl.h"           // LLGLSUIDefault()
 #include "lllocalcliprect.h"
 #include "llrender.h"
@@ -779,7 +779,7 @@ void LLTextEditor::insertEmoji(llwchar emoji)
     static LLUICachedControl<bool> useBWEmojis( "FSUseBWEmojis", false); // <FS:Beq/> Add B&W emoji font support
     LL_DEBUGS("Emoji") << "LLTextEditor::insertEmoji(" << wchar_utf8_preview(emoji) << ")" << LL_ENDL;  // <FS:Beq/> reduce Emoji log spam
     auto styleParams = LLStyle::Params();
-    styleParams.font = LLFontGL::getFontEmojiLarge(useBWEmojis); // <FS:Beq/> Add B&W emoji font support
+    styleParams.font = LLFontDX::getFontEmojiLarge(useBWEmojis); // <FS:Beq/> Add B&W emoji font support
     auto segment = new LLEmojiTextSegment(new LLStyle(styleParams), mCursorPos, mCursorPos + 1, *this);
     insert(mCursorPos, LLWString(1, emoji), false, segment);
     setCursorPos(mCursorPos + 1);

@@ -43,7 +43,7 @@
 // Linden library includes
 #include "lldbstrings.h"
 #include "llfocusmgr.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llgl.h"
 #include "llrender.h"
 
@@ -222,7 +222,7 @@ LLFolderView::LLFolderView(const Params& p)
     LLLineEditor::Params params;
     params.name("ren");
     params.rect(rect);
-    params.font(getLabelFontForStyle(LLFontGL::NORMAL));
+    params.font(getLabelFontForStyle(LLFontDX::NORMAL));
     params.max_length.bytes(DB_INV_ITEM_NAME_STR_LEN);
     params.commit_callback.function(boost::bind(&LLFolderView::commitRename, this, _2));
     params.prevalidator(&LLTextValidate::validateASCIIPrintableNoPipe);
@@ -233,7 +233,7 @@ LLFolderView::LLFolderView(const Params& p)
 
     // Textbox
     LLTextBox::Params text_p;
-    LLFontGL* font = getLabelFontForStyle(mLabelStyle);
+    LLFontDX* font = getLabelFontForStyle(mLabelStyle);
     //mIconPad, mTextPad are set in folder_view_item.xml
     LLRect new_r = LLRect(rect.mLeft + mIconPad,
                   rect.mTop - mTextPad,
@@ -678,7 +678,7 @@ void LLFolderView::commitRename( const LLSD& data )
 
 void LLFolderView::draw()
 {
-    //LLFontGL* font = getLabelFontForStyle(mLabelStyle);
+    //LLFontDX* font = getLabelFontForStyle(mLabelStyle);
 
     // if cursor has moved off of me during drag and drop
     // close all auto opened folders

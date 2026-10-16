@@ -37,7 +37,7 @@
 #include "llmenugl.h"
 #include "lltextbox.h"
 #include "llcontrol.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llwindow.h"
 #include "llfocusmgr.h"
 #include "lluictrlfactory.h"
@@ -99,14 +99,14 @@ void LLDragHandleTop::setTitle(const std::string& title)
     }
     else
     {
-        const LLFontGL* font = LLFontGL::getFontSansSerif();
+        const LLFontDX* font = LLFontDX::getFontSansSerif();
         LLTextBox::Params params;
         params.name("Drag Handle Title");
         params.rect(getRect());
         params.initial_value(trimmed_title);
         params.font(font);
         params.follows.flags(FOLLOWS_TOP | FOLLOWS_LEFT | FOLLOWS_RIGHT);
-        params.font_shadow(LLFontGL::DROP_SHADOW_SOFT);
+        params.font_shadow(LLFontDX::DROP_SHADOW_SOFT);
         params.use_ellipses = true;
         params.parse_urls = false; //cancel URL replacement in floater title
         mTitleBox = LLUICtrlFactory::create<LLTextBox> (params);
@@ -250,7 +250,7 @@ void LLDragHandleTop::reshapeTitleBox()
     {
         return;
     }
-    const LLFontGL* font = LLFontGL::getFontSansSerif();
+    const LLFontDX* font = LLFontDX::getFontSansSerif();
     S32 title_width = getRect().getWidth();
     title_width -= LEFT_PAD + 2 * BORDER_PAD + getButtonsRect().getWidth();
     S32 title_height = font->getLineHeight();

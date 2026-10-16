@@ -95,7 +95,7 @@ public:
     struct Params : public LLInitParam::Block<Params, LLMenuItemCallGL::Params>
     {
         Mandatory<EType>        item_type;
-        Optional<const LLFontGL*> back_item_font,
+        Optional<const LLFontDX*> back_item_font,
                                 current_item_font,
                                 forward_item_font;
         Optional<std::string>   back_item_image,

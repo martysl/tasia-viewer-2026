@@ -103,7 +103,7 @@ public:
                       U32 flags=0);
     virtual ~LLTaskInvFVBridge() {}
 
-    virtual LLFontGL::StyleFlags getLabelStyle() const { return LLFontGL::NORMAL; }
+    virtual LLFontDX::StyleFlags getLabelStyle() const { return LLFontDX::NORMAL; }
     virtual std::string getLabelSuffix() const { return LLStringUtil::null; }
 
     static LLTaskInvFVBridge* createObjectBridge(LLPanelObjectInventory* panel,
@@ -1979,12 +1979,12 @@ void LLPanelObjectInventory::draw()
 
         if (!text.empty())
         {
-            LLFontGL::getFontSansSerif()->renderUTF8(text, 0,
+            LLFontDX::getFontSansSerif()->renderUTF8(text, 0,
                 (S32)(getRect().getWidth() * 0.5f),
                 10,
                 LLColor4(1, 1, 1, 1),
-                LLFontGL::HCENTER,
-                LLFontGL::BOTTOM);
+                LLFontDX::HCENTER,
+                LLFontDX::BOTTOM);
         }
     }
 }

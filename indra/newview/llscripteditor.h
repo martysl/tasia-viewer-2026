@@ -59,7 +59,7 @@ public:
 
     // <FS:Ansariel> FIRE-20818: User-selectable font and size for script editor
     //static std::string getScriptFontSize();
-    //LLFontGL* getScriptFont();
+    //LLFontDX* getScriptFont();
     //void onFontSizeChange();
     // <FS:Ansariel>
 

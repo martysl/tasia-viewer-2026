@@ -992,7 +992,7 @@ void FSAreaSearch::matchObject(FSObjectProperties& details, LLViewerObject* obje
     details.listed = true;
 
     LLScrollListCell::Params cell_params;
-    cell_params.font = LLFontGL::getFontSansSerif();
+    cell_params.font = LLFontDX::getFontSansSerif();
 
     LLScrollListItem::Params row_params;
     row_params.value = object_id.asString();
@@ -1058,14 +1058,14 @@ void FSAreaSearch::matchObject(FSObjectProperties& details, LLViewerObject* obje
 
     if (objectp->flagTemporaryOnRez() || objectp->flagUsePhysics())
     {
-        U8 font_style = LLFontGL::NORMAL;
+        U8 font_style = LLFontDX::NORMAL;
         if (objectp->flagTemporaryOnRez())
         {
-            font_style |= LLFontGL::ITALIC;
+            font_style |= LLFontDX::ITALIC;
         }
         if (objectp->flagUsePhysics())
         {
-            font_style |= LLFontGL::BOLD;
+            font_style |= LLFontDX::BOLD;
         }
 
         S32 num_colums = list_row->getNumColumns();

@@ -41,7 +41,7 @@
 #include "v4color.h"
 #include "lldepthstack.h"
 #include "lleditmenuhandler.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llscrollcontainer.h"
 
 class LLFolderViewModelInterface;

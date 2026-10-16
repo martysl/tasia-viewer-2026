@@ -75,7 +75,7 @@
 #include "llassetstorage.h"
 #include "lldate.h"
 #include "llerrorcontrol.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #ifdef DX_RENDER
 #include "llfontdx.h"
 #endif
@@ -1065,8 +1065,8 @@ public:
              iter != mLineList.end(); ++iter)
         {
             const Line& line = *iter;
-            LLFontGL::getFontMonospace()->renderUTF8(line.text, 0, (F32)line.x, (F32)line.y, mTextColor,
-                    LLFontGL::LEFT, LLFontGL::TOP, LLFontGL::NORMAL, LLFontGL::NO_SHADOW);
+            LLFontDX::getFontMonospace()->renderUTF8(line.text, 0, (F32)line.x, (F32)line.y, mTextColor,
+                    LLFontDX::LEFT, LLFontDX::TOP, LLFontDX::NORMAL, LLFontDX::NO_SHADOW);
         }
     }
 
@@ -1908,7 +1908,7 @@ bool LLViewerWindow::handleDeviceChange(LLWindow *window, bool deviceRemoved)
 
 bool LLViewerWindow::handleDPIChanged(LLWindow *window, F32 ui_scale_factor, S32 window_width, S32 window_height)
 {
-    LLFontGL::sResolutionGeneration++;
+    LLFontDX::sResolutionGeneration++;
     if (ui_scale_factor >= MIN_UI_SCALE && ui_scale_factor <= MAX_UI_SCALE)
     {
         LLViewerWindow::reshape(window_width, window_height);
@@ -1924,7 +1924,7 @@ bool LLViewerWindow::handleDPIChanged(LLWindow *window, F32 ui_scale_factor, S32
 
 bool LLViewerWindow::handleDisplayChanged()
 {
-    LLFontGL::sResolutionGeneration++;
+    LLFontDX::sResolutionGeneration++;
     return false;
 }
 
@@ -2101,7 +2101,7 @@ LLViewerWindow::LLViewerWindow(const Params& p)
     mDisplayScale.setVec(llmax(1.f / mWindow->getPixelAspectRatio(), 1.f), llmax(mWindow->getPixelAspectRatio(), 1.f));
     mDisplayScale *= ui_scale_factor;
     LLUI::setScaleFactor(mDisplayScale);
-    LLFontGL::sResolutionGeneration++;
+    LLFontDX::sResolutionGeneration++;
 
     {
         LLCoordWindow size;
@@ -2121,21 +2121,12 @@ LLViewerWindow::LLViewerWindow(const Params& p)
     // before login screen.
 #ifdef DX_RENDER
     // LLFontDX::initClass() has no fonts_file / size_mod parameters - the
-    // DX font class was derived from a pre-FS-Ansariel LLFontGL, so it
+    // DX font class was derived from a pre-FS-Ansariel LLFontDX, so it
     // loads defaults only. This matches the donor exactly.
     LLFontDX::initClass( gSavedSettings.getF32("FontScreenDPI"),
         mDisplayScale.mV[VX],
         mDisplayScale.mV[VY],
         gDirUtilp->getAppRODataDir());
-    // Most Tasia UI controls still use LLFontGL for layout and text metrics.
-    // Keep that registry live without creating OpenGL texture resources.
-    LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
-        mDisplayScale.mV[VX],
-        mDisplayScale.mV[VY],
-        gDirUtilp->getAppRODataDir(),
-        gSavedSettings.getString("FSFontSettingsFile"),
-        gSavedSettings.getF32("FSFontSizeAdjustment"),
-        false);
 #else
     LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
         mDisplayScale.mV[VX],
@@ -2250,7 +2241,7 @@ void LLViewerWindow::initBase()
     initialize_edit_menu();
     initialize_spellcheck_menu(); // <FS:Zi> Set up edit menu here to get the spellcheck callbacks assigned before anyone uses them
 
-    LLFontGL::loadCommonFonts();
+    LLFontDX::loadCommonFonts();
 
     // <FS:Ansariel> Move console further down in the view hierarchy to not float in front of floaters!
     // Console
@@ -2671,7 +2662,7 @@ void LLViewerWindow::shutdownGL()
     //--------------------------------------------------------
     // Shutdown GL cleanly.  Order is very important here.
     //--------------------------------------------------------
-    LLFontGL::destroyDefaultFonts();
+    LLFontDX::destroyDefaultFonts();
     SUBSYSTEM_CLEANUP(LLFontManager);
     stop_glerror();
 
@@ -2797,7 +2788,7 @@ void LLViewerWindow::reshape(S32 width, S32 height)
 
         bool display_scale_changed = mDisplayScale != LLUI::getScaleFactor();
         LLUI::setScaleFactor(mDisplayScale);
-        LLFontGL::sResolutionGeneration++;
+        LLFontDX::sResolutionGeneration++;
 
         // update our window rectangle
         mWindowRectScaled.mRight = mWindowRectScaled.mLeft + ll_round((F32)width / mDisplayScale.mV[VX]);
@@ -3121,12 +3112,12 @@ void LLViewerWindow::draw()
         gGL.loadIdentity();
 
         microsecondsToTimecodeString(gFrameTime,text);
-        const LLFontGL* font = LLFontGL::getFontSansSerif();
+        const LLFontDX* font = LLFontDX::getFontSansSerif();
         font->renderUTF8(text, 0,
                         ll_round((getWindowWidthScaled()/2)-100.f),
                         ll_round((getWindowHeightScaled()-60.f)),
             LLColor4( 1.f, 1.f, 1.f, 1.f ),
-            LLFontGL::LEFT, LLFontGL::TOP);
+            LLFontDX::LEFT, LLFontDX::TOP);
     }
 
     // Draw all nested UI views.
@@ -3241,10 +3232,10 @@ void LLViewerWindow::draw()
                                 targetName = avatarName.getCompleteName();
                             }
 
-                            LLFontGL::getFontSansSerifBold()->renderUTF8(
+                            LLFontDX::getFontSansSerifBold()->renderUTF8(
                                 llformat("%s, %.2fm", targetName.c_str(), (targetPosition - myPosition).magVec()),
                                 0, (windowWidth / 2.f) + userPresetX, (windowHeight / 2.f) + userPresetY, targetColor,
-                                (LLFontGL::HAlign)((S32)userPresetHAlign), LLFontGL::TOP, LLFontGL::BOLD, LLFontGL::DROP_SHADOW_SOFT
+                                (LLFontDX::HAlign)((S32)userPresetHAlign), LLFontDX::TOP, LLFontDX::BOLD, LLFontDX::DROP_SHADOW_SOFT
                             );
 
                             crosshairRendered = true;
@@ -3296,12 +3287,12 @@ void LLViewerWindow::draw()
         {
             // Used for special titles such as "Second Life - Special E3 2003 Beta"
             const S32 DIST_FROM_TOP = 20;
-            LLFontGL::getFontSansSerifBig()->renderUTF8(
+            LLFontDX::getFontSansSerifBig()->renderUTF8(
                 mOverlayTitle, 0,
                 ll_round( getWindowWidthScaled() * 0.5f),
                 getWindowHeightScaled() - DIST_FROM_TOP,
                 LLColor4(1, 1, 1, 0.4f),
-                LLFontGL::HCENTER, LLFontGL::TOP);
+                LLFontDX::HCENTER, LLFontDX::TOP);
         }
 
         LLUI::setScaleFactor(old_scale_factor);
@@ -6895,7 +6886,7 @@ void LLViewerWindow::drawMouselookInstructions()
 {
     // Draw instructions for mouselook ("Press ESC to return to World View" partially transparent at the bottom of the screen.)
     const std::string instructions = LLTrans::getString("LeaveMouselook");
-    const LLFontGL* font = LLFontGL::getFont(LLFontDescriptor("SansSerif", "Large", LLFontGL::BOLD));
+    const LLFontDX* font = LLFontDX::getFont(LLFontDescriptor("SansSerif", "Large", LLFontDX::BOLD));
 
     //to be on top of Bottom bar when it is opened
     const S32 INSTRUCTIONS_PAD = 50;
@@ -6905,8 +6896,8 @@ void LLViewerWindow::drawMouselookInstructions()
         getWorldViewRectScaled().getCenterX(),
         getWorldViewRectScaled().mBottom + INSTRUCTIONS_PAD,
         LLColor4( 1.0f, 1.0f, 1.0f, 0.5f ),
-        LLFontGL::HCENTER, LLFontGL::TOP,
-        LLFontGL::NORMAL,LLFontGL::DROP_SHADOW);
+        LLFontDX::HCENTER, LLFontDX::TOP,
+        LLFontDX::NORMAL,LLFontDX::DROP_SHADOW);
 }
 
 void* LLViewerWindow::getPlatformWindow() const
@@ -7183,7 +7174,7 @@ void LLViewerWindow::stopGL()
         gBumpImageList.destroyGL();
         stop_glerror();
 
-        LLFontGL::destroyAllGL();
+        LLFontDX::destroyAllGL();
         stop_glerror();
 
         LLVOAvatar::destroyGL();
@@ -7244,7 +7235,7 @@ void LLViewerWindow::restoreGL(const std::string& progress_message)
         LLGLState::restoreGL();
 
         // for future support of non-square pixels, and fonts that are properly stretched
-        //LLFontGL::destroyDefaultFonts();
+        //LLFontDX::destroyDefaultFonts();
         initFonts();
 
         gSky.restoreGL();

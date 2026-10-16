@@ -2212,7 +2212,7 @@ void LLFloater::draw()
             {
                 static LLUIColor titlebar_focus_color = LLUIColorTable::instance().getColor("TitleBarFocusColor");
 
-                const LLFontGL* font = LLFontGL::getFontSansSerif();
+                const LLFontDX* font = LLFontDX::getFontSansSerif();
                 LLRect r = getRect();
                 gl_rect_2d_offset_local(0, r.getHeight(), r.getWidth(), r.getHeight() - font->getLineHeight() - 1,
                     titlebar_focus_color % alpha, 0, true);

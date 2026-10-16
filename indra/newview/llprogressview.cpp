@@ -39,7 +39,7 @@
 #include "llrender.h"
 #include "llsd.h"
 #include "llui.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llstring.h"
 #include "lltimer.h"
 #include "lltextbox.h"

@@ -78,7 +78,7 @@
 
 // library includes
 #include "llfloaterreg.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llrect.h"
 #include "llerror.h"
 #include "llnotificationsutil.h"
@@ -1433,7 +1433,7 @@ void LLStatusBar::buildLocationString(std::string& loc_str, bool show_coords)
 void LLStatusBar::setParcelInfoText(const std::string& new_text)
 {
     const S32 ParcelInfoSpacing = 5;
-    const LLFontGL* font = mParcelInfoText->getFont();
+    const LLFontDX* font = mParcelInfoText->getFont();
     S32 new_text_width = font->getWidth(new_text);
 
     if (new_text != mCurrentLocationString)

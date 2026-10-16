@@ -51,7 +51,7 @@
 #include "llfloatermediasettings.h"
 #include "llfloaterreg.h"
 #include "llfloatertools.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "lllineeditor.h"
 #include "llmaterialmgr.h"
 #include "llmaterialeditor.h"

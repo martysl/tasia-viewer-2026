@@ -37,7 +37,7 @@
 #include "llcachename.h"
 #include "llcallbacklist.h"
 #include "llcheckboxctrl.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llimagepng.h"
 #include "llimagej2c.h"
 #include "llinventory.h"

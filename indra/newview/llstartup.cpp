@@ -4279,7 +4279,7 @@ void LLStartUp::fontInit()
     set_startup_status(0.45f, msg.c_str(), gAgent.mMOTD.c_str());
     do_startup_frame();
 
-    LLFontGL::loadDefaultFonts();
+    LLFontDX::loadDefaultFonts();
 }
 
 void LLStartUp::initNameCache()

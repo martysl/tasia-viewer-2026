@@ -90,7 +90,7 @@
 // linden library includes
 #include "llavatarnamecache.h"
 #include "llerror.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llrect.h"
 #include "llstring.h"
 
@@ -2138,7 +2138,7 @@ void LLFloaterPreference::buildPopupList()
 
         LLSD row;
 
-        // column COLUMN_POPUP_SPACER makes things look good, since "halign" and "center" or LLFontGL::HCENTER don't work -Zi
+        // column COLUMN_POPUP_SPACER makes things look good, since "halign" and "center" or LLFontDX::HCENTER don't work -Zi
         row["columns"][COLUMN_POPUP_CHECKBOX]["type"] = "checkbox";
         row["columns"][COLUMN_POPUP_CHECKBOX]["column"] = "alert_enabled_check";
         row["columns"][COLUMN_POPUP_CHECKBOX]["value"] = show_popup;
@@ -4253,8 +4253,8 @@ bool LLPanelPreferenceControls::addControlTableRows(const std::string &filename)
 
     LLScrollListCell::Params cell_params;
     // init basic cell params
-    cell_params.font = LLFontGL::getFontSansSerif();
-    cell_params.font_halign = LLFontGL::LEFT;
+    cell_params.font = LLFontDX::getFontSansSerif();
+    cell_params.font_halign = LLFontDX::LEFT;
     cell_params.column = "";
     cell_params.value = "";
 
@@ -4322,7 +4322,7 @@ void LLPanelPreferenceControls::addControlTableSeparator()
     column_params.value = "menu_separator";
     column_params.column = "lst_action";
     column_params.color = LLColor4(0.f, 0.f, 0.f, 0.7f);
-    column_params.font_halign = LLFontGL::HCENTER;
+    column_params.font_halign = LLFontDX::HCENTER;
     separator_params.columns.add(column_params);
     pControlsTable->addRow(separator_params, EAddPosition::ADD_BOTTOM);
 }

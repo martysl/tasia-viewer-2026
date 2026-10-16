@@ -547,14 +547,14 @@ void FSFloaterPerformance::populateHUDList()
                     LLScrollListText* value_text = dynamic_cast<LLScrollListText*>(obj->getColumn(1));
                     if (value_text)
                     {
-                        value_text->setAlignment(LLFontGL::RIGHT);
+                        value_text->setAlignment(LLFontDX::RIGHT);
                     }
 
                     // name
                     value_text = dynamic_cast<LLScrollListText*>(obj->getColumn(3));
                     if (value_text)
                     {
-                        value_text->setAlignment(LLFontGL::LEFT);
+                        value_text->setAlignment(LLFontDX::LEFT);
                     }
                 }
             }
@@ -663,13 +663,13 @@ void FSFloaterPerformance::populateObjectList()
                         LLScrollListText* value_text = dynamic_cast<LLScrollListText*>(obj->getColumn(1));
                         if (value_text)
                         {
-                            value_text->setAlignment(LLFontGL::RIGHT);
+                            value_text->setAlignment(LLFontDX::RIGHT);
                         }
                         // ARC value
                         value_text = dynamic_cast<LLScrollListText*>(obj->getColumn(2));
                         if (value_text)
                         {
-                            value_text->setAlignment(LLFontGL::RIGHT);
+                            value_text->setAlignment(LLFontDX::RIGHT);
                         }
                     }
                 }
@@ -820,13 +820,13 @@ void FSFloaterPerformance::populateNearbyList()
                 LLScrollListText* art_text = dynamic_cast<LLScrollListText*>(av_item->getColumn(colno));
                 if (art_text)
                 {
-                    art_text->setAlignment(LLFontGL::RIGHT);
+                    art_text->setAlignment(LLFontDX::RIGHT);
                 }
                 colno++;
                 LLScrollListText* value_text = dynamic_cast<LLScrollListText*>(av_item->getColumn(colno));
                 if (value_text)
                 {
-                    value_text->setAlignment(LLFontGL::RIGHT);
+                    value_text->setAlignment(LLFontDX::RIGHT);
                 }
                 colno++;
                 if (showTunedART)
@@ -834,14 +834,14 @@ void FSFloaterPerformance::populateNearbyList()
                     LLScrollListText* value_text = dynamic_cast<LLScrollListText*>(av_item->getColumn(colno));
                     if (value_text)
                     {
-                        value_text->setAlignment(LLFontGL::RIGHT);
+                        value_text->setAlignment(LLFontDX::RIGHT);
                     }
                     colno++;
                 }
                 LLScrollListText* state_text = dynamic_cast<LLScrollListText*>(av_item->getColumn(colno));
                 if (state_text)
                 {
-                    state_text->setAlignment(LLFontGL::HCENTER);
+                    state_text->setAlignment(LLFontDX::HCENTER);
                 }
                 colno++;
                 LLScrollListText* name_text = dynamic_cast<LLScrollListText*>(av_item->getColumn(colno));

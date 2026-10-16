@@ -484,7 +484,7 @@ void FloaterAO::onSelectState()
                 {
                     mCurrentBoldItem = item;
                     ((LLScrollListIcon*)item->getColumn(0))->setValue("FSAO_Animation_Playing");
-                    ((LLScrollListText*)item->getColumn(1))->setFontStyle(LLFontGL::BOLD);
+                    ((LLScrollListText*)item->getColumn(1))->setFontStyle(LLFontDX::BOLD);
                 }
             }
         }
@@ -881,7 +881,7 @@ void FloaterAO::onAnimationChanged(const LLUUID& animation)
         {
             if (LLScrollListText* text = dynamic_cast<LLScrollListText*>(text_cell))
             {
-                text->setFontStyle(LLFontGL::NORMAL);
+                text->setFontStyle(LLFontDX::NORMAL);
             }
         }
 
@@ -919,7 +919,7 @@ void FloaterAO::onAnimationChanged(const LLUUID& animation)
             {
                 if (LLScrollListText* text = dynamic_cast<LLScrollListText*>(text_cell))
                 {
-                    text->setFontStyle(LLFontGL::BOLD);
+                    text->setFontStyle(LLFontDX::BOLD);
                 }
             }
 

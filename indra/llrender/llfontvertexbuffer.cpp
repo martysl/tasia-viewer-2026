@@ -50,14 +50,14 @@ void LLFontVertexBuffer::reset()
 }
 
 S32 LLFontVertexBuffer::render(
-    const LLFontGL* fontp,
+    const LLFontDX* fontp,
     const LLWString& text,
     S32 begin_offset,
     LLRect rect,
     const LLColor4& color,
-    LLFontGL::HAlign halign, LLFontGL::VAlign valign,
+    LLFontDX::HAlign halign, LLFontDX::VAlign valign,
     U8 style,
-    LLFontGL::ShadowType shadow,
+    LLFontDX::ShadowType shadow,
     S32 max_chars, S32 max_pixels,
     F32* right_x,
     bool use_ellipses,
@@ -68,14 +68,14 @@ S32 LLFontVertexBuffer::render(
 }
 
 S32 LLFontVertexBuffer::render(
-    const LLFontGL* fontp,
+    const LLFontDX* fontp,
     const LLWString& text,
     S32 begin_offset,
     LLRectf rect,
     const LLColor4& color,
-    LLFontGL::HAlign halign, LLFontGL::VAlign valign,
+    LLFontDX::HAlign halign, LLFontDX::VAlign valign,
     U8 style,
-    LLFontGL::ShadowType shadow,
+    LLFontDX::ShadowType shadow,
     S32 max_chars,
     F32* right_x,
     bool use_ellipses,
@@ -86,14 +86,14 @@ S32 LLFontVertexBuffer::render(
 
     switch (valign)
     {
-    case LLFontGL::TOP:
+    case LLFontDX::TOP:
         y = rect.mTop;
         break;
-    case LLFontGL::VCENTER:
+    case LLFontDX::VCENTER:
         y = rect.getCenterY();
         break;
-    case LLFontGL::BASELINE:
-    case LLFontGL::BOTTOM:
+    case LLFontDX::BASELINE:
+    case LLFontDX::BOTTOM:
         y = rect.mBottom;
         break;
     default:
@@ -104,20 +104,20 @@ S32 LLFontVertexBuffer::render(
 }
 
 S32 LLFontVertexBuffer::render(
-    const LLFontGL* fontp,
+    const LLFontDX* fontp,
     const LLWString& text,
     S32 begin_offset,
     F32 x, F32 y,
     const LLColor4& color,
-    LLFontGL::HAlign halign, LLFontGL::VAlign valign,
+    LLFontDX::HAlign halign, LLFontDX::VAlign valign,
     U8 style,
-    LLFontGL::ShadowType shadow,
+    LLFontDX::ShadowType shadow,
     S32 max_chars , S32 max_pixels,
     F32* right_x,
     bool use_ellipses,
     bool use_color )
 {
-    if (!LLFontGL::sDisplayFont) //do not display texts
+    if (!LLFontDX::sDisplayFont) //do not display texts
     {
         return static_cast<S32>(text.length());
     }
@@ -142,12 +142,12 @@ S32 LLFontVertexBuffer::render(
              || mLastMaxPixels != max_pixels
              || mLastStyle != style
              || mLastShadow != shadow // ex: buttons change shadow state
-             || mLastScaleX != LLFontGL::sScaleX
-             || mLastScaleY != LLFontGL::sScaleY
-             || mLastVertDPI != LLFontGL::sVertDPI
-             || mLastHorizDPI != LLFontGL::sHorizDPI
-             || mLastOrigin != LLFontGL::sCurOrigin
-             || mLastResGeneration != LLFontGL::sResolutionGeneration
+             || mLastScaleX != LLFontDX::sScaleX
+             || mLastScaleY != LLFontDX::sScaleY
+             || mLastVertDPI != LLFontDX::sVertDPI
+             || mLastHorizDPI != LLFontDX::sHorizDPI
+             || mLastOrigin != LLFontDX::sCurOrigin
+             || mLastResGeneration != LLFontDX::sResolutionGeneration
              || mLastFontCacheGen != fontp->getCacheGeneration())
     {
         genBuffers(fontp, text, begin_offset, x, y, color, halign, valign,
@@ -166,13 +166,13 @@ S32 LLFontVertexBuffer::render(
 }
 
 void LLFontVertexBuffer::genBuffers(
-    const LLFontGL* fontp,
+    const LLFontDX* fontp,
     const LLWString& text,
     S32 begin_offset,
     F32 x, F32 y,
     const LLColor4& color,
-    LLFontGL::HAlign halign, LLFontGL::VAlign valign,
-    U8 style, LLFontGL::ShadowType shadow,
+    LLFontDX::HAlign halign, LLFontDX::VAlign valign,
+    U8 style, LLFontDX::ShadowType shadow,
     S32 max_chars, S32 max_pixels,
     F32* right_x,
     bool use_ellipses,
@@ -184,10 +184,10 @@ void LLFontVertexBuffer::genBuffers(
     // so will need to rerender previous characters
     mLastFontCacheGen = fontp->getCacheGeneration();
 
-    gGL.beginList(&mBufferList);
+    gDX.beginList(&mBufferList);
     mChars = fontp->render(text, begin_offset, x, y, color, halign, valign,
         style, shadow, max_chars, max_pixels, right_x, use_ellipses, use_color);
-    gGL.endList();
+    gDX.endList();
 
     mLastFont = fontp;
     mLastOffset = begin_offset;
@@ -201,12 +201,12 @@ void LLFontVertexBuffer::genBuffers(
     mLastStyle = style;
     mLastShadow = shadow;
 
-    mLastScaleX = LLFontGL::sScaleX;
-    mLastScaleY = LLFontGL::sScaleY;
-    mLastVertDPI = LLFontGL::sVertDPI;
-    mLastHorizDPI = LLFontGL::sHorizDPI;
-    mLastOrigin = LLFontGL::sCurOrigin;
-    mLastResGeneration = LLFontGL::sResolutionGeneration;
+    mLastScaleX = LLFontDX::sScaleX;
+    mLastScaleY = LLFontDX::sScaleY;
+    mLastVertDPI = LLFontDX::sVertDPI;
+    mLastHorizDPI = LLFontDX::sHorizDPI;
+    mLastOrigin = LLFontDX::sCurOrigin;
+    mLastResGeneration = LLFontDX::sResolutionGeneration;
 
     if (right_x)
     {
@@ -216,16 +216,16 @@ void LLFontVertexBuffer::genBuffers(
 
 void LLFontVertexBuffer::renderBuffers()
 {
-    gGL.flush(); // deliberately empty pending verts
-    gGL.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
-    gGL.pushUIMatrix();
+    gDX.flush(); // deliberately empty pending verts
+    gDX.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
+    gDX.pushUIMatrix();
 
-    gGL.loadUIIdentity();
+    gDX.loadUIIdentity();
 
     // Depth translation, so that floating text appears 'in-world'
     // and is correctly occluded.
-    gGL.translatef(0.f, 0.f, LLFontGL::sCurDepth);
-    gGL.setSceneBlendType(LLRender::BT_ALPHA);
+    gDX.translatef(0.f, 0.f, LLFontDX::sCurDepth);
+    gDX.setSceneBlendType(LLRender::BT_ALPHA);
 
     // Note: ellipses should technically be covered by push/load/translate of their own
     // but it's more complexity, values do not change, skipping doesn't appear to break
@@ -234,6 +234,6 @@ void LLFontVertexBuffer::renderBuffers()
     {
         buffer.draw();
     }
-    gGL.popUIMatrix();
+    gDX.popUIMatrix();
 }
 

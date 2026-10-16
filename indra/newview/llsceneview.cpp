@@ -228,8 +228,8 @@ void LLSceneView::draw()
             std::string label = llformat("%s Object Sizes (m) -- [%.1f, %.1f] Mean: %.1f  Median: %.1f -- %d samples",
                                             category[idx], size_domain[0], size_domain[1], total/count, size[idx][count/2], count);
 
-            LLFontGL::getFontMonospace()->renderUTF8(label,
-                                            0 , size_rect.mLeft, size_rect.mTop+margin, LLColor4::white, LLFontGL::LEFT, LLFontGL::TOP);
+            LLFontDX::getFontMonospace()->renderUTF8(label,
+                                            0 , size_rect.mLeft, size_rect.mTop+margin, LLColor4::white, LLFontDX::LEFT, LLFontDX::TOP);
 
         }
     }
@@ -293,8 +293,8 @@ void LLSceneView::draw()
             std::string label = llformat("%s Object Triangle Counts (Ktris) -- Visible: %.2f/%.2f (%.2f KB Visible)",
                 category[idx], total_visible_triangles[idx]/1024.f, total_triangles[idx]/1024.f, total_visible_bytes[idx]/1024.f);
 
-            LLFontGL::getFontMonospace()->renderUTF8(label,
-                                            0 , tri_rect.mLeft, tri_rect.mTop+margin, LLColor4::white, LLFontGL::LEFT, LLFontGL::TOP);
+            LLFontDX::getFontMonospace()->renderUTF8(label,
+                                            0 , tri_rect.mLeft, tri_rect.mTop+margin, LLColor4::white, LLFontDX::LEFT, LLFontDX::TOP);
 
         }
     }
@@ -359,8 +359,8 @@ void LLSceneView::draw()
             std::string label = llformat("%s Object Streaming Cost -- [%.2f, %.2f] Mean: %.2f  Total: %.2f",
                                             category[idx], streaming_domain[0], streaming_domain[1], total/count, total_streaming[idx]);
 
-            LLFontGL::getFontMonospace()->renderUTF8(label,
-                                            0 , tri_rect.mLeft, tri_rect.mTop+margin, LLColor4::white, LLFontGL::LEFT, LLFontGL::TOP);
+            LLFontDX::getFontMonospace()->renderUTF8(label,
+                                            0 , tri_rect.mLeft, tri_rect.mTop+margin, LLColor4::white, LLFontDX::LEFT, LLFontDX::TOP);
 
         }
     }
@@ -425,8 +425,8 @@ void LLSceneView::draw()
             std::string label = llformat("%s Object Physics Cost -- [%.2f, %.2f] Mean: %.2f  Total: %.2f",
                                             category[idx], physics_domain[0], physics_domain[1], total/count, total_physics[idx]);
 
-            LLFontGL::getFontMonospace()->renderUTF8(label,
-                                            0 , tri_rect.mLeft, tri_rect.mTop+margin, LLColor4::white, LLFontGL::LEFT, LLFontGL::TOP);
+            LLFontDX::getFontMonospace()->renderUTF8(label,
+                                            0 , tri_rect.mLeft, tri_rect.mTop+margin, LLColor4::white, LLFontDX::LEFT, LLFontDX::TOP);
 
         }
     }

@@ -100,7 +100,7 @@ void lggBeamColorMapFloater::draw()
 
     S32 X1 = convertHueToX(mData.mStartHue) + CORRECTION_X;
     S32 X2 = convertHueToX(mData.mEndHue) + CORRECTION_X;
-    LLFontGL* font = LLFontGL::getFontSansSerifSmall();
+    LLFontDX* font = LLFontDX::getFontSansSerifSmall();
 
     gGL.color4fv(LLColor4::white.mV);
     gl_circle_2d((F32)(X1 + CORRECTION_X), (F32)(238 + CORRECTION_Y), 9.0f, 30, false);
@@ -123,8 +123,8 @@ void lggBeamColorMapFloater::draw()
         start_hue_label, 0,
         X1 + CORRECTION_X,
         212 + CORRECTION_Y,
-        LLColor4::white, LLFontGL::HCENTER,
-        LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+        LLColor4::white, LLFontDX::HCENTER,
+        LLFontDX::BASELINE, LLFontDX::DROP_SHADOW);
 
     gGL.color4fv(LLColor4::white.mV);
     gl_circle_2d((F32)(X2 + CORRECTION_X), (F32)(238 + CORRECTION_Y), 9.0f, 30, false);
@@ -147,8 +147,8 @@ void lggBeamColorMapFloater::draw()
         end_hue_label, 0,
         X2 + CORRECTION_X,
         212 + CORRECTION_Y,
-        LLColor4::white, LLFontGL::HCENTER,
-        LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+        LLColor4::white, LLFontDX::HCENTER,
+        LLFontDX::BASELINE, LLFontDX::DROP_SHADOW);
 
     gGL.popMatrix();
 }

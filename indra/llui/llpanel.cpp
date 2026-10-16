@@ -32,7 +32,7 @@
 #include "llpanel.h"
 
 #include "llfocusmgr.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llrect.h"
 #include "llerror.h"
 #include "lldir.h"

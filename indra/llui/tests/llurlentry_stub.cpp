@@ -121,28 +121,28 @@ namespace LLInitParam
     void ParamValue<LLUIColor>::updateBlockFromValue(bool)
     {}
 
-    bool ParamCompare<const LLFontGL*, false>::equals(const LLFontGL* a, const LLFontGL* b)
+    bool ParamCompare<const LLFontDX*, false>::equals(const LLFontDX* a, const LLFontDX* b)
     {
         return false;
     }
 
-    ParamValue<const LLFontGL*>::ParamValue(const LLFontGL* fontp)
+    ParamValue<const LLFontDX*>::ParamValue(const LLFontDX* fontp)
     :   super_t(fontp)
     {}
 
-    void ParamValue<const LLFontGL*>::updateValueFromBlock()
+    void ParamValue<const LLFontDX*>::updateValueFromBlock()
     {}
 
-    void ParamValue<const LLFontGL*>::updateBlockFromValue(bool)
+    void ParamValue<const LLFontDX*>::updateBlockFromValue(bool)
     {}
 
-    void TypeValues<LLFontGL::HAlign>::declareValues()
+    void TypeValues<LLFontDX::HAlign>::declareValues()
     {}
 
-    void TypeValues<LLFontGL::VAlign>::declareValues()
+    void TypeValues<LLFontDX::VAlign>::declareValues()
     {}
 
-    void TypeValues<LLFontGL::ShadowType>::declareValues()
+    void TypeValues<LLFontDX::ShadowType>::declareValues()
     {}
 
     void ParamValue<LLUIImage*>::updateValueFromBlock()
@@ -167,7 +167,7 @@ namespace LLInitParam
 }
 
 //static
-LLFontGL* LLFontGL::getFontDefault()
+LLFontDX* LLFontDX::getFontDefault()
 {
     return NULL;
 }

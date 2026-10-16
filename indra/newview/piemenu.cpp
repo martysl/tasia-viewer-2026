@@ -70,11 +70,11 @@ PieMenu::PieMenu(const Params& p) :
     reshape(PIE_OUTER_SIZE * 2, PIE_OUTER_SIZE * 2, false);
 
     // set up the font for the menu
-    mFont = LLFontGL::getFont(LLFontDescriptor("SansSerif", "Pie", LLFontGL::NORMAL));
+    mFont = LLFontDX::getFont(LLFontDescriptor("SansSerif", "Pie", LLFontDX::NORMAL));
     if (!mFont)
     {
         LL_WARNS("Pie") << "Could not find font size for Pie menu, falling back to Small font." << LL_ENDL;
-        mFont = LLFontGL::getFont(LLFontDescriptor("SansSerif", "Small", LLFontGL::NORMAL));
+        mFont = LLFontDX::getFont(LLFontDescriptor("SansSerif", "Small", LLFontDX::NORMAL));
     }
 
     // set slices pointer to our own slices
@@ -466,10 +466,10 @@ void PieMenu::draw()
                             PIE_X[num] * (sPieMenuPopupFontEffect() ? factor : 1.f),
                             PIE_Y[num] * (sPieMenuPopupFontEffect() ? factor : 1.f),
                             itemColor,
-                            LLFontGL::HCENTER,
-                            LLFontGL::VCENTER,
-                            LLFontGL::NORMAL,
-                            LLFontGL::DROP_SHADOW_SOFT);
+                            LLFontDX::HCENTER,
+                            LLFontDX::VCENTER,
+                            LLFontDX::NORMAL,
+                            LLFontDX::DROP_SHADOW_SOFT);
         // next slice
         num++;
     }

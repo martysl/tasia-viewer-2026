@@ -170,7 +170,7 @@ bool FSFloaterNearbyChat::postBuild()
     {
         static auto emoji_btn_char = gSavedSettings.getU32("FSPrettyEmojiButtonCode");
         mEmojiPickerToggleBtn->setImageOverlay(LLUUID::null);
-        mEmojiPickerToggleBtn->setFont(LLFontGL::getFontEmojiLarge(useBWEmojis));
+        mEmojiPickerToggleBtn->setFont(LLFontDX::getFontEmojiLarge(useBWEmojis));
         mEmojiPickerToggleBtn->setLabel(LLUIString(LLWString(1, emoji_btn_char)));
     }
     else

@@ -28,7 +28,7 @@
 
 // library includes
 #include "llcoord.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llgl.h"
 #include "llrender.h"
 #include "llinventory.h"
@@ -721,7 +721,7 @@ void LLTracker::renderBeacon(LLVector3d pos_global,
     str += '\n';
     str += text;
 
-    hud_textp->setFont(LLFontGL::getFontSansSerif());
+    hud_textp->setFont(LLFontDX::getFontSansSerif());
     hud_textp->setZCompare(false);
     hud_textp->setColor(LLColor4(1.f, 1.f, 1.f, llmax(0.2f, llmin(1.f,(dist-FADE_DIST)/FADE_DIST))));
 

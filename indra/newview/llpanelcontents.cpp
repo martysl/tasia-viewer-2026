@@ -33,7 +33,7 @@
 #include "llerror.h"
 #include "llfiltereditor.h"
 #include "llfloaterreg.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llinventorydefines.h"
 #include "llmaterialtable.h"
 #include "llpermissionsflags.h"

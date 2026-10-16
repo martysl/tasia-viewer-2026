@@ -724,7 +724,7 @@ void LLHUDEffectLookAt::render()
         if ((show_names > 0) && !gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
         {
             // render name for crosshair
-            const LLFontGL* fontp = LLFontGL::getFont(LLFontDescriptor("SansSerif", "Small", LLFontGL::NORMAL));
+            const LLFontDX* fontp = LLFontDX::getFont(LLFontDescriptor("SansSerif", "Small", LLFontDX::NORMAL));
             LLVector3 position = target + LLVector3(0.f, 0.f, 0.3f);
 
             std::string name;
@@ -749,7 +749,7 @@ void LLHUDEffectLookAt::render()
             }
 
             gGL.pushMatrix();
-            hud_render_utf8text(name, position, *fontp, LLFontGL::NORMAL, LLFontGL::DROP_SHADOW, -0.5f * fontp->getWidthF32(name), 3.0f, lookAtColor, false);
+            hud_render_utf8text(name, position, *fontp, LLFontDX::NORMAL, LLFontDX::DROP_SHADOW, -0.5f * fontp->getWidthF32(name), 3.0f, lookAtColor, false);
             gGL.popMatrix();
         }
 

@@ -1220,31 +1220,35 @@ LLFontDX::VAlign LLFontDX::vAlignFromName(const std::string& name)
 }
 
 //static
-LLFontDX* LLFontDX::getFontEmojiSmall()
+LLFontDX* LLFontDX::getFontEmojiSmall(bool useBW)
 {
     static LLFontDX* fontp = getFont(LLFontDescriptor("Emoji", "Small", 0));
-    return fontp;;
+    static LLFontDX* fontp_bw = getFont(LLFontDescriptor("EmojiBW", "Small", 0));
+    return useBW ? fontp_bw : fontp;
 }
 
 //static
-LLFontDX* LLFontDX::getFontEmojiMedium()
+LLFontDX* LLFontDX::getFontEmojiMedium(bool useBW)
 {
     static LLFontDX* fontp = getFont(LLFontDescriptor("Emoji", "Medium", 0));
-    return fontp;;
+    static LLFontDX* fontp_bw = getFont(LLFontDescriptor("EmojiBW", "Medium", 0));
+    return useBW ? fontp_bw : fontp;
 }
 
 //static
-LLFontDX* LLFontDX::getFontEmojiLarge()
+LLFontDX* LLFontDX::getFontEmojiLarge(bool useBW)
 {
     static LLFontDX* fontp = getFont(LLFontDescriptor("Emoji", "Large", 0));
-    return fontp;;
+    static LLFontDX* fontp_bw = getFont(LLFontDescriptor("EmojiBW", "Large", 0));
+    return useBW ? fontp_bw : fontp;
 }
 
 //static
-LLFontDX* LLFontDX::getFontEmojiHuge()
+LLFontDX* LLFontDX::getFontEmojiHuge(bool useBW)
 {
     static LLFontDX* fontp = getFont(LLFontDescriptor("Emoji", "Huge", 0));
-    return fontp;;
+    static LLFontDX* fontp_bw = getFont(LLFontDescriptor("EmojiBW", "Huge", 0));
+    return useBW ? fontp_bw : fontp;
 }
 
 //static

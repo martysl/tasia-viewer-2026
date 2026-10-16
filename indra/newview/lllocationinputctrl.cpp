@@ -1061,7 +1061,7 @@ void LLLocationInputCtrl::refreshMaturityButton()
 
 void LLLocationInputCtrl::positionMaturityButton()
 {
-    const LLFontGL* font = mTextEntry->getFont();
+    const LLFontDX* font = mTextEntry->getFont();
     if (!font)
         return;
 

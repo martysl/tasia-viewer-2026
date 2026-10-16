@@ -42,7 +42,7 @@
 #include "llframetimer.h"
 #include "lluictrlfactory.h"
 #include "llpanel.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 
 ///----------------------------------------------------------------------------
 /// Local function declarations, constants, enums, and typedefs

@@ -29,7 +29,7 @@
 #include "llcontainerview.h"
 
 #include "llerror.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llgl.h"
 #include "llui.h"
 #include "llstring.h"
@@ -128,8 +128,8 @@ void LLContainerView::draw()
     // Draw the label
     if (mShowLabel)
     {
-        LLFontGL::getFontMonospace()->render(
-            mLabel, 0, 2.f, (F32)(getRect().getHeight() - 2), LLColor4(1,1,1,1), LLFontGL::LEFT, LLFontGL::TOP);
+        LLFontDX::getFontMonospace()->render(
+            mLabel, 0, 2.f, (F32)(getRect().getHeight() - 2), LLColor4(1,1,1,1), LLFontDX::LEFT, LLFontDX::TOP);
     }
 
     LLView::draw();

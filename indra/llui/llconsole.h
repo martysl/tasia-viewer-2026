@@ -106,7 +106,7 @@ public:
         public:
             line_color_segments_t mLineColorSegments;
             // <FS:Ansariel> Added styleflags member for fontstyle customization
-            LLFontGL::StyleFlags mStyleFlags;
+            LLFontDX::StyleFlags mStyleFlags;
     };
 
     typedef std::list<Line> lines_t;
@@ -121,13 +121,13 @@ public:
     {
         public:
             // <FS:Ansariel> Added styleflags parameter for style customization
-            //Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width);
-            Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width, LLFontGL::StyleFlags styleflags, const LLUUID& session_id, bool parse_urls, LLConsole* console);
+            //Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontDX* font, F32 screen_width);
+            Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontDX* font, F32 screen_width, LLFontDX::StyleFlags styleflags, const LLUUID& session_id, bool parse_urls, LLConsole* console);
             // </FS:Ansariel>
             void makeParagraphColorSegments ( const LLColor4 &color);
             // <FS:Ansariel> Added styleflags parameter for style customization
-            //void updateLines ( F32 screen_width,  const LLFontGL* font, bool force_resize=false );
-            void updateLines ( F32 screen_width,  const LLFontGL* font, LLFontGL::StyleFlags styleflags, bool force_resize=false );
+            //void updateLines ( F32 screen_width,  const LLFontDX* font, bool force_resize=false );
+            void updateLines ( F32 screen_width,  const LLFontDX* font, LLFontDX::StyleFlags styleflags, bool force_resize=false );
             // </FS:Ansariel>
         public:
             LLWString mParagraphText;   //The entire text of the paragraph
@@ -163,14 +163,14 @@ public:
     /*virtual*/ void    draw();
 
 // <FS:Ansariel> Chat console
-    void addConsoleLine(const std::string& utf8line, const LLColor4 &color, const LLUUID& session_id = LLUUID::null, LLFontGL::StyleFlags styleflags = LLFontGL::NORMAL);
-    void addConsoleLine(const LLWString& wline, const LLColor4 &color, const LLUUID& session_id = LLUUID::null, LLFontGL::StyleFlags styleflags = LLFontGL::NORMAL);
+    void addConsoleLine(const std::string& utf8line, const LLColor4 &color, const LLUUID& session_id = LLUUID::null, LLFontDX::StyleFlags styleflags = LLFontDX::NORMAL);
+    void addConsoleLine(const LLWString& wline, const LLColor4 &color, const LLUUID& session_id = LLUUID::null, LLFontDX::StyleFlags styleflags = LLFontDX::NORMAL);
     void clear();
     void addSession(const LLUUID& session_id);
     void removeSession(const LLUUID& session_id);
 
     std::deque<LLColor4> mLineColors;
-    std::deque<LLFontGL::StyleFlags> mLineStyle;
+    std::deque<LLFontDX::StyleFlags> mLineStyle;
     std::deque<LLUUID> mSessionIDs;
 
 protected:
@@ -184,7 +184,7 @@ private:
 
     F32         mLinePersistTime; // Age at which to stop drawing.
     F32         mFadeTime; // Age at which to start fading
-    const LLFontGL* mFont;
+    const LLFontDX* mFont;
     S32         mConsoleWidth;
     S32         mConsoleHeight;
     bool        mParseUrls; // <FS:Ansariel> If lines should be parsed for URLs

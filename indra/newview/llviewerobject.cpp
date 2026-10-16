@@ -36,7 +36,7 @@
 #include "lldatapacker.h"
 #include "llfasttimer.h"
 #include "llfloaterreg.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llframetimer.h"
 #include "llhudicon.h"
 #include "llinventory.h"
@@ -6242,7 +6242,7 @@ void LLViewerObject::appendDebugText(const std::string &utf8text)
 void LLViewerObject::initHudText()
 {
     mText = (LLHUDText *)LLHUDObject::addHUDObject(LLHUDObject::LL_HUD_TEXT);
-    mText->setFont(LLFontGL::getFontSansSerif());
+    mText->setFont(LLFontDX::getFontSansSerif());
     mText->setVertAlignment(LLHUDText::ALIGN_VERT_TOP);
     mText->setMaxLines(-1);
     mText->setSourceObject(this);

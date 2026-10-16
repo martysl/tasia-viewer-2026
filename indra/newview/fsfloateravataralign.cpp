@@ -34,7 +34,7 @@
 #include "llviewercontrol.h"
 #include "llcharacter.h"
 #include "llfloaterreg.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llrender.h"
 #include "llrender2dutils.h"
 #include "llvoavatar.h"
@@ -257,17 +257,17 @@ void FSAvatarAlignBase::drawCompass()
     }
 
     // Cardinal labels: only in full mode and when compass is large enough
-    LLFontGL* font = LLFontGL::getFontSansSerifSmall();
+    LLFontDX* font = LLFontDX::getFontSansSerifSmall();
     if (lo.show_labels)
     {
         S32      ld    = lo.R + 10;
         LLColor4 col_n(1.f, 0.55f, 0.55f, 1.f);
         LLColor4 col_o(0.90f, 0.90f, 0.90f, 1.f);
 
-        font->renderUTF8("N", 0, cx,                    (F32)(mCompassCY + ld), col_n, LLFontGL::HCENTER, LLFontGL::BOTTOM,  LLFontGL::BOLD,   LLFontGL::DROP_SHADOW);
-        font->renderUTF8("S", 0, cx,                    (F32)(mCompassCY - ld), col_o, LLFontGL::HCENTER, LLFontGL::TOP,     LLFontGL::NORMAL, LLFontGL::NO_SHADOW);
-        font->renderUTF8("E", 0, (F32)(mCompassCX + ld),(F32)mCompassCY,        col_o, LLFontGL::LEFT,    LLFontGL::VCENTER, LLFontGL::NORMAL, LLFontGL::NO_SHADOW);
-        font->renderUTF8("W", 0, (F32)(mCompassCX - ld),(F32)mCompassCY,        col_o, LLFontGL::RIGHT,   LLFontGL::VCENTER, LLFontGL::NORMAL, LLFontGL::NO_SHADOW);
+        font->renderUTF8("N", 0, cx,                    (F32)(mCompassCY + ld), col_n, LLFontDX::HCENTER, LLFontDX::BOTTOM,  LLFontDX::BOLD,   LLFontDX::DROP_SHADOW);
+        font->renderUTF8("S", 0, cx,                    (F32)(mCompassCY - ld), col_o, LLFontDX::HCENTER, LLFontDX::TOP,     LLFontDX::NORMAL, LLFontDX::NO_SHADOW);
+        font->renderUTF8("E", 0, (F32)(mCompassCX + ld),(F32)mCompassCY,        col_o, LLFontDX::LEFT,    LLFontDX::VCENTER, LLFontDX::NORMAL, LLFontDX::NO_SHADOW);
+        font->renderUTF8("W", 0, (F32)(mCompassCX - ld),(F32)mCompassCY,        col_o, LLFontDX::RIGHT,   LLFontDX::VCENTER, LLFontDX::NORMAL, LLFontDX::NO_SHADOW);
     }
 
     // Bearing label: hidden in mini compact mode to give compass more room
@@ -279,8 +279,8 @@ void FSAvatarAlignBase::drawCompass()
         F32 bearing = fmodf(atan2f(hat.mV[VX], hat.mV[VY]) * RAD_TO_DEG + 360.f, 360.f);
         std::string bearing_str = llformat("%03.0f\xC2\xB0", bearing);
         font->renderUTF8(bearing_str, 0, cx, (F32)lo.bearing_y,
-            LLColor4(0.85f, 0.85f, 0.85f, 1.f), LLFontGL::HCENTER, LLFontGL::TOP,
-            LLFontGL::NORMAL, LLFontGL::NO_SHADOW);
+            LLColor4(0.85f, 0.85f, 0.85f, 1.f), LLFontDX::HCENTER, LLFontDX::TOP,
+            LLFontDX::NORMAL, LLFontDX::NO_SHADOW);
     }
 
     // Toggle-mode button, placed in the top-right corner of the compass bounding square.
@@ -304,8 +304,8 @@ void FSAvatarAlignBase::drawCompass()
     font->renderUTF8(lbl, 0,
         (F32)(mToggleBtnRect.mLeft + mToggleBtnRect.mRight) * 0.5f,
         (F32)(mToggleBtnRect.mBottom + mToggleBtnRect.mTop) * 0.5f,
-        LLColor4::white, LLFontGL::HCENTER, LLFontGL::VCENTER,
-        LLFontGL::NORMAL, LLFontGL::NO_SHADOW);
+        LLColor4::white, LLFontDX::HCENTER, LLFontDX::VCENTER,
+        LLFontDX::NORMAL, LLFontDX::NO_SHADOW);
 }
 
 bool FSAvatarAlignBase::handleMouseDown(S32 x, S32 y, MASK mask)

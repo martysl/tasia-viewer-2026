@@ -1081,8 +1081,8 @@ void LLOutfitGalleryItem::setOutfitWorn(bool value)
     std::string worn_string = getString("worn_string", worn_string_args);
     mOutfitWornText->setReadOnlyColor(sDefaultTextColor.get());
     mOutfitNameText->setReadOnlyColor(sDefaultTextColor.get());
-    mOutfitWornText->setFont(value ? LLFontGL::getFontSansSerifBold() : LLFontGL::getFontSansSerifSmall());
-    mOutfitNameText->setFont(value ? LLFontGL::getFontSansSerifBold() : LLFontGL::getFontSansSerifSmall());
+    mOutfitWornText->setFont(value ? LLFontDX::getFontSansSerifBold() : LLFontDX::getFontSansSerifSmall());
+    mOutfitNameText->setFont(value ? LLFontDX::getFontSansSerifBold() : LLFontDX::getFontSansSerifSmall());
     mOutfitWornText->setValue(value ? worn_string : "");
     mOutfitNameText->setText(mOutfitName); // refresh LLTextViewModel to pick up font changes
 

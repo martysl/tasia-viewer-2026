@@ -102,7 +102,7 @@ public:
         /**
          * Tab label horizontal alignment
          */
-        Optional<LLFontGL::HAlign>          font_halign;
+        Optional<LLFontDX::HAlign>          font_halign;
 
         /**
          * Draw a drop shadow (soft)
@@ -230,7 +230,7 @@ public:
     void        setTabImage(LLPanel* child, const LLUUID& img_id, const LLColor4& color = LLColor4::white);
     void        setTabImage(LLPanel* child, LLIconCtrl* icon);
     // <FS:Ansariel> Custom tab image overlay button alignment
-    void        setTabImage(LLPanel* child, std::string img_name, LLFontGL::HAlign alignment, const LLColor4& color = LLColor4::white, const LLColor4& selected_color = LLColor4::white);
+    void        setTabImage(LLPanel* child, std::string img_name, LLFontDX::HAlign alignment, const LLColor4& color = LLColor4::white, const LLColor4& selected_color = LLColor4::white);
     // </FS:Ansariel>
     void        setTitle( const std::string& title );
     const std::string getPanelTitle(S32 index);
@@ -344,8 +344,8 @@ private:
 
     LLFrameTimer                    mDragAndDropDelayTimer;
 
-    LLFontGL::HAlign                mFontHalign;
-    const LLFontGL*                 mFont;
+    LLFontDX::HAlign                mFontHalign;
+    const LLFontDX*                 mFont;
     bool                            mDropShadowedText;  // support drop shadowed tab text -Zi
 
     TabParams                       mFirstTabParams;

@@ -103,7 +103,7 @@ protected:
     // general mouse button handling
     bool handleMouseButtonUp(S32 x, S32 y, MASK mask);
     // font used for the menu
-    const LLFontGL* mFont;
+    const LLFontDX* mFont;
     // currently highlighted item, must be tested if it's a slice or submenu
     LLView* mSlice;
     // used to play UI sounds only once on hover slice change, do not dereference!

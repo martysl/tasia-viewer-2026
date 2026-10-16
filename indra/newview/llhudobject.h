@@ -40,7 +40,7 @@
 #include <list>
 
 class LLViewerCamera;
-class LLFontGL;
+class LLFontDX;
 class LLFace;
 class LLViewerObject;
 class LLHUDEffect;

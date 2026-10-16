@@ -2270,22 +2270,22 @@ void LLItemBridge::buildDisplayName() const
 }
 
 // virtual
-LLFontGL::StyleFlags LLItemBridge::getLabelStyle() const
+LLFontDX::StyleFlags LLItemBridge::getLabelStyle() const
 {
-    U8 font = LLFontGL::NORMAL;
+    U8 font = LLFontDX::NORMAL;
     const LLViewerInventoryItem* item = getItem();
 
     if (get_is_item_worn(mUUID))
     {
         // LL_INFOS() << "BOLD" << LL_ENDL;
-        font |= LLFontGL::BOLD;
+        font |= LLFontDX::BOLD;
     }
     else if (item && item->getIsLinkType())
     {
-        font |= LLFontGL::ITALIC;
+        font |= LLFontDX::ITALIC;
     }
 
-    return (LLFontGL::StyleFlags)font;
+    return (LLFontDX::StyleFlags)font;
 }
 
 // virtual
@@ -2741,9 +2741,9 @@ std::string LLFolderBridge::getLabelSuffix() const
     return LLInvFVBridge::getLabelSuffix() + suffix;
 }
 
-LLFontGL::StyleFlags LLFolderBridge::getLabelStyle() const
+LLFontDX::StyleFlags LLFolderBridge::getLabelStyle() const
 {
-    return LLFontGL::NORMAL;
+    return LLFontDX::NORMAL;
 }
 
 const LLUUID& LLFolderBridge::getThumbnailUUID() const
@@ -6065,9 +6065,9 @@ std::string LLMarketplaceFolderBridge::getLabelSuffix() const
     return LLInvFVBridge::getLabelSuffix() + suffix;
 }
 
-LLFontGL::StyleFlags LLMarketplaceFolderBridge::getLabelStyle() const
+LLFontDX::StyleFlags LLMarketplaceFolderBridge::getLabelStyle() const
 {
-    return (LLMarketplaceData::instance().getActivationState(getUUID()) ? LLFontGL::BOLD : LLFontGL::NORMAL);
+    return (LLMarketplaceData::instance().getActivationState(getUUID()) ? LLFontDX::BOLD : LLFontDX::NORMAL);
 }
 
 
@@ -7587,15 +7587,15 @@ void LLNotecardBridge::buildContextMenu(LLMenuGL& menu, U32 flags)
 // |        LLGestureBridge                          |
 // +=================================================+
 
-LLFontGL::StyleFlags LLGestureBridge::getLabelStyle() const
+LLFontDX::StyleFlags LLGestureBridge::getLabelStyle() const
 {
     if( LLGestureMgr::instance().isGestureActive(mUUID) )
     {
-        return LLFontGL::BOLD;
+        return LLFontDX::BOLD;
     }
     else
     {
-        return LLFontGL::NORMAL;
+        return LLFontDX::NORMAL;
     }
 }
 

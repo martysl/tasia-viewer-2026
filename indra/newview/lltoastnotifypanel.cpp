@@ -94,7 +94,7 @@ LLButton* LLToastNotifyPanel::createButton(const LLSD& form_element, bool is_opt
     std::string name = form_element["name"].asString();
     std::string text = form_element["text"].asString();
     bool make_small_btn = index == -1 || index == -2; // for block and ignore buttons in script dialog
-    const LLFontGL* font = LLFontGL::getFont(LLFontDescriptor(
+    const LLFontDX* font = LLFontDX::getFont(LLFontDescriptor(
         mIsScriptDialog ? sFontScript : sFontDefault, make_small_btn ? "Small" : "Medium", 0));
     p.name = name;
     p.label = text;
@@ -317,12 +317,12 @@ void LLToastNotifyPanel::init( LLRect rect, bool show_images )
     if (mIsCaution && !mIsTip)
     {
         mTextBox = getChild<LLTextBox>("caution_text_box");
-        mTextBox->setFont(LLFontGL::getFont(LLFontDescriptor(mIsScriptDialog ? sFontScript : sFontDefault, "Medium", LLFontGL::BOLD)));
+        mTextBox->setFont(LLFontDX::getFont(LLFontDescriptor(mIsScriptDialog ? sFontScript : sFontDefault, "Medium", LLFontDX::BOLD)));
     }
     else
     {
         mTextBox = getChild<LLTextEditor>("text_editor_box");
-        mTextBox->setFont(LLFontGL::getFont(LLFontDescriptor(mIsScriptDialog ? sFontScript : sFontDefault, "Medium", 0)));
+        mTextBox->setFont(LLFontDX::getFont(LLFontDescriptor(mIsScriptDialog ? sFontScript : sFontDefault, "Medium", 0)));
     }
 
     mTextBox->setMaxTextLength(LLToastPanel::MAX_TEXT_LENGTH);

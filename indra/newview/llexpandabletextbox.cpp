@@ -91,7 +91,7 @@ public:
         mStyle->getFont()->render(mExpanderLabel, start,
                                     draw_rect.mRight, draw_rect.mTop,
                                     mStyle->getColor(),
-                                    LLFontGL::RIGHT, LLFontGL::TOP,
+                                    LLFontDX::RIGHT, LLFontDX::TOP,
                                     0,
                                     mStyle->getShadowType(),
                                     end - start, (S32)draw_rect.getWidth(),

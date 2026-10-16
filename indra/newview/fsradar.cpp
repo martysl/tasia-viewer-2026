@@ -583,23 +583,23 @@ void FSRadar::updateRadarList()
         // Check if avatar is in draw distance and a VOAvatar instance actually exists
         if (avRange <= drawRadius && avRange > AVATAR_UNKNOWN_RANGE && avVo)
         {
-            entry_options["range_style"] = LLFontGL::BOLD;
+            entry_options["range_style"] = LLFontDX::BOLD;
         }
         else
         {
-            entry_options["range_style"] = LLFontGL::NORMAL;
+            entry_options["range_style"] = LLFontDX::NORMAL;
         }
 
         // Set friends colors / styles
-        LLFontGL::StyleFlags nameCellStyle = LLFontGL::NORMAL;
+        LLFontDX::StyleFlags nameCellStyle = LLFontDX::NORMAL;
         const LLRelationship* relation = avatartracker.getBuddyInfo(avId);
         if (relation && !sFSLegacyRadarFriendColoring && !gRlvHandler.hasBehaviour(RLV_BHVR_SHOWNAMES))
         {
-            nameCellStyle = (LLFontGL::StyleFlags)(nameCellStyle | LLFontGL::BOLD);
+            nameCellStyle = (LLFontDX::StyleFlags)(nameCellStyle | LLFontDX::BOLD);
         }
         if (is_muted)
         {
-            nameCellStyle = (LLFontGL::StyleFlags)(nameCellStyle | LLFontGL::ITALIC);
+            nameCellStyle = (LLFontDX::StyleFlags)(nameCellStyle | LLFontDX::ITALIC);
         }
         entry_options["name_style"] = nameCellStyle;
 

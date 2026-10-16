@@ -2749,9 +2749,9 @@ void FSFloaterPoser::refreshTextHighlightingOnAvatarScrollList()
         ((LLScrollListText*)listItem->getColumn(COL_ICON))->setValue(getIconNameForAvatar(listAvatar));
 
         if (mPoserAnimator.isPosingAvatar(listAvatar))
-            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontGL::BOLD);
+            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontDX::BOLD);
         else
-            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontGL::NORMAL);
+            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontDX::NORMAL);
     }
 }
 
@@ -2791,9 +2791,9 @@ void FSFloaterPoser::addBoldToScrollList(LLScrollListCtrl* list, LLVOAvatar* ava
         ((LLScrollListText*)listItem->getColumn(COL_ICON))->setValue(getScrollListIconForJoint(avatar, *poserJoint));
 
         if (mPoserAnimator.isPosingAvatarJoint(avatar, *poserJoint))
-            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontGL::BOLD);
+            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontDX::BOLD);
         else
-            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontGL::NORMAL);
+            ((LLScrollListText*)listItem->getColumn(COL_NAME))->setFontStyle(LLFontDX::NORMAL);
     }
 }
 

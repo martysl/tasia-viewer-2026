@@ -39,7 +39,7 @@
 
 // Classes
 
-class LLFontGL;
+class LLFontDX;
 class LLViewBorder;
 
 class LLComboBox

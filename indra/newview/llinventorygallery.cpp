@@ -3145,13 +3145,13 @@ void LLInventoryGalleryItem::setWorn(bool value)
     updateNameText();
 }
 
-LLFontGL* LLInventoryGalleryItem::getTextFont()
+LLFontDX* LLInventoryGalleryItem::getTextFont()
 {
     if (mWorn)
     {
-        return LLFontGL::getFontSansSerifSmallBold();
+        return LLFontDX::getFontSansSerifSmallBold();
     }
-    return mIsLink ? LLFontGL::getFontSansSerifSmallItalic() : LLFontGL::getFontSansSerifSmall();
+    return mIsLink ? LLFontDX::getFontSansSerifSmallItalic() : LLFontDX::getFontSansSerifSmall();
 }
 
 void LLInventoryGalleryItem::updateNameText()

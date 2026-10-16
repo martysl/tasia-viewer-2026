@@ -134,7 +134,7 @@ void ALFloaterRegionTracker::refresh()
             LLScrollListCell::Params region;
             LLScrollListCell::Params count;
             label.column("region_label").type("text").value(data["label"].asString());
-            maturity.column("region_maturity_icon").type("icon").font_halign(LLFontGL::HCENTER);
+            maturity.column("region_maturity_icon").type("icon").font_halign(LLFontDX::HCENTER);
             region.column("region_name").type("text").value(sim_name);
             count.column("region_agent_count").type("text").value("...");
             if (LLSimInfo* info = LLWorldMap::getInstance()->simInfoFromName(sim_name))

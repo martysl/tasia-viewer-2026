@@ -33,7 +33,7 @@
 #include "lluiconstants.h"
 
 #include "llstring.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "lllineeditor.h"
 #include "llbutton.h"
 #include "lltextbox.h"

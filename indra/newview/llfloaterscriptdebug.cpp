@@ -30,7 +30,7 @@
 
 #include "llfloaterreg.h"
 #include "lluictrlfactory.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llrect.h"
 #include "llerror.h"
 #include "llstring.h"
@@ -303,9 +303,9 @@ void LLFloaterScriptDebugOutput::addLine(const std::string &utf8mesg, const std:
 
 void LLFloaterScriptDebugOutput::addLine(const LLChat& chat, const std::string &user_name)
 {
-    LLFontGL* fontp = LLViewerChat::getChatFont();
-    std::string font_name = LLFontGL::nameFromFont(fontp);
-    std::string font_size = LLFontGL::sizeFromFont(fontp);
+    LLFontDX* fontp = LLViewerChat::getChatFont();
+    std::string font_name = LLFontDX::nameFromFont(fontp);
+    std::string font_size = LLFontDX::sizeFromFont(fontp);
     LLStyle::Params message_params;
     message_params.font.name(font_name);
     message_params.font.size(font_size);

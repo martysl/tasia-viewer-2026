@@ -403,9 +403,9 @@ public:
 
         Optional<S32>           max_text_length;
 
-        Optional<LLFontGL::ShadowType>  font_shadow;
+        Optional<LLFontDX::ShadowType>  font_shadow;
 
-        Optional<LLFontGL::VAlign> text_valign;
+        Optional<LLFontDX::VAlign> text_valign;
 
         // <FS:Ansariel> Optional icon position
         Optional<LLTextBaseEnums::EIconPositioning> icon_positioning;
@@ -509,7 +509,7 @@ public:
      */
     void                    resetLabel();
 
-    void                    setFont(const LLFontGL* font);
+    void                    setFont(const LLFontDX* font);
 
     // force reflow of text
     void                    needsReflow(S32 index = 0);
@@ -568,7 +568,7 @@ public:
     void                    setHighlightWord(const std::string& strHighlight, bool fCaseInsensitive);
 // [/SL:KB]
 
-    const LLFontGL*         getFont() const override { return mFont; }
+    const LLFontDX*         getFont() const override { return mFont; }
 
     virtual void            copyContents(const LLTextBase* source);
     virtual void            appendLineBreakSegment(const LLStyle::Params& style_params);
@@ -759,8 +759,8 @@ protected:
     // default text style
     LLStyle::Params             mStyle;
     bool                        mStyleDirty;
-    const LLFontGL*             mFont;
-    const LLFontGL::ShadowType  mFontShadow;
+    const LLFontDX*             mFont;
+    const LLFontDX::ShadowType  mFontShadow;
 
     // colors
     LLUIColor                   mCursorColor;
@@ -807,9 +807,9 @@ protected:
     // configuration
     S32                         mHPad;              // padding on left of text
     S32                         mVPad;              // padding above text
-    LLFontGL::HAlign            mHAlign;            // horizontal alignment of the document in its entirety
-    LLFontGL::VAlign            mVAlign;            // vertical alignment of the document in its entirety
-    LLFontGL::VAlign            mTextVAlign;        // vertical alignment of a text segment within a single line of text
+    LLFontDX::HAlign            mHAlign;            // horizontal alignment of the document in its entirety
+    LLFontDX::VAlign            mVAlign;            // vertical alignment of the document in its entirety
+    LLFontDX::VAlign            mTextVAlign;        // vertical alignment of a text segment within a single line of text
     F32                         mLineSpacingMult;   // multiple of line height used as space for a single line of text (e.g. 1.5 to get 50% padding)
     S32                         mLineSpacingPixels; // padding between lines
     bool                        mBorderVisible;

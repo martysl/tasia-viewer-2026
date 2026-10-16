@@ -33,7 +33,7 @@
 #include "llmath.h"
 //#include "llviewercontrol.h"
 #include "llcriticaldamp.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llgl.h"
 #include "llui.h"
 #include "lluiimage.h"
@@ -41,7 +41,7 @@
 //#include "llviewerimagelist.h"
 //#include "llviewerwindow.h"
 #include "llsd.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llmath.h"
 #include "llurlregistry.h" // for SLURL parsing
 
@@ -122,36 +122,36 @@ void LLConsole::setFontSize(S32 size_index)
 {
     if (-1 == size_index)
     {
-        mFont = LLFontGL::getFontMonospace();
+        mFont = LLFontDX::getFontMonospace();
     }
     else if (0 == size_index)
     {
         // <FS>
-        //mFont = LLFontGL::getFontSansSerif();
-        mFont = LLFontGL::getFontSansSerifSmall();
+        //mFont = LLFontDX::getFontSansSerif();
+        mFont = LLFontDX::getFontSansSerifSmall();
         // </FS>
     }
     else if (1 == size_index)
     {
         // <FS>
-        //mFont = LLFontGL::getFontSansSerifBig();
-        mFont = LLFontGL::getFontSansSerif();
+        //mFont = LLFontDX::getFontSansSerifBig();
+        mFont = LLFontDX::getFontSansSerif();
         // </FS>
     }
     // <FS>
     else if (2 == size_index)
     {
-        mFont = LLFontGL::getFontSansSerifBig();
+        mFont = LLFontDX::getFontSansSerifBig();
     }
     // </FS>
     else
     {
-        mFont = LLFontGL::getFontSansSerifHuge();
+        mFont = LLFontDX::getFontSansSerifHuge();
     }
     // Make sure the font exists
     if (mFont == NULL)
     {
-        mFont = LLFontGL::getFontDefault();
+        mFont = LLFontDX::getFontDefault();
     }
 
     for(paragraph_t::iterator paragraph_it = mParagraphs.begin(); paragraph_it != mParagraphs.end(); paragraph_it++)
@@ -285,10 +285,10 @@ void LLConsole::draw()
     //                      (*seg_it).mColor.mV[VGREEN],
     //                      (*seg_it).mColor.mV[VBLUE],
     //                      (*seg_it).mColor.mV[VALPHA]*alpha),
-    //                  LLFontGL::LEFT,
-    //                  LLFontGL::BASELINE,
-    //                  LLFontGL::NORMAL,
-    //                  LLFontGL::DROP_SHADOW,
+    //                  LLFontDX::LEFT,
+    //                  LLFontDX::BASELINE,
+    //                  LLFontDX::NORMAL,
+    //                  LLFontDX::DROP_SHADOW,
     //                  S32_MAX,
     //                  target_width
     //                  );
@@ -388,10 +388,10 @@ void LLConsole::draw()
                                 (*seg_it).mColor.mV[VGREEN],
                                 (*seg_it).mColor.mV[VBLUE],
                                 (*seg_it).mColor.mV[VALPHA]*alpha),
-                            LLFontGL::LEFT,
-                            LLFontGL::BASELINE,
+                            LLFontDX::LEFT,
+                            LLFontDX::BASELINE,
                             (*line_it).mStyleFlags,
-                            LLFontGL::DROP_SHADOW,
+                            LLFontDX::DROP_SHADOW,
                             S32_MAX,
                             target_width
                             );
@@ -461,10 +461,10 @@ void LLConsole::draw()
                                 (*seg_it).mColor.mV[VGREEN],
                                 (*seg_it).mColor.mV[VBLUE],
                                 (*seg_it).mColor.mV[VALPHA]*alpha),
-                            LLFontGL::LEFT,
-                            LLFontGL::BASELINE,
+                            LLFontDX::LEFT,
+                            LLFontDX::BASELINE,
                             (*line_it).mStyleFlags,
-                            LLFontGL::DROP_SHADOW,
+                            LLFontDX::DROP_SHADOW,
                             S32_MAX,
                             target_width
                             );
@@ -479,13 +479,13 @@ void LLConsole::draw()
 }
 
 // <FS:Ansariel> Chat console
-void LLConsole::addConsoleLine(const std::string& utf8line, const LLColor4 &color, const LLUUID& session_id, LLFontGL::StyleFlags styleflags)
+void LLConsole::addConsoleLine(const std::string& utf8line, const LLColor4 &color, const LLUUID& session_id, LLFontDX::StyleFlags styleflags)
 {
     LLWString wline = utf8str_to_wstring(utf8line);
     addConsoleLine(wline, color, session_id, styleflags);
 }
 
-void LLConsole::addConsoleLine(const LLWString& wline, const LLColor4 &color, const LLUUID& session_id, LLFontGL::StyleFlags styleflags)
+void LLConsole::addConsoleLine(const LLWString& wline, const LLColor4 &color, const LLUUID& session_id, LLFontDX::StyleFlags styleflags)
 {
     if (wline.empty())
     {
@@ -569,8 +569,8 @@ void LLConsole::Paragraph::makeParagraphColorSegments (const LLColor4 &color)
 
 //Called when a paragraph is added to the console or window is resized.
 // <FS:Ansariel> Added styleflags parameter for style customization
-//void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, bool force_resize)
-void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, LLFontGL::StyleFlags styleflags, bool force_resize)
+//void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontDX* font, bool force_resize)
+void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontDX* font, LLFontDX::StyleFlags styleflags, bool force_resize)
 // </FS:Ansariel>
 {
     if ( !force_resize )
@@ -618,7 +618,7 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, L
         //  skip_chars = 0;
         //}
 
-        //U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, static_cast<S32>(line_end) - paragraph_offset, LLFontGL::WORD_BOUNDARY_IF_POSSIBLE);
+        //U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, static_cast<S32>(line_end) - paragraph_offset, LLFontDX::WORD_BOUNDARY_IF_POSSIBLE);
         if (line_end == LLWString::npos)
         {
             line_end = mParagraphText.size();
@@ -626,7 +626,7 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, L
 
         S32 skip_chars = 0; // skip '\n'
         U32 line_length = static_cast<U32>(line_end) - paragraph_offset;
-        U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, line_length, LLFontGL::WORD_BOUNDARY_IF_POSSIBLE);
+        U32 drawable = font->maxDrawableChars(mParagraphText.c_str()+paragraph_offset, screen_width, line_length, LLFontDX::WORD_BOUNDARY_IF_POSSIBLE);
         // </FS>
 
         if (drawable != 0)
@@ -692,9 +692,9 @@ void LLConsole::Paragraph::updateLines(F32 screen_width, const LLFontGL* font, L
 
 //Pass in the string and the default color for this block of text.
 // <FS:Ansariel> Added styleflags parameter for style customization and session support
-//LLConsole::Paragraph::Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width)
+//LLConsole::Paragraph::Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontDX* font, F32 screen_width)
 //: mParagraphText(str), mAddTime(add_time), mMaxWidth(-1)
-LLConsole::Paragraph::Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width, LLFontGL::StyleFlags styleflags, const LLUUID& session_id, bool parse_urls, LLConsole* console)
+LLConsole::Paragraph::Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontDX* font, F32 screen_width, LLFontDX::StyleFlags styleflags, const LLUUID& session_id, bool parse_urls, LLConsole* console)
 :   mParagraphText(str), mAddTime(add_time), mMaxWidth(-1), mSessionID(session_id)
 // </FS:Ansariel>
 {
@@ -799,7 +799,7 @@ void LLConsole::update()
                             mTimer.getElapsedTimeF32(),
                             mFont,
                             (F32)getRect().getWidth(),
-                            (!mLineStyle.empty() ? mLineStyle.front() : LLFontGL::NORMAL),
+                            (!mLineStyle.empty() ? mLineStyle.front() : LLFontDX::NORMAL),
                             (!mSessionIDs.empty() ? mSessionIDs.front(): LLUUID::null),
                             mParseUrls,
                             this));

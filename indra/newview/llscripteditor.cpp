@@ -129,7 +129,7 @@ void LLScriptEditor::drawLineNumbers()
             {
                 const LLWString ltext = utf8str_to_wstring(llformat("%d", line.mLineNum ));
                 bool is_cur_line = cursor_line == line.mLineNum;
-                const U8 style = is_cur_line ? LLFontGL::BOLD : LLFontGL::NORMAL;
+                const U8 style = is_cur_line ? LLFontDX::BOLD : LLFontDX::NORMAL;
                 const LLColor4& fg_color = is_cur_line ? mCursorColor : mReadOnlyFgColor;
                 getFont()->render(
                                  ltext, // string to draw
@@ -137,10 +137,10 @@ void LLScriptEditor::drawLineNumbers()
                                  UI_TEXTEDITOR_LINE_NUMBER_MARGIN - 2, // x
                                  (F32)line_bottom, // y
                                  fg_color,
-                                 LLFontGL::RIGHT, // horizontal alignment
-                                 LLFontGL::BOTTOM, // vertical alignment
+                                 LLFontDX::RIGHT, // horizontal alignment
+                                 LLFontDX::BOTTOM, // vertical alignment
                                  style,
-                                 LLFontGL::NO_SHADOW,
+                                 LLFontDX::NO_SHADOW,
                                  S32_MAX, // max chars
                                  UI_TEXTEDITOR_LINE_NUMBER_MARGIN - 2); // max pixels
                 last_line_num = line.mLineNum;
@@ -273,10 +273,10 @@ void LLScriptEditor::drawSelectionBackground()
 //    return size_name;
 //}
 //
-//LLFontGL* LLScriptEditor::getScriptFont()
+//LLFontDX* LLScriptEditor::getScriptFont()
 //{
 //    std::string font_size_name = mUseDefaultFontSize ? "Monospace" : getScriptFontSize();
-//    return LLFontGL::getFont(LLFontDescriptor("Monospace", font_size_name, 0));
+//    return LLFontDX::getFont(LLFontDescriptor("Monospace", font_size_name, 0));
 //}
 //
 //void LLScriptEditor::onFontSizeChange()

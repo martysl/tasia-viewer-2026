@@ -31,7 +31,7 @@
 #include "llboost.h"
 
 #include "lltoastalertpanel.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "lltextbox.h"
 #include "llbutton.h"
 #include "llkeyboard.h"
@@ -84,7 +84,7 @@ LLToastAlertPanel::LLToastAlertPanel( LLNotificationPtr notification, bool modal
         current_selection = current_selection->getParent();
     }
 
-    const LLFontGL* font = LLFontGL::getFontSansSerif();
+    const LLFontDX* font = LLFontDX::getFontSansSerif();
     const S32 LINE_HEIGHT = font->getLineHeight();
     const S32 EDITOR_HEIGHT = 20;
 

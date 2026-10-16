@@ -33,7 +33,7 @@
 
 #include "lltexteditor.h"
 #include "llmath.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llgl.h"
 #include "lltimer.h"
 
@@ -2020,9 +2020,9 @@ void LLLineEditor::draw()
                 mText, mScrollHPos,
                 rendered_pixels_right, text_bottom,
                 text_color,
-                LLFontGL::LEFT, LLFontGL::BOTTOM,
+                LLFontDX::LEFT, LLFontDX::BOTTOM,
                 0,
-                LLFontGL::NO_SHADOW,
+                LLFontDX::NO_SHADOW,
                 select_left - mScrollHPos,
                 mTextRightEdge - ll_round(rendered_pixels_right),
                 &rendered_pixels_right);
@@ -2043,9 +2043,9 @@ void LLLineEditor::draw()
                 mText, mScrollHPos + rendered_text,
                 rendered_pixels_right, text_bottom,
                 tmp_color,
-                LLFontGL::LEFT, LLFontGL::BOTTOM,
+                LLFontDX::LEFT, LLFontDX::BOTTOM,
                 0,
-                LLFontGL::NO_SHADOW,
+                LLFontDX::NO_SHADOW,
                 select_right - mScrollHPos - rendered_text,
                 mTextRightEdge - ll_round(rendered_pixels_right),
                 &rendered_pixels_right);
@@ -2059,9 +2059,9 @@ void LLLineEditor::draw()
                 mText, mScrollHPos + rendered_text,
                 rendered_pixels_right, text_bottom,
                 text_color,
-                LLFontGL::LEFT, LLFontGL::BOTTOM,
+                LLFontDX::LEFT, LLFontDX::BOTTOM,
                 0,
-                LLFontGL::NO_SHADOW,
+                LLFontDX::NO_SHADOW,
                 S32_MAX,
                 mTextRightEdge - ll_round(rendered_pixels_right),
                 &rendered_pixels_right);
@@ -2074,9 +2074,9 @@ void LLLineEditor::draw()
             mText, mScrollHPos,
             rendered_pixels_right, text_bottom,
             text_color,
-            LLFontGL::LEFT, LLFontGL::BOTTOM,
+            LLFontDX::LEFT, LLFontDX::BOTTOM,
             0,
-            LLFontGL::NO_SHADOW,
+            LLFontDX::NO_SHADOW,
             S32_MAX,
             mTextRightEdge - ll_round(rendered_pixels_right),
             &rendered_pixels_right);
@@ -2208,9 +2208,9 @@ void LLLineEditor::draw()
                     LLColor4 tmp_color( 1.f - text_color.mV[0], 1.f - text_color.mV[1], 1.f - text_color.mV[2], alpha );
                     mGLFont->render(mText, getCursor(), (F32)(cursor_left + lineeditor_cursor_thickness / 2), text_bottom,
                         tmp_color,
-                        LLFontGL::LEFT, LLFontGL::BOTTOM,
+                        LLFontDX::LEFT, LLFontDX::BOTTOM,
                         0,
-                        LLFontGL::NO_SHADOW,
+                        LLFontDX::NO_SHADOW,
                         1);
                 }
 
@@ -2240,10 +2240,10 @@ void LLLineEditor::draw()
                             mLabel.getWString(), 0,
                             (F32)mTextLeftEdge, (F32)text_bottom,
                             label_color,
-                            LLFontGL::LEFT,
-                            LLFontGL::BOTTOM,
+                            LLFontDX::LEFT,
+                            LLFontDX::BOTTOM,
                             0,
-                            LLFontGL::NO_SHADOW,
+                            LLFontDX::NO_SHADOW,
                             S32_MAX,
                             mTextRightEdge - ll_round(rendered_pixels_right),
                             &rendered_pixels_right, false);
@@ -2266,10 +2266,10 @@ void LLLineEditor::draw()
                             mLabel.getWString(), 0,
                             (F32)mTextLeftEdge, (F32)text_bottom,
                             label_color,
-                            LLFontGL::LEFT,
-                            LLFontGL::BOTTOM,
+                            LLFontDX::LEFT,
+                            LLFontDX::BOTTOM,
                             0,
-                            LLFontGL::NO_SHADOW,
+                            LLFontDX::NO_SHADOW,
                             S32_MAX,
                             mTextRightEdge - ll_round(rendered_pixels_right),
                             &rendered_pixels_right);
@@ -2906,7 +2906,7 @@ void LLLineEditor::setContextMenu(LLContextMenu* new_context_menu)
     }
 }
 
-void LLLineEditor::setFont(const LLFontGL* font)
+void LLLineEditor::setFont(const LLFontDX* font)
 {
     mGLFont = font;
 }

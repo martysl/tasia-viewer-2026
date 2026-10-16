@@ -961,7 +961,7 @@ void LLPreviewNotecard::checkCloseAfterSave()
 // <FS:Ansariel> FIRE-29425: User-selectable font and size for notecards
 void LLPreviewNotecard::onFontChanged()
 {
-    LLFontGL* font = LLFontGL::getFont(LLFontDescriptor(gSavedSettings.getString("FSNotecardFontName"), gSavedSettings.getString("FSNotecardFontSize"), LLFontGL::NORMAL));
+    LLFontDX* font = LLFontDX::getFont(LLFontDescriptor(gSavedSettings.getString("FSNotecardFontName"), gSavedSettings.getString("FSNotecardFontSize"), LLFontDX::NORMAL));
     if (font)
     {
         mEditor->setFont(font);

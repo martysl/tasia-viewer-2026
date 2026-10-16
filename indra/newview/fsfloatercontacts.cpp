@@ -779,7 +779,7 @@ void FSFloaterContacts::updateFriendItem(const LLUUID& agent_id, const LLRelatio
     updateFriendItemColor(itemp, agent_id);
 
     // render name of online friends in bold text
-    LLFontGL::StyleFlags font_style = ((isOnline || isOnlineSIP) ? LLFontGL::BOLD : LLFontGL::NORMAL);
+    LLFontDX::StyleFlags font_style = ((isOnline || isOnlineSIP) ? LLFontDX::BOLD : LLFontDX::NORMAL);
     ((LLScrollListText*)itemp->getColumn(LIST_FRIEND_USER_NAME))->setFontStyle(font_style);
     ((LLScrollListText*)itemp->getColumn(LIST_FRIEND_DISPLAY_NAME))->setFontStyle(font_style);
     ((LLScrollListText*)itemp->getColumn(LIST_FRIEND_NAME))->setFontStyle(font_style);

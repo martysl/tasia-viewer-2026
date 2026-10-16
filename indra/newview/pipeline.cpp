@@ -34,7 +34,7 @@
 #include "llerror.h"
 #include "llviewercontrol.h"
 #include "llfasttimer.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llfontvertexbuffer.h"
 #include "llnamevalue.h"
 #include "llpointer.h"

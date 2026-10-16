@@ -35,7 +35,7 @@
 #include "llworld.h"
 
 // Linden library includes
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llsys.h"
 #include "llgl.h"
 #include "llrender.h"

@@ -134,7 +134,7 @@ void LLFloaterVoiceEffect::refreshEffectList()
         // *HACK: Copied from llfloatergesture.cpp : ["font"]["style"] does not affect font style :(
         if(sl_item)
         {
-            ((LLScrollListText*)sl_item->getColumn(0))->setFontStyle(LLFontGL::BOLD);
+            ((LLScrollListText*)sl_item->getColumn(0))->setFontStyle(LLFontDX::BOLD);
         }
     }
 
@@ -194,7 +194,7 @@ void LLFloaterVoiceEffect::refreshEffectList()
             // *HACK: Copied from llfloatergesture.cpp : ["font"]["style"] does not affect font style :(
             if(sl_item)
             {
-                LLFontGL::StyleFlags style = is_template_only ? LLFontGL::NORMAL : LLFontGL::BOLD;
+                LLFontDX::StyleFlags style = is_template_only ? LLFontDX::NORMAL : LLFontDX::BOLD;
                 LLScrollListText* slt = dynamic_cast<LLScrollListText*>(sl_item->getColumn(0));
                 llassert(slt);
                 if (slt)

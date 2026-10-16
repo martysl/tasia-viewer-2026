@@ -42,7 +42,7 @@ constexpr bool CHECK_STYLE = false;
 //
 // Classes
 //
-class LLFontGL;
+class LLFontDX;
 class LLViewBorder;
 
 class LLCheckBoxCtrl
@@ -120,8 +120,8 @@ public:
     void                setLabel( const LLStringExplicit& label );
     std::string         getLabel() const;
 
-    void                setFont( const LLFontGL* font ) { mFont = font; }
-    const LLFontGL*     getFont() const { return mFont; }
+    void                setFont( const LLFontDX* font ) { mFont = font; }
+    const LLFontDX*     getFont() const { return mFont; }
 
     virtual void        setControlName(const std::string& control_name, LLView* context);
 
@@ -159,7 +159,7 @@ protected:
     // note: value is stored in toggle state of button
     LLButton*       mButton;
     LLTextBox*      mLabel;
-    const LLFontGL* mFont;
+    const LLFontDX* mFont;
 
     LLUIColor       mTextEnabledColor;
     LLUIColor       mTextDisabledColor;

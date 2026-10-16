@@ -34,7 +34,7 @@
 #include "v4coloru.h"
 #include "v2math.h"
 #include "llrect.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llfontvertexbuffer.h"
 #include <set>
 #include <vector>
@@ -54,7 +54,7 @@ protected:
     class LLHUDTextSegment
     {
     public:
-        LLHUDTextSegment(const LLWString& text, const LLFontGL::StyleFlags style, const LLColor4& color, const LLFontGL* font)
+        LLHUDTextSegment(const LLWString& text, const LLFontDX::StyleFlags style, const LLColor4& color, const LLFontDX* font)
         :   mColor(color),
             mStyle(style),
             mText(text),
@@ -76,7 +76,7 @@ protected:
             }            
         }
         // </FS:minerjr> [FIRE-35019]
-        F32 getWidth(const LLFontGL* font);
+        F32 getWidth(const LLFontDX* font);
         const LLWString& getText() const { return mText; }
         void clearFontWidthMap() { mFontWidthMap.clear(); }
 
@@ -84,12 +84,12 @@ protected:
         bool isBlank() { return mbIsBlank; } // Accessor method for checking to see if the current Text Segment is blank
         // </FS:minerjr> [FIRE-35019]
         LLColor4                mColor;
-        LLFontGL::StyleFlags    mStyle;
-        const LLFontGL*         mFont;
+        LLFontDX::StyleFlags    mStyle;
+        const LLFontDX*         mFont;
         LLFontVertexBuffer      mFontBuffer;
     private:
         LLWString               mText;
-        std::map<const LLFontGL*, F32> mFontWidthMap;
+        std::map<const LLFontDX*, F32> mFontWidthMap;
         // <FS:minerjr> [FIRE-35019] Add LLHUDNameTag background to floating text and hover highlights
         bool                    mbIsBlank; // True if mText length is 0, or only contains " " characters, otherwise false
         // <FS:minerjr> [FIRE-35019]
@@ -115,10 +115,10 @@ public:
     void clearString();
 
     // Add text a line at a time, allowing custom formatting
-    void addLine(const std::string &text_utf8, const LLColor4& color, const LLFontGL::StyleFlags style = LLFontGL::NORMAL, const LLFontGL* font = NULL);
+    void addLine(const std::string &text_utf8, const LLColor4& color, const LLFontDX::StyleFlags style = LLFontDX::NORMAL, const LLFontDX* font = NULL);
 
     // Sets the default font for lines with no font specified
-    void setFont(const LLFontGL* font);
+    void setFont(const LLFontDX* font);
     void setColor(const LLColor4 &color);
     void setAlpha(F32 alpha);
     void setZCompare(const bool zcompare);
@@ -182,8 +182,8 @@ private:
     F32             mWidth;
     F32             mHeight;
     LLColor4U       mPickColor;
-    const LLFontGL* mFontp;
-    const LLFontGL* mBoldFontp;
+    const LLFontDX* mFontp;
+    const LLFontDX* mBoldFontp;
     LLRectf         mSoftScreenRect;
     LLVector3       mPositionAgent;
     LLVector2       mPositionOffset;

@@ -740,23 +740,23 @@ void LLSceneMonitorView::draw()
 
     //show some texts
     LLColor4 color = LLColor4::white;
-    S32 line_height = LLFontGL::getFontMonospace()->getLineHeight();
+    S32 line_height = LLFontDX::getFontMonospace()->getLineHeight();
 
     S32 lines = 0;
     std::string num_str = llformat("Frame difference: %.6f", LLSceneMonitor::getInstance()->getDiffResult());
-    LLFontGL::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontGL::LEFT, LLFontGL::TOP);
+    LLFontDX::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontDX::LEFT, LLFontDX::TOP);
     lines++;
 
     num_str = llformat("Pixel tolerance: (R+G+B) < %.4f", LLSceneMonitor::getInstance()->getDiffTolerance());
-    LLFontGL::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontGL::LEFT, LLFontGL::TOP);
+    LLFontDX::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontDX::LEFT, LLFontDX::TOP);
     lines++;
 
     num_str = llformat("Sampling time: %.3f seconds", gSavedSettings.getF32("SceneLoadingMonitorSampleTime"));
-    LLFontGL::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontGL::LEFT, LLFontGL::TOP);
+    LLFontDX::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontDX::LEFT, LLFontDX::TOP);
     lines++;
 
     num_str = llformat("Scene Loading time: %.3f seconds", (F32)LLSceneMonitor::getInstance()->getRecording()->getResults().getDuration().value());
-    LLFontGL::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontGL::LEFT, LLFontGL::TOP);
+    LLFontDX::getFontMonospace()->renderUTF8(num_str, 0, 5, getRect().getHeight() - line_height * lines, color, LLFontDX::LEFT, LLFontDX::TOP);
     lines++;
 
     LLView::draw();

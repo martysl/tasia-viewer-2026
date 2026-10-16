@@ -1898,7 +1898,7 @@ LLTextureCtrl::LLTextureCtrl(const LLTextureCtrl::Params& p)
     // S32 image_bottom = BTN_HEIGHT_SMALL;
     S32 image_bottom = mCaptionHeight;
     S32 image_middle = (image_top + image_bottom) / 2;
-    S32 line_height = LLFontGL::getFontSansSerifSmall()->getLineHeight();
+    S32 line_height = LLFontDX::getFontSansSerifSmall()->getLineHeight();
 
     LLTextBox::Params tentative_label_p(p.multiselect_text);
     tentative_label_p.name("Multiple");
@@ -1911,7 +1911,7 @@ LLTextureCtrl::LLTextureCtrl(const LLTextureCtrl::Params& p)
     style_params.color = LLColor4::white;
 
     mTentativeLabel->setText(LLTrans::getString("multiple_textures"), style_params);
-    mTentativeLabel->setHAlign(LLFontGL::HCENTER);
+    mTentativeLabel->setHAlign(LLFontDX::HCENTER);
     addChild( mTentativeLabel );
 
     LLRect border_rect = getLocalRect();
@@ -2570,7 +2570,7 @@ void LLTextureCtrl::draw()
         mShowLoadingPlaceholder)
     {
         U32 v_offset = 25;
-        LLFontGL* font = LLFontGL::getFontSansSerif();
+        LLFontDX* font = LLFontDX::getFontSansSerif();
 
         // Don't show as loaded if the texture is almost fully loaded (i.e. discard1) unless god
         if ((mTexturep->getDiscardLevel() > 1) || gAgent.isGodlike())
@@ -2581,32 +2581,32 @@ void LLTextureCtrl::draw()
                 (interior.mLeft+3),
                 (interior.mTop-v_offset),
                 LLColor4::white,
-                LLFontGL::LEFT,
-                LLFontGL::BASELINE,
-                LLFontGL::DROP_SHADOW);
+                LLFontDX::LEFT,
+                LLFontDX::BASELINE,
+                LLFontDX::DROP_SHADOW);
         }
 
         // Optionally show more detailed information.
         if (gSavedSettings.getBOOL("DebugAvatarRezTime"))
         {
-            LLFontGL* font = LLFontGL::getFontSansSerif();
+            LLFontDX* font = LLFontDX::getFontSansSerif();
             std::string tdesc;
             // Show what % the texture has loaded (0 to 100%, 100 is highest), and what level of detail (5 to 0, 0 is best).
 
             v_offset += 12;
             tdesc = llformat("  PK  : %d%%", U32(mTexturep->getDownloadProgress()*100.0));
             font->renderUTF8(tdesc, 0, interior.mLeft+3, interior.mTop-v_offset,
-                             LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+                             LLColor4::white, LLFontDX::LEFT, LLFontDX::BASELINE, LLFontDX::DROP_SHADOW);
 
             v_offset += 12;
             tdesc = llformat("  LVL: %d", mTexturep->getDiscardLevel());
             font->renderUTF8(tdesc, 0, interior.mLeft+3, interior.mTop-v_offset,
-                             LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+                             LLColor4::white, LLFontDX::LEFT, LLFontDX::BASELINE, LLFontDX::DROP_SHADOW);
 
             v_offset += 12;
             tdesc = llformat("  ID  : %s...", (mImageAssetID.asString().substr(0,7)).c_str());
             font->renderUTF8(tdesc, 0, interior.mLeft+3, interior.mTop-v_offset,
-                             LLColor4::white, LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::DROP_SHADOW);
+                             LLColor4::white, LLFontDX::LEFT, LLFontDX::BASELINE, LLFontDX::DROP_SHADOW);
         }
     }
 

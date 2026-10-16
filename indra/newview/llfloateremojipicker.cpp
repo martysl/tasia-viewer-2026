@@ -104,16 +104,16 @@ public:
 
         F32 x = 4; // padding-left
         F32 y = (F32)(getRect().getHeight() / 2);
-        LLFontGL::getFontSansSerif()->render(
+        LLFontDX::getFontSansSerif()->render(
             mText,                           // wstr
             0,                               // begin_offset
             x,                               // x
             y,                               // y
             LLColor4::white,                 // color
-            LLFontGL::LEFT,                  // halign
-            LLFontGL::VCENTER,               // valign
-            LLFontGL::NORMAL,                // style
-            LLFontGL::DROP_SHADOW_SOFT,      // shadow
+            LLFontDX::LEFT,                  // halign
+            LLFontDX::VCENTER,               // valign
+            LLFontDX::NORMAL,                // style
+            LLFontDX::DROP_SHADOW_SOFT,      // shadow
             static_cast<S32>(mText.size())); // max_chars
     }
 
@@ -143,18 +143,18 @@ public:
         F32 x = (F32)(getRect().getWidth() / 2);
         F32 y = (F32)(getRect().getHeight() / 2);
         // <FS:Beq> Add B&W emoji font support
-        // LLFontGL::getFontEmojiLarge()->render( 
-        LLFontGL::getFontEmojiLarge(useBWEmojis)->render( 
+        // LLFontDX::getFontEmojiLarge()->render(
+        LLFontDX::getFontEmojiLarge(useBWEmojis)->render(
         // </FS:Beq>
             mChar,                      // wstr
             0,                          // begin_offset
             x,                          // x
             y,                          // y
             LLColor4::white,            // color
-            LLFontGL::HCENTER,          // halign
-            LLFontGL::VCENTER,          // valign
-            LLFontGL::NORMAL,           // style
-            LLFontGL::DROP_SHADOW_SOFT, // shadow
+            LLFontDX::HCENTER,          // halign
+            LLFontDX::VCENTER,          // valign
+            LLFontDX::NORMAL,           // style
+            LLFontDX::DROP_SHADOW_SOFT, // shadow
             1);                         // max_chars
     }
 
@@ -218,19 +218,19 @@ protected:
     void drawIcon(F32 x, F32 y, S32 max_pixels)
     {
         // <FS:Beq> Add B&W emoji font support
-        // LLFontGL::getFontEmojiHuge()->render(
+        // LLFontDX::getFontEmojiHuge()->render(
         static LLCachedControl<bool> useBWEmojis(gSavedSettings, "FSUseBWEmojis", false);
-        LLFontGL::getFontEmojiHuge( useBWEmojis )->render(
+        LLFontDX::getFontEmojiHuge( useBWEmojis )->render(
         // </FS:Beq>
             mWStr,                      // wstr
             0,                          // begin_offset
             x,                          // x
             y,                          // y
             LLColor4::white,            // color
-            LLFontGL::HCENTER,          // halign
-            LLFontGL::VCENTER,          // valign
-            LLFontGL::NORMAL,           // style
-            LLFontGL::DROP_SHADOW_SOFT, // shadow
+            LLFontDX::HCENTER,          // halign
+            LLFontDX::VCENTER,          // valign
+            LLFontDX::NORMAL,           // style
+            LLFontDX::DROP_SHADOW_SOFT, // shadow
             1,                          // max_chars
             max_pixels);                // max_pixels
     }
@@ -241,7 +241,7 @@ protected:
 
         F32 x0 = x;
         F32 x1 = (F32)max_pixels;
-        LLFontGL* font = LLFontGL::getFontEmojiLarge(useBWEmojis); // <FS:Beq/> Add B&W emoji font support
+        LLFontDX* font = LLFontDX::getFontEmojiLarge(useBWEmojis); // <FS:Beq/> Add B&W emoji font support
         if (mBegin)
         {
             LLWString text = mTitle.substr(0, mBegin);
@@ -251,10 +251,10 @@ protected:
                 x0,                            // x
                 y,                             // y
                 color,                         // color
-                LLFontGL::LEFT,                // halign
-                LLFontGL::VCENTER,             // valign
-                LLFontGL::NORMAL,              // style
-                LLFontGL::DROP_SHADOW_SOFT,    // shadow
+                LLFontDX::LEFT,                // halign
+                LLFontDX::VCENTER,             // valign
+                LLFontDX::NORMAL,              // style
+                LLFontDX::DROP_SHADOW_SOFT,    // shadow
                 static_cast<S32>(text.size()), // max_chars
                 (S32)x1);                      // max_pixels
             F32 dx = font->getWidthF32(text.c_str());
@@ -270,10 +270,10 @@ protected:
                 x0,                            // x
                 y,                             // y
                 LLColor4::yellow6,             // color
-                LLFontGL::LEFT,                // halign
-                LLFontGL::VCENTER,             // valign
-                LLFontGL::NORMAL,              // style
-                LLFontGL::DROP_SHADOW_SOFT,    // shadow
+                LLFontDX::LEFT,                // halign
+                LLFontDX::VCENTER,             // valign
+                LLFontDX::NORMAL,              // style
+                LLFontDX::DROP_SHADOW_SOFT,    // shadow
                 static_cast<S32>(text.size()), // max_chars
                 (S32)x1);                      // max_pixels
             F32 dx = font->getWidthF32(text.c_str());
@@ -289,10 +289,10 @@ protected:
                 x0,                            // x
                 y,                             // y
                 color,                         // color
-                LLFontGL::LEFT,                // halign
-                LLFontGL::VCENTER,             // valign
-                LLFontGL::NORMAL,              // style
-                LLFontGL::DROP_SHADOW_SOFT,    // shadow
+                LLFontDX::LEFT,                // halign
+                LLFontDX::VCENTER,             // valign
+                LLFontDX::NORMAL,              // style
+                LLFontDX::DROP_SHADOW_SOFT,    // shadow
                 static_cast<S32>(text.size()), // max_chars
                 (S32)x1);                      // max_pixels
         }
@@ -457,7 +457,7 @@ void LLFloaterEmojiPicker::fillGroups()
     mGroupButtons.clear();
 
     LLButton::Params params;
-    params.font = LLFontGL::getFontEmojiLarge(useBWEmojis); // <FS:Beq/> Add B&W emoji font support
+    params.font = LLFontDX::getFontEmojiLarge(useBWEmojis); // <FS:Beq/> Add B&W emoji font support
 
     LLRect rect;
     rect.mTop = mGroups->getRect().getHeight();

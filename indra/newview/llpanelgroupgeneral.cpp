@@ -1070,7 +1070,7 @@ void LLPanelGroupGeneral::addMember(LLGroupMemberData* member)
     {
         LLScrollListText* name_textp = dynamic_cast<LLScrollListText*>(member_row->getColumn(0));
         if (name_textp)
-            name_textp->setFontStyle(LLFontGL::BOLD);
+            name_textp->setFontStyle(LLFontDX::BOLD);
     }
 }
 

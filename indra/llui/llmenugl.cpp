@@ -51,7 +51,7 @@
 #include "lluictrlfactory.h"
 
 #include "llbutton.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llresmgr.h"
 #include "lltrans.h"
 #include "llui.h"
@@ -536,26 +536,26 @@ void LLMenuItemGL::draw( void )
     if (mBriefItem)
     {
         mFont->render( mLabel, 0, BRIEF_PAD_PIXELS / 2, 0, color,
-                       LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL);
+                       LLFontDX::LEFT, LLFontDX::BOTTOM, LLFontDX::NORMAL);
     }
     else
     {
         if( !mDrawBoolLabel.empty() )
         {
             mFont->render( mDrawBoolLabel.getWString(), 0, (F32)LEFT_PAD_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f), color,
-                           LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
+                           LLFontDX::LEFT, LLFontDX::BOTTOM, LLFontDX::NORMAL, LLFontDX::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
         }
         mFont->render( mLabel.getWString(), 0, (F32)LEFT_PLAIN_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f), color,
-                       LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
+                       LLFontDX::LEFT, LLFontDX::BOTTOM, LLFontDX::NORMAL, LLFontDX::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
         if( !mDrawAccelLabel.empty() )
         {
             mFont->render( mDrawAccelLabel.getWString(), 0, (F32)getRect().mRight - (F32)RIGHT_PLAIN_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f), color,
-                           LLFontGL::RIGHT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
+                           LLFontDX::RIGHT, LLFontDX::BOTTOM, LLFontDX::NORMAL, LLFontDX::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
         }
         if( !mDrawBranchLabel.empty() )
         {
             mFont->render( mDrawBranchLabel.getWString(), 0, (F32)getRect().mRight - (F32)RIGHT_PAD_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f), color,
-                           LLFontGL::RIGHT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
+                           LLFontDX::RIGHT, LLFontDX::BOTTOM, LLFontDX::NORMAL, LLFontDX::NO_SHADOW, S32_MAX, S32_MAX, NULL, false );
         }
     }
 
@@ -1662,7 +1662,7 @@ void LLMenuItemBranchDownGL::draw( void )
         color = mDisabledColor.get();
     }
     getFont()->render( mLabel.getWString(), 0, (F32)getRect().getWidth() / 2.f, (F32)LABEL_BOTTOM_PAD_PIXELS, color,
-                   LLFontGL::HCENTER, LLFontGL::BOTTOM, LLFontGL::NORMAL);
+                   LLFontDX::HCENTER, LLFontDX::BOTTOM, LLFontDX::NORMAL);
 
 
     // underline navigation key only when keyboard navigation has been initiated
@@ -2132,10 +2132,10 @@ void LLMenuGL::arrange( void )
 
         // *FIX: create the item first and then ask for its dimensions?
         // <FS:Ansariel> Calculate proper width for localized string
-        //S32 spillover_item_width = PLAIN_PAD_PIXELS + LLFontGL::getFontSansSerif()->getWidth( std::string("More") ); // *TODO: Translate
-        S32 spillover_item_width = PLAIN_PAD_PIXELS + LLFontGL::getFontSansSerif()->getWidth( LLTrans::getString("More") );
+        //S32 spillover_item_width = PLAIN_PAD_PIXELS + LLFontDX::getFontSansSerif()->getWidth( std::string("More") ); // *TODO: Translate
+        S32 spillover_item_width = PLAIN_PAD_PIXELS + LLFontDX::getFontSansSerif()->getWidth( LLTrans::getString("More") );
         // </FS:Ansariel>
-        S32 spillover_item_height = LLFontGL::getFontSansSerif()->getLineHeight() + MENU_ITEM_PADDING;
+        S32 spillover_item_height = LLFontDX::getFontSansSerif()->getLineHeight() + MENU_ITEM_PADDING;
 
         // Scrolling support
         item_list_t::iterator first_visible_item_iter;

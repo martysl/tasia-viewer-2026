@@ -326,12 +326,12 @@ void LLPreviewTexture::draw()
 
             if( mLoadingFullImage )
             {
-                LLFontGL::getFontSansSerif()->renderUTF8(LLTrans::getString("Receiving"), 0,
+                LLFontDX::getFontSansSerif()->renderUTF8(LLTrans::getString("Receiving"), 0,
                     interior.mLeft + 4,
                     interior.mBottom + 4,
-                    LLColor4::white, LLFontGL::LEFT, LLFontGL::BOTTOM,
-                    LLFontGL::NORMAL,
-                    LLFontGL::DROP_SHADOW);
+                    LLColor4::white, LLFontDX::LEFT, LLFontDX::BOTTOM,
+                    LLFontDX::NORMAL,
+                    LLFontDX::DROP_SHADOW);
 
                 F32 data_progress = mImage->getDownloadProgress() ;
 
@@ -363,12 +363,12 @@ void LLPreviewTexture::draw()
             else
             if( !mSavedFileTimer.hasExpired() )
             {
-                LLFontGL::getFontSansSerif()->renderUTF8(LLTrans::getString("FileSaved"), 0,
+                LLFontDX::getFontSansSerif()->renderUTF8(LLTrans::getString("FileSaved"), 0,
                     interior.mLeft + 4,
                     interior.mBottom + 4,
-                    LLColor4::white, LLFontGL::LEFT, LLFontGL::BOTTOM,
-                    LLFontGL::NORMAL,
-                    LLFontGL::DROP_SHADOW);
+                    LLColor4::white, LLFontDX::LEFT, LLFontDX::BOTTOM,
+                    LLFontDX::NORMAL,
+                    LLFontDX::DROP_SHADOW);
             }
         }
     }

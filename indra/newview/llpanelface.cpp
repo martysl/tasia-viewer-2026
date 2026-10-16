@@ -34,7 +34,7 @@
 #include "llerror.h"
 #include "llrect.h"
 #include "llstring.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 
 // project includes
 #include "llagent.h"

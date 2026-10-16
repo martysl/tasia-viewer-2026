@@ -559,14 +559,14 @@ void LLWorldMapView::draw()
         if (mMapScale >= DRAW_TEXT_THRESHOLD)
         {
             static LLCachedControl<bool> print_coords(gSavedSettings, "MapShowGridCoords");
-            static LLFontGL* font = LLFontGL::getFontSansSerifSmallBold();
+            static LLFontDX* font = LLFontDX::getFontSansSerifSmallBold();
 
             auto print = [&](std::string text, F32 x, F32 y, bool use_ellipses)
                 {
                     font->renderUTF8(text, 0,
                         (F32)llfloor(left + x), (F32)llfloor(bottom + y),
                         LLColor4::white,
-                        LLFontGL::LEFT, LLFontGL::BASELINE, LLFontGL::NORMAL, LLFontGL::DROP_SHADOW,
+                        LLFontDX::LEFT, LLFontDX::BASELINE, LLFontDX::NORMAL, LLFontDX::DROP_SHADOW,
                         S32_MAX, //max_chars
                         (S32)mMapScale, //max_pixels
                         NULL,
@@ -671,7 +671,7 @@ void LLWorldMapView::draw()
                      true,
                      sStringsMap["agent_position"].c_str(),
                      "",
-                     LLFontGL::getFontSansSerifSmall()->getLineHeight()); // offset vertically by one line, to avoid overlap with target tracking
+                     LLFontDX::getFontSansSerifSmall()->getLineHeight()); // offset vertically by one line, to avoid overlap with target tracking
     }
 
     // Draw the current agent viewing angle
@@ -1135,7 +1135,7 @@ void LLWorldMapView::drawTracking(const LLVector3d& pos_global, const LLColor4& 
     LLVector3 pos_local = globalPosToView( pos_global );
     S32 x = ll_round( pos_local.mV[VX] );
     S32 y = ll_round( pos_local.mV[VY] );
-    LLFontGL* font = LLFontGL::getFontSansSerifSmall();
+    LLFontDX* font = LLFontDX::getFontSansSerifSmall();
     S32 text_x = x;
     S32 text_y = (S32)(y - sTrackCircleImage->getHeight()/2 - font->getLineHeight());
 
@@ -1180,8 +1180,8 @@ void LLWorldMapView::drawTracking(const LLVector3d& pos_global, const LLColor4& 
             wlabel, 0,
             (F32)text_x,
             (F32)text_y,
-            LLColor4::white, LLFontGL::HCENTER,
-            LLFontGL::BASELINE, LLFontGL::NORMAL, LLFontGL::DROP_SHADOW);
+            LLColor4::white, LLFontDX::HCENTER,
+            LLFontDX::BASELINE, LLFontDX::NORMAL, LLFontDX::DROP_SHADOW);
 
         if (tooltip != "")
         {
@@ -1191,8 +1191,8 @@ void LLWorldMapView::drawTracking(const LLVector3d& pos_global, const LLColor4& 
                 tooltip, 0,
                 text_x,
                 text_y,
-                LLColor4::white, LLFontGL::HCENTER,
-                LLFontGL::BASELINE, LLFontGL::NORMAL, LLFontGL::DROP_SHADOW);
+                LLColor4::white, LLFontDX::HCENTER,
+                LLFontDX::BASELINE, LLFontDX::NORMAL, LLFontDX::DROP_SHADOW);
         }
     }
 }
@@ -1387,26 +1387,26 @@ void LLWorldMapView::drawIconName(F32 x_pixels,
                          - VERT_PAD);
 
     // render text
-    LLFontGL::getFontSansSerif()->renderUTF8(first_line, 0,
+    LLFontDX::getFontSansSerif()->renderUTF8(first_line, 0,
         text_x,
         text_y,
         color,
-        LLFontGL::HCENTER,
-        LLFontGL::TOP,
-        LLFontGL::NORMAL,
-        LLFontGL::DROP_SHADOW);
+        LLFontDX::HCENTER,
+        LLFontDX::TOP,
+        LLFontDX::NORMAL,
+        LLFontDX::DROP_SHADOW);
 
-    text_y -= LLFontGL::getFontSansSerif()->getLineHeight();
+    text_y -= LLFontDX::getFontSansSerif()->getLineHeight();
 
     // render text
-    LLFontGL::getFontSansSerif()->renderUTF8(second_line, 0,
+    LLFontDX::getFontSansSerif()->renderUTF8(second_line, 0,
         text_x,
         text_y,
         color,
-        LLFontGL::HCENTER,
-        LLFontGL::TOP,
-        LLFontGL::NORMAL,
-        LLFontGL::DROP_SHADOW);
+        LLFontDX::HCENTER,
+        LLFontDX::TOP,
+        LLFontDX::NORMAL,
+        LLFontDX::DROP_SHADOW);
 }
 
 

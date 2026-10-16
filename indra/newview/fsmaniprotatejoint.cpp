@@ -33,7 +33,7 @@
 #include "v4color.h"
 #include "llprimitive.h"
 #include "llview.h"
-#include "llfontgl.h"
+#include "llfontdx.h"
 #include "llrendersphere.h"
 #include "llvoavatar.h"
 #include "lljoint.h"
@@ -865,7 +865,7 @@ std::string FSManipRotateJoint::getManipPartString(EManipPart part)
  * @return void
  *
  * @note This function assumes the existence of class member variables such as mLastAngle, mJoint, and mManipPart.
- *       It also uses global functions and objects like gViewerWindow, LLUI, and LLFontGL.
+ *       It also uses global functions and objects like gViewerWindow, LLUI, and LLFontDX.
  */
 void FSManipRotateJoint::renderNameXYZ(const LLQuaternion& rot)
 {
@@ -902,7 +902,7 @@ void FSManipRotateJoint::renderNameXYZ(const LLQuaternion& rot)
             LLColor4(0.f, 0.f, 0.f, 0.7f) 
         );
 
-        LLFontGL* font = LLFontGL::getFontSansSerif();
+        LLFontDX* font = LLFontDX::getFontSansSerif();
         LLLocale locale(LLLocale::USER_LOCALE);
         LLGLDepthTest gls_depth(GL_FALSE);
 
@@ -949,11 +949,11 @@ void FSManipRotateJoint::renderNameXYZ(const LLQuaternion& rot)
 
         auto renderTextWithShadow = [&](const LLWString& text, F32 x, F32 y, const LLColor4& color) {
             font->render(text, 0, x + 1.f, y - 2.f, LLColor4::black,
-                LLFontGL::LEFT, LLFontGL::BASELINE,
-                LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, 1000, nullptr);
+                LLFontDX::LEFT, LLFontDX::BASELINE,
+                LLFontDX::NORMAL, LLFontDX::NO_SHADOW, S32_MAX, 1000, nullptr);
             font->render(text, 0, x, y, color,
-                LLFontGL::LEFT, LLFontGL::BASELINE,
-                LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, 1000, nullptr);
+                LLFontDX::LEFT, LLFontDX::BASELINE,
+                LLFontDX::NORMAL, LLFontDX::NO_SHADOW, S32_MAX, 1000, nullptr);
             };
 
         renderTextWithShadow(current_eulerX_str, window_center_x - 122.f, base_y, LLColor4(1.f, 0.5f, 0.5f, 1.f));

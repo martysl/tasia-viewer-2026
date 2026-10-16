@@ -144,7 +144,7 @@ void FSFloaterProtectedFolders::updateList()
         if (!cat)
         {
             LLScrollListText* name_column = (LLScrollListText*)row->getColumn(0);
-            name_column->setFontStyle(LLFontGL::NORMAL | LLFontGL::ITALIC);
+            name_column->setFontStyle(LLFontDX::NORMAL | LLFontDX::ITALIC);
         }
     }
 

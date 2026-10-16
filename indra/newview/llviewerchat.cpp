@@ -264,24 +264,24 @@ void LLViewerChat::getChatColor(const LLChat& chat, std::string& r_color_name, F
 
 
 //static
-LLFontGL* LLViewerChat::getChatFont()
+LLFontDX* LLViewerChat::getChatFont()
 {
     S32 font_size = gSavedSettings.getS32("ChatFontSize");
-    LLFontGL* fontp = NULL;
+    LLFontDX* fontp = NULL;
     switch(font_size)
     {
         case 0:
-            fontp = LLFontGL::getFontSansSerifSmall();
+            fontp = LLFontDX::getFontSansSerifSmall();
             break;
         default:
         case 1:
-            fontp = LLFontGL::getFontSansSerif();
+            fontp = LLFontDX::getFontSansSerif();
             break;
         case 2:
-            fontp = LLFontGL::getFontSansSerifBig();
+            fontp = LLFontDX::getFontSansSerifBig();
             break;
         case 3:
-            fontp = LLFontGL::getFontSansSerifHuge();
+            fontp = LLFontDX::getFontSansSerifHuge();
             break;
     }
 

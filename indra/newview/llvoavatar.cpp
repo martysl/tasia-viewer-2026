@@ -4186,8 +4186,8 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
             // </FS:Ansariel>
             // trim last ", "
             line.resize( line.length() - 2 );
-            addNameTagLine(line, name_tag_color, LLFontGL::NORMAL,
-                LLFontGL::getFontSansSerifSmall());
+            addNameTagLine(line, name_tag_color, LLFontDX::NORMAL,
+                LLFontDX::getFontSansSerifSmall());
         }
 
 //      if (sRenderGroupTitles
@@ -4198,8 +4198,8 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
         {
             std::string title_str = title->getString();
             LLStringFn::replace_ascii_controlchars(title_str,LL_UNKNOWN_CHAR);
-            addNameTagLine(title_str, name_tag_color, LLFontGL::NORMAL,
-                LLFontGL::getFontSansSerifSmall(), true);
+            addNameTagLine(title_str, name_tag_color, LLFontDX::NORMAL,
+                LLFontDX::getFontSansSerifSmall(), true);
         }
 
         static LLUICachedControl<bool> show_display_names("NameTagShowDisplayNames", true);
@@ -4233,11 +4233,11 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
 
                     if (mClientTagData.has("name") && !mClientTagData["name"].asString().empty())
                     {
-                        addNameTagLine(display_name + " (" + mClientTagData["name"].asString() + ")",name_tag_color,LLFontGL::NORMAL, LLFontGL::getFontSansSerif(), true, (!display_name.empty()) );
+                        addNameTagLine(display_name + " (" + mClientTagData["name"].asString() + ")",name_tag_color,LLFontDX::NORMAL, LLFontDX::getFontSansSerif(), true, (!display_name.empty()) );
                     }
                     else
                     {
-                        addNameTagLine(display_name, name_tag_color, LLFontGL::NORMAL, LLFontGL::getFontSansSerif(), true, true);
+                        addNameTagLine(display_name, name_tag_color, LLFontDX::NORMAL, LLFontDX::getFontSansSerif(), true, true);
                     }
                 }
                 // Suppress SLID display if display name matches exactly (ugh)
@@ -4264,36 +4264,36 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
                         username = tasia_user.cosmetic_username;
                     }
 
-                    addNameTagLine(username, username_color, LLFontGL::NORMAL, LLFontGL::getFontSansSerifSmall(), true);
+                    addNameTagLine(username, username_color, LLFontDX::NORMAL, LLFontDX::getFontSansSerifSmall(), true);
                 }
 // [RLVa:KB] - Checked: RLVa-1.2.2
             }
             else
             {
-                addNameTagLine(RlvStrings::getAnonym(av_name), name_tag_color, LLFontGL::NORMAL, LLFontGL::getFontSansSerif(), true, (!av_name.getDisplayName().empty()) );
+                addNameTagLine(RlvStrings::getAnonym(av_name), name_tag_color, LLFontDX::NORMAL, LLFontDX::getFontSansSerif(), true, (!av_name.getDisplayName().empty()) );
             }
 // [/RLVa:KB]
         }
         else  // DISPLAY NAMES OFF
         {
-            const LLFontGL* font = LLFontGL::getFontSansSerif();
+            const LLFontDX* font = LLFontDX::getFontSansSerif();
             std::string full_name = LLCacheName::buildFullName( firstname->getString(), lastname->getString() );
 // [RLVa:KB] - Checked: RLVa-1.2.2
             if ( (!fRlvShowAvName) && (!isSelf()) )
             {
                 full_name = RlvStrings::getAnonym(full_name);
-                addNameTagLine(full_name, name_tag_color, LLFontGL::NORMAL, font, true, true);
+                addNameTagLine(full_name, name_tag_color, LLFontDX::NORMAL, font, true, true);
             }
 // [/RLVa:KB]
             else // Only check for client tags when not RLV anon -AO
             {
                 if (mClientTagData.has("name") && !mClientTagData["name"].asString().empty())
                 {
-                    addNameTagLine(full_name + " (" + mClientTagData["name"].asString() + ")", name_tag_color, LLFontGL::NORMAL, font, true, true);
+                    addNameTagLine(full_name + " (" + mClientTagData["name"].asString() + ")", name_tag_color, LLFontDX::NORMAL, font, true, true);
                 }
                 else
                 {
-                    addNameTagLine(full_name, name_tag_color, LLFontGL::NORMAL, font, true, true);
+                    addNameTagLine(full_name, name_tag_color, LLFontDX::NORMAL, font, true, true);
                 }
             }
         }
@@ -4303,15 +4303,15 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
             std::string tasia_title = tasia_user.getNametagTitle();
             if (!tasia_title.empty())
             {
-                addNameTagLine(tasia_title, name_tag_color, LLFontGL::BOLD,
-                    LLFontGL::getFontSansSerifSmall(), true);
+                addNameTagLine(tasia_title, name_tag_color, LLFontDX::BOLD,
+                    LLFontDX::getFontSansSerifSmall(), true);
             }
         }
 
         // <FS:Ansariel> Show distance in tag
         if (show_distance_in_tag)
         {
-            addNameTagLine(distance_string, distance_color, LLFontGL::NORMAL, LLFontGL::getFontSansSerifSmall());
+            addNameTagLine(distance_string, distance_color, LLFontDX::NORMAL, LLFontDX::getFontSansSerifSmall());
         }
         // <FS:Ansariel> Show distance in tag
 
@@ -4332,7 +4332,7 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
             LLStringUtil::format_map_t label_args;
             label_args["COMPLEXITY"] = complexity_string;
 
-            addNameTagLine(FSCommon::format_string(complexity_label, label_args), complexity_color, LLFontGL::NORMAL, LLFontGL::getFontSansSerifSmall());
+            addNameTagLine(FSCommon::format_string(complexity_label, label_args), complexity_color, LLFontDX::NORMAL, LLFontDX::getFontSansSerifSmall());
 
             // only show texture area if this is the reason for jelly baby rendering
             static LLCachedControl<F32> max_attachment_area(gSavedSettings, "RenderAutoMuteSurfaceAreaLimit", 1000.0f);
@@ -4341,7 +4341,7 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
                 LLResMgr::getInstance()->getIntegerString(complexity_string, (S32)mAttachmentSurfaceArea);
                 label_args["TEXTURE_AREA"] = complexity_string;
 
-                addNameTagLine(FSCommon::format_string(texture_area_label, label_args), LLColor4::red, LLFontGL::NORMAL, LLFontGL::getFontSansSerifSmall());
+                addNameTagLine(FSCommon::format_string(texture_area_label, label_args), LLColor4::red, LLFontDX::NORMAL, LLFontDX::getFontSansSerifSmall());
             }
         }
         // </FS:Ansariel>
@@ -4349,7 +4349,7 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
         if (show_rez_status)
         {
             std::string av_string = LLVOAvatar::rezStatusToString(mLastRezzedStatus);
-            addNameTagLine(av_string, name_tag_color, LLFontGL::NORMAL, LLFontGL::getFontSansSerifSmall(), true);
+            addNameTagLine(av_string, name_tag_color, LLFontDX::NORMAL, LLFontDX::getFontSansSerifSmall(), true);
         }
 
         mNameAway = is_away;
@@ -4379,7 +4379,7 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
 
     if (mVisibleChat || mVisibleTyping)
     {
-        mNameText->setFont(LLFontGL::getFontSansSerif());
+        mNameText->setFont(LLFontDX::getFontSansSerif());
                 mNameText->setTextAlignment(LLHUDNameTag::ALIGN_TEXT_LEFT);
         mNameText->setFadeDistance(CHAT_NORMAL_RADIUS * 2.f, 5.f);
 
@@ -4411,17 +4411,17 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
         for(; chat_iter != mChats.end(); ++chat_iter)
         {
             F32 chat_fade_amt = llclamp((F32)((LLFrameTimer::getElapsedSeconds() - chat_iter->mTime) / CHAT_FADE_TIME), 0.f, 4.f);
-            LLFontGL::StyleFlags style;
+            LLFontDX::StyleFlags style;
             switch(chat_iter->mChatType)
             {
             case CHAT_TYPE_WHISPER:
-                style = LLFontGL::ITALIC;
+                style = LLFontDX::ITALIC;
                 break;
             case CHAT_TYPE_SHOUT:
-                style = LLFontGL::BOLD;
+                style = LLFontDX::BOLD;
                 break;
             default:
-                style = LLFontGL::NORMAL;
+                style = LLFontDX::NORMAL;
                 break;
             }
             if (chat_fade_amt < 1.f)
@@ -4471,8 +4471,8 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
 }
 
 // <FS:Ansariel> Fix nametag not properly updating when display name arrives
-//void LLVOAvatar::addNameTagLine(const std::string& line, const LLColor4& color, S32 style, const LLFontGL* font, const bool use_ellipses)
-void LLVOAvatar::addNameTagLine(const std::string& line, const LLColor4& color, S32 style, const LLFontGL* font, const bool use_ellipses, bool is_name /* = false */)
+//void LLVOAvatar::addNameTagLine(const std::string& line, const LLColor4& color, S32 style, const LLFontDX* font, const bool use_ellipses)
+void LLVOAvatar::addNameTagLine(const std::string& line, const LLColor4& color, S32 style, const LLFontDX* font, const bool use_ellipses, bool is_name /* = false */)
 // </FS:Ansariel>
 {
     // extra width (NAMETAG_MAX_WIDTH) is for names only, not for chat
@@ -4483,7 +4483,7 @@ void LLVOAvatar::addNameTagLine(const std::string& line, const LLColor4& color, 
     }
     else
     {
-        mNameText->addLine(line, color, (LLFontGL::StyleFlags)style, font, use_ellipses, LLHUDNameTag::NAMETAG_MAX_WIDTH);
+        mNameText->addLine(line, color, (LLFontDX::StyleFlags)style, font, use_ellipses, LLHUDNameTag::NAMETAG_MAX_WIDTH);
     }
     // <FS:Ansariel> Fix nametag not properly updating when display name arrives
     //mNameIsSet |= !line.empty();
@@ -12468,7 +12468,7 @@ void LLVOAvatar::idleUpdateDebugInfo()
         F32 red_level;
         F32 green_level;
         LLColor4 info_color;
-        LLFontGL::StyleFlags info_style;
+        LLFontDX::StyleFlags info_style;
 
         if ( !mText )
         {
@@ -12494,12 +12494,12 @@ void LLVOAvatar::idleUpdateDebugInfo()
             red_level   = llmin((F32) mVisualComplexity/(F32)max_render_cost, 1.f);
             info_color.set(red_level, green_level, 0.0, 1.0);
             info_style = (  mVisualComplexity > max_render_cost
-                          ? LLFontGL::BOLD : LLFontGL::NORMAL );
+                          ? LLFontDX::BOLD : LLFontDX::NORMAL );
         }
         else
         {
             info_color.set(LLColor4::grey);
-            info_style = LLFontGL::NORMAL;
+            info_style = LLFontDX::NORMAL;
         }
         mText->addLine(info_line, info_color, info_style);
 
@@ -12507,7 +12507,7 @@ void LLVOAvatar::idleUpdateDebugInfo()
         info_line = llformat("%d rank", mVisibilityRank);
         // Use grey for imposters, white for normal rendering or no impostors
         info_color.set(isImpostor() ? LLColor4::grey : (isControlAvatar() ? LLColor4::yellow : LLColor4::white));
-        info_style = LLFontGL::NORMAL;
+        info_style = LLFontDX::NORMAL;
         mText->addLine(info_line, info_color, info_style);
 
         // Triangle count
@@ -12526,13 +12526,13 @@ void LLVOAvatar::idleUpdateDebugInfo()
             red_level   = llmin(mAttachmentSurfaceArea/max_attachment_area, 1.f);
             info_color.set(red_level, green_level, 0.0, 1.0);
             info_style = (  mAttachmentSurfaceArea > max_attachment_area
-                          ? LLFontGL::BOLD : LLFontGL::NORMAL );
+                          ? LLFontDX::BOLD : LLFontDX::NORMAL );
 
         }
         else
         {
             info_color.set(LLColor4::grey);
-            info_style = LLFontGL::NORMAL;
+            info_style = LLFontDX::NORMAL;
         }
 
         mText->addLine(info_line, info_color, info_style);
