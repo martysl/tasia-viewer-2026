@@ -31,6 +31,7 @@
 #include "m3math.h"
 #include "v4color.h"
 #include "llfontgl.h"
+#include "llfontdx.h"
 #include "llrender.h"
 #ifdef DX_RENDER
 #include "DXContext.h"
@@ -43,6 +44,11 @@
 // Project includes
 #include "llrender2dutils.h"
 #include "lluiimage.h"
+
+#ifdef DX_RENDER
+#include "DXUIBatch.h"
+#include "DXRender2DUtils.h"
+#endif
 
 
 //
@@ -81,16 +87,20 @@ void gl_state_for_2d(S32 width, S32 height)
 
 void gl_draw_x(const LLRect& rect, const LLColor4& color)
 {
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    gDX.color4fv( color.mV );
-
-    gDX.begin( LLRender::LINES );
-        gDX.vertex2i( rect.mLeft,       rect.mTop );
-        gDX.vertex2i( rect.mRight,  rect.mBottom );
-        gDX.vertex2i( rect.mLeft,       rect.mBottom );
-        gDX.vertex2i( rect.mRight,  rect.mTop );
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glDrawX(rect, color, gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::LineList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
 
@@ -118,35 +128,26 @@ void gl_rect_2d_offset_local( S32 left, S32 top, S32 right, S32 bottom, S32 pixe
 }
 
 
-void gl_rect_2d(S32 left, S32 top, S32 right, S32 bottom, bool filled )
+void gl_rect_2d(S32 left, S32 top, S32 right, S32 bottom, bool filled)
 {
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    // Counterclockwise quad will face the viewer
-    if( filled )
-    {
-        gDX.begin( LLRender::TRIANGLES );
-            gDX.vertex2i(left, top);
-            gDX.vertex2i(left, bottom);
-            gDX.vertex2i(right, bottom);
-
-            gDX.vertex2i(left, top);
-            gDX.vertex2i(right, bottom);
-            gDX.vertex2i(right, top);
-        gDX.end();
-    }
-    else
-    {
-        top--;
-        right--;
-        gDX.begin( LLRender::LINE_STRIP );
-            gDX.vertex2i(left, top);
-            gDX.vertex2i(left, bottom);
-            gDX.vertex2i(right, bottom);
-            gDX.vertex2i(right, top);
-            gDX.vertex2i(left, top);
-        gDX.end();
-    }
+	// S24: both color-taking wrappers (gl_rect_2d(...,color,filled) and the
+	// LLRect overload) already call gDX.color4fv(color) before reaching this
+	// base overload, so gDX.getCurrentColor() here picks up the right value
+	// regardless of entry point - see LLRender::getCurrentColor().
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glRectTwoD(left, top, right, bottom, gDX.getCurrentColor(), filled, gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), filled ? DXUITopology::TriangleList : DXUITopology::LineStrip, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
 void gl_rect_2d(S32 left, S32 top, S32 right, S32 bottom, const LLColor4 &color, bool filled )
@@ -165,161 +166,99 @@ void gl_rect_2d( const LLRect& rect, const LLColor4& color, bool filled )
 // Given a rectangle on the screen, draws a drop shadow _outside_
 // the right and bottom edges of it.  Along the right it has width "lines"
 // and along the bottom it has height "lines".
-void gl_drop_shadow(S32 left, S32 top, S32 right, S32 bottom, const LLColor4 &start_color, S32 lines)
+void gl_drop_shadow(S32 left, S32 top, S32 right, S32 bottom, const LLColor4& start_color, S32 lines)
 {
-    stop_glerror();
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    // HACK: Overlap with the rectangle by a single pixel.
-    right--;
-    bottom++;
-    lines++;
-
-    LLColor4 end_color = start_color;
-    end_color.mV[VALPHA] = 0.f;
-
-    gDX.begin(LLRender::TRIANGLES);
-
-    // Right edge, CCW faces screen
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, top - lines);
-    gDX.vertex2i(right, bottom);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(right + lines, bottom);
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, top - lines);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(right + lines, bottom);
-    gDX.vertex2i(right + lines, top - lines);
-
-    // Bottom edge, CCW faces screen
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, bottom);
-    gDX.vertex2i(left + lines, bottom);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(left + lines, bottom - lines);
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, bottom);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(left + lines, bottom - lines);
-    gDX.vertex2i(right, bottom - lines);
-
-    // bottom left Corner
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(left + lines, bottom);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(left, bottom);
-    // make the bottom left corner not sharp
-    gDX.vertex2i(left + 1, bottom - lines + 1);
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(left + lines, bottom);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(left + 1, bottom - lines + 1);
-    gDX.vertex2i(left + lines, bottom - lines);
-
-    // bottom right corner
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, bottom);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(right, bottom - lines);
-    // make the rightmost corner not sharp
-    gDX.vertex2i(right + lines - 1, bottom - lines + 1);
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, bottom);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(right + lines - 1, bottom - lines + 1);
-    gDX.vertex2i(right + lines, bottom);
-
-    // top right corner
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, top - lines);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(right + lines, top - lines);
-    // make the corner not sharp
-    gDX.vertex2i(right + lines - 1, top - 1);
-    gDX.color4fv(start_color.mV);
-    gDX.vertex2i(right, top - lines);
-    gDX.color4fv(end_color.mV);
-    gDX.vertex2i(right + lines - 1, top - 1);
-    gDX.vertex2i(right, top);
-
-    gDX.end();
-    stop_glerror();
+	// DXRender2DUtils::glDropShadow() applies the same right--/bottom++/
+	// lines++ "overlap by a single pixel" adjustment internally - pass the
+	// original, unmodified values.
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glDropShadow(left, top, right, bottom, start_color, lines, gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
-void gl_line_2d(S32 x1, S32 y1, S32 x2, S32 y2 )
+void gl_line_2d(S32 x1, S32 y1, S32 x2, S32 y2)
 {
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    gDX.begin(LLRender::LINES);
-        gDX.vertex2i(x1, y1);
-        gDX.vertex2i(x2, y2);
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glLineTwoD(x1, y1, x2, y2, gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::LineList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
-void gl_line_2d(S32 x1, S32 y1, S32 x2, S32 y2, const LLColor4 &color )
+void gl_line_2d(S32 x1, S32 y1, S32 x2, S32 y2, const LLColor4& color)
 {
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    gDX.color4fv( color.mV );
-
-    gDX.begin(LLRender::LINES);
-        gDX.vertex2i(x1, y1);
-        gDX.vertex2i(x2, y2);
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glLineTwoD(x1, y1, x2, y2, LLColor4U(color), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::LineList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
 void gl_triangle_2d(S32 x1, S32 y1, S32 x2, S32 y2, S32 x3, S32 y3, const LLColor4& color, bool filled)
 {
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    gDX.color4fv(color.mV);
-
-    if (filled)
-    {
-        gDX.begin(LLRender::TRIANGLES);
-    }
-    else
-    {
-        gDX.begin(LLRender::LINE_LOOP);
-    }
-    gDX.vertex2i(x1, y1);
-    gDX.vertex2i(x2, y2);
-    gDX.vertex2i(x3, y3);
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glTriangleTwoD(x1, y1, x2, y2, x3, y3, color, filled, gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), filled ? DXUITopology::TriangleList : DXUITopology::LineStrip, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
 void gl_corners_2d(S32 left, S32 top, S32 right, S32 bottom, S32 length, F32 max_frac)
 {
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    length = llmin((S32)(max_frac*(right - left)), length);
-    length = llmin((S32)(max_frac*(top - bottom)), length);
-    gDX.begin(LLRender::LINES);
-    gDX.vertex2i(left, top);
-    gDX.vertex2i(left + length, top);
-
-    gDX.vertex2i(left, top);
-    gDX.vertex2i(left, top - length);
-
-    gDX.vertex2i(left, bottom);
-    gDX.vertex2i(left + length, bottom);
-
-    gDX.vertex2i(left, bottom);
-    gDX.vertex2i(left, bottom + length);
-
-    gDX.vertex2i(right, top);
-    gDX.vertex2i(right - length, top);
-
-    gDX.vertex2i(right, top);
-    gDX.vertex2i(right, top - length);
-
-    gDX.vertex2i(right, bottom);
-    gDX.vertex2i(right - length, bottom);
-
-    gDX.vertex2i(right, bottom);
-    gDX.vertex2i(right, bottom + length);
-    gDX.end();
+	// DXRender2DUtils::glCornersTwoD() applies the same length-clamping
+	// internally - pass the original, unclamped length.
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glCornersTwoD(left, top, right, bottom, length, max_frac, gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::LineList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
 
@@ -350,361 +289,387 @@ void gl_draw_scaled_image(S32 x, S32 y, S32 width, S32 height, LLTexture* image,
 
 void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 border_width, S32 border_height, S32 width, S32 height, LLTexture* image, const LLColor4& color, bool solid_color, const LLRectf& uv_rect, bool scale_inner)
 {
-    if (NULL == image)
-    {
-        LL_WARNS() << "image == NULL; aborting function" << LL_ENDL;
-        return;
-    }
+	if (NULL == image)
+	{
+		LL_WARNS() << "image == NULL; aborting function" << LL_ENDL;
+		return;
+	}
 
-    // scale screen size of borders down
-    F32 border_width_fraction = (F32)border_width / (F32)image->getWidth(0);
-    F32 border_height_fraction = (F32)border_height / (F32)image->getHeight(0);
+	// scale screen size of borders down
+	F32 border_width_fraction = (F32)border_width / (F32)image->getWidth(0);
+	F32 border_height_fraction = (F32)border_height / (F32)image->getHeight(0);
 
-    LLRectf scale_rect(border_width_fraction, 1.f - border_height_fraction, 1.f - border_width_fraction, border_height_fraction);
-    gl_draw_scaled_image_with_border(x, y, width, height, image, color, solid_color, uv_rect, scale_rect, scale_inner);
+	LLRectf scale_rect(border_width_fraction, 1.f - border_height_fraction, 1.f - border_width_fraction, border_height_fraction);
+	gl_draw_scaled_image_with_border(x, y, width, height, image, color, solid_color, uv_rect, scale_rect, scale_inner);
 }
 
 void gl_draw_scaled_image_with_border(S32 x, S32 y, S32 width, S32 height, LLTexture* image, const LLColor4& color, bool solid_color, const LLRectf& uv_outer_rect, const LLRectf& center_rect, bool scale_inner)
 {
-    stop_glerror();
-
-    if (NULL == image)
-    {
-        LL_WARNS() << "image == NULL; aborting function" << LL_ENDL;
-        return;
-    }
-
-    if (solid_color)
-    {
-        gSolidColorProgram.bind();
-    }
-
-    if (center_rect.mLeft == 0.f
-        && center_rect.mRight == 1.f
-        && center_rect.mBottom == 0.f
-        && center_rect.mTop == 1.f)
-    {
-        gl_draw_scaled_image(x, y, width, height, image, color, uv_outer_rect);
-    }
-    else
-    {
-        // add in offset of current image to current UI translation
-        const LLVector3 ui_scale = gDX.getUIScale();
-        const LLVector3 ui_translation = (gDX.getUITranslation() + LLVector3((F32)x, (F32)y, 0.f)).scaledVec(ui_scale);
-
-        F32 uv_width = uv_outer_rect.getWidth();
-        F32 uv_height = uv_outer_rect.getHeight();
-
-        // shrink scaling region to be proportional to clipped image region
-        LLRectf uv_center_rect( uv_outer_rect.mLeft + (center_rect.mLeft * uv_width),
-                                uv_outer_rect.mBottom + (center_rect.mTop * uv_height),
-                                uv_outer_rect.mLeft + (center_rect.mRight * uv_width),
-                                uv_outer_rect.mBottom + (center_rect.mBottom * uv_height));
-
-        F32 image_width = (F32)image->getWidth(0);
-        F32 image_height = (F32)image->getHeight(0);
-
-        S32 image_natural_width = ll_round(image_width * uv_width);
-        S32 image_natural_height = ll_round(image_height * uv_height);
-
-        LLRectf draw_center_rect(   uv_center_rect.mLeft * image_width,
-                                    uv_center_rect.mTop * image_height,
-                                    uv_center_rect.mRight * image_width,
-                                    uv_center_rect.mBottom * image_height);
-
-        if (scale_inner)
-        {
-            // scale center region of image to drawn region
-            draw_center_rect.mRight += width - image_natural_width;
-            draw_center_rect.mTop += height - image_natural_height;
-
-            const F32 border_shrink_width = llmax(0.f, draw_center_rect.mLeft - draw_center_rect.mRight);
-            const F32 border_shrink_height = llmax(0.f, draw_center_rect.mBottom - draw_center_rect.mTop);
-
-            const F32 shrink_width_ratio = center_rect.getWidth() == 1.f ? 0.f : border_shrink_width / ((F32)image_natural_width * (1.f - center_rect.getWidth()));
-            const F32 shrink_height_ratio = center_rect.getHeight() == 1.f ? 0.f : border_shrink_height / ((F32)image_natural_height * (1.f - center_rect.getHeight()));
-
-            const F32 border_shrink_scale = 1.f - llmax(shrink_width_ratio, shrink_height_ratio);
-            draw_center_rect.mLeft *= border_shrink_scale;
-            draw_center_rect.mTop = lerp((F32)height, (F32)draw_center_rect.mTop, border_shrink_scale);
-            draw_center_rect.mRight = lerp((F32)width, (F32)draw_center_rect.mRight, border_shrink_scale);
-            draw_center_rect.mBottom *= border_shrink_scale;
-        }
-        else
-        {
-            // keep center region of image at fixed scale, but in same relative position
-            F32 scale_factor = llmin((F32)width / draw_center_rect.getWidth(), (F32)height / draw_center_rect.getHeight(), 1.f);
-            F32 scaled_width = draw_center_rect.getWidth() * scale_factor;
-            F32 scaled_height = draw_center_rect.getHeight() * scale_factor;
-            draw_center_rect.setCenterAndSize(uv_center_rect.getCenterX() * width, uv_center_rect.getCenterY() * height, scaled_width, scaled_height);
-        }
-
-        draw_center_rect.mLeft   = (F32)ll_round(ui_translation.mV[VX] + (F32)draw_center_rect.mLeft * ui_scale.mV[VX]);
-        draw_center_rect.mTop    = (F32)ll_round(ui_translation.mV[VY] + (F32)draw_center_rect.mTop * ui_scale.mV[VY]);
-        draw_center_rect.mRight  = (F32)ll_round(ui_translation.mV[VX] + (F32)draw_center_rect.mRight * ui_scale.mV[VX]);
-        draw_center_rect.mBottom = (F32)ll_round(ui_translation.mV[VY] + (F32)draw_center_rect.mBottom * ui_scale.mV[VY]);
-
-        LLRectf draw_outer_rect(ui_translation.mV[VX],
-                                ui_translation.mV[VY] + height * ui_scale.mV[VY],
-                                ui_translation.mV[VX] + width * ui_scale.mV[VX],
-                                ui_translation.mV[VY]);
-
-        gDX.getTexUnit(0)->bind(image, true);
-
-        gDX.color4fv(color.mV);
-
-        constexpr S32 NUM_VERTICES = 9 * 2 * 3; // 9 quads, 2 triangles per quad, 3 vertices per triangle
-        static thread_local LLVector2 uv[NUM_VERTICES];
-        static thread_local LLVector4a pos[NUM_VERTICES];
-
-        S32 index = 0;
-
-        gDX.begin(LLRender::TRIANGLES);
-        {
-            // draw bottom left triangles
-            // 1
-            uv[index].set(uv_outer_rect.mLeft, uv_outer_rect.mBottom);
-            pos[index].set(draw_outer_rect.mLeft, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_outer_rect.mLeft, uv_outer_rect.mBottom);
-            pos[index].set(draw_outer_rect.mLeft, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            // draw bottom middle triangles
-            uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_outer_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            // draw bottom right triangles
-            uv[index].set(uv_center_rect.mRight, uv_outer_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_outer_rect.mBottom);
-            pos[index].set(draw_outer_rect.mRight, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_center_rect.mRight, uv_outer_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            // draw left triangles
-            uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            // draw middle triangles
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            // draw right triangles
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            // draw top left triangles
-            uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mLeft, uv_outer_rect.mTop);
-            pos[index].set(draw_outer_rect.mLeft, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            // draw top middle triangles
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_outer_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_outer_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mTop);
-            pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            // draw top right triangles
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_outer_rect.mTop);
-            pos[index].set(draw_outer_rect.mRight, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            // 2
-            uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_outer_rect.mRight, uv_outer_rect.mTop);
-            pos[index].set(draw_outer_rect.mRight, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            uv[index].set(uv_center_rect.mRight, uv_outer_rect.mTop);
-            pos[index].set(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
-            index++;
-
-            gDX.vertexBatchPreTransformed(pos, uv, NUM_VERTICES);
-        }
-        gDX.end();
-    }
-
-    if (solid_color)
-    {
-        gUIProgram.bind();
-    }
+
+	if (NULL == image)
+	{
+		LL_WARNS() << "image == NULL; aborting function" << LL_ENDL;
+		return;
+	}
+
+	if (solid_color)
+	{
+		gSolidColorProgram.bind();
+	}
+
+	if (center_rect.mLeft == 0.f
+		&& center_rect.mRight == 1.f
+		&& center_rect.mBottom == 0.f
+		&& center_rect.mTop == 1.f)
+	{
+		gl_draw_scaled_image(x, y, width, height, image, color, uv_outer_rect);
+	}
+	else
+	{
+		// add in offset of current image to current UI translation
+		const LLVector3 ui_scale = gDX.getUIScale();
+		const LLVector3 ui_translation = (gDX.getUITranslation() + LLVector3((F32)x, (F32)y, 0.f)).scaledVec(ui_scale);
+
+		F32 uv_width = uv_outer_rect.getWidth();
+		F32 uv_height = uv_outer_rect.getHeight();
+
+		// shrink scaling region to be proportional to clipped image region
+		LLRectf uv_center_rect(uv_outer_rect.mLeft + (center_rect.mLeft * uv_width),
+			uv_outer_rect.mBottom + (center_rect.mTop * uv_height),
+			uv_outer_rect.mLeft + (center_rect.mRight * uv_width),
+			uv_outer_rect.mBottom + (center_rect.mBottom * uv_height));
+
+		F32 image_width = (F32)image->getWidth(0);
+		F32 image_height = (F32)image->getHeight(0);
+
+		S32 image_natural_width = ll_round(image_width * uv_width);
+		S32 image_natural_height = ll_round(image_height * uv_height);
+
+		LLRectf draw_center_rect(uv_center_rect.mLeft * image_width,
+			uv_center_rect.mTop * image_height,
+			uv_center_rect.mRight * image_width,
+			uv_center_rect.mBottom * image_height);
+
+		if (scale_inner)
+		{
+			// scale center region of image to drawn region
+			draw_center_rect.mRight += width - image_natural_width;
+			draw_center_rect.mTop += height - image_natural_height;
+
+			const F32 border_shrink_width = llmax(0.f, draw_center_rect.mLeft - draw_center_rect.mRight);
+			const F32 border_shrink_height = llmax(0.f, draw_center_rect.mBottom - draw_center_rect.mTop);
+
+			const F32 shrink_width_ratio = center_rect.getWidth() == 1.f ? 0.f : border_shrink_width / ((F32)image_natural_width * (1.f - center_rect.getWidth()));
+			const F32 shrink_height_ratio = center_rect.getHeight() == 1.f ? 0.f : border_shrink_height / ((F32)image_natural_height * (1.f - center_rect.getHeight()));
+
+			const F32 border_shrink_scale = 1.f - llmax(shrink_width_ratio, shrink_height_ratio);
+			draw_center_rect.mLeft *= border_shrink_scale;
+			draw_center_rect.mTop = lerp((F32)height, (F32)draw_center_rect.mTop, border_shrink_scale);
+			draw_center_rect.mRight = lerp((F32)width, (F32)draw_center_rect.mRight, border_shrink_scale);
+			draw_center_rect.mBottom *= border_shrink_scale;
+		}
+		else
+		{
+			// keep center region of image at fixed scale, but in same relative position
+			F32 scale_factor = llmin((F32)width / draw_center_rect.getWidth(), (F32)height / draw_center_rect.getHeight(), 1.f);
+			F32 scaled_width = draw_center_rect.getWidth() * scale_factor;
+			F32 scaled_height = draw_center_rect.getHeight() * scale_factor;
+			draw_center_rect.setCenterAndSize(uv_center_rect.getCenterX() * width, uv_center_rect.getCenterY() * height, scaled_width, scaled_height);
+		}
+
+		draw_center_rect.mLeft = (F32)ll_round(ui_translation.mV[VX] + (F32)draw_center_rect.mLeft * ui_scale.mV[VX]);
+		draw_center_rect.mTop = (F32)ll_round(ui_translation.mV[VY] + (F32)draw_center_rect.mTop * ui_scale.mV[VY]);
+		draw_center_rect.mRight = (F32)ll_round(ui_translation.mV[VX] + (F32)draw_center_rect.mRight * ui_scale.mV[VX]);
+		draw_center_rect.mBottom = (F32)ll_round(ui_translation.mV[VY] + (F32)draw_center_rect.mBottom * ui_scale.mV[VY]);
+
+		LLRectf draw_outer_rect(ui_translation.mV[VX],
+			ui_translation.mV[VY] + height * ui_scale.mV[VY],
+			ui_translation.mV[VX] + width * ui_scale.mV[VX],
+			ui_translation.mV[VY]);
+
+		gDX.getTexUnit(0)->bind(image, true);
+
+		gDX.color4fv(color.mV);
+
+		constexpr S32 NUM_VERTICES = 9 * 2 * 3; // 9 quads, 2 triangles per quad, 3 vertices per triangle
+		static thread_local LLVector2 uv[NUM_VERTICES];
+		static thread_local LLVector4a pos[NUM_VERTICES];
+
+		S32 index = 0;
+
+		gDX.begin(LLRender::TRIANGLES);
+		{
+			// draw bottom left triangles
+			// 1
+			uv[index].set(uv_outer_rect.mLeft, uv_outer_rect.mBottom);
+			pos[index].set(draw_outer_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_outer_rect.mLeft, uv_outer_rect.mBottom);
+			pos[index].set(draw_outer_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			// draw bottom middle triangles
+			uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_outer_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			// draw bottom right triangles
+			uv[index].set(uv_center_rect.mRight, uv_outer_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_outer_rect.mBottom);
+			pos[index].set(draw_outer_rect.mRight, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_center_rect.mRight, uv_outer_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_outer_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			// draw left triangles
+			uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			// draw middle triangles
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			// draw right triangles
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_outer_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mBottom);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mBottom, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			// draw top left triangles
+			uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_outer_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_outer_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mLeft, uv_outer_rect.mTop);
+			pos[index].set(draw_outer_rect.mLeft, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			// draw top middle triangles
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_outer_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_center_rect.mLeft, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_outer_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mLeft, uv_outer_rect.mTop);
+			pos[index].set(draw_center_rect.mLeft, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			// draw top right triangles
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_outer_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_outer_rect.mTop);
+			pos[index].set(draw_outer_rect.mRight, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			// 2
+			uv[index].set(uv_center_rect.mRight, uv_center_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_center_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_outer_rect.mRight, uv_outer_rect.mTop);
+			pos[index].set(draw_outer_rect.mRight, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			uv[index].set(uv_center_rect.mRight, uv_outer_rect.mTop);
+			pos[index].set(draw_center_rect.mRight, draw_outer_rect.mTop, 0.f);
+			index++;
+
+			// S24: no explicit color array in the GL path above (color is
+			// carried via gDX.color4fv()'s "current color" state) - applied
+			// explicitly per-vertex by DXRender2DUtils::
+			// glDrawScaledImageWithBorderNineSlice() instead.
+			// Recording-mode fallback: same pattern as
+			// gl_draw_scaled_rotated_image()'s matching fix below.
+			if (gDX.isRecording())
+			{
+				gDX.vertexBatchPreTransformed(pos, uv, NUM_VERTICES);
+			}
+			else if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+			{
+				gDX.flush(); // draw-order fix, same rationale as the simple-quad case
+				DXRender2DUtils::NineSliceGeometry geom;
+				for (S32 v = 0; v < NUM_VERTICES; ++v)
+				{
+					const F32* p = pos[v].getF32ptr();
+					geom.pos[v][0] = p[0]; geom.pos[v][1] = p[1]; geom.pos[v][2] = p[2];
+					geom.uv[v][0] = uv[v].mV[0]; geom.uv[v][1] = uv[v].mV[1];
+				}
+				gDXUIBatch.flushPending();
+				DXRender2DUtils::glDrawScaledImageWithBorderNineSlice(geom, color);
+				gDX.syncMatrices();
+				if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+				{
+					gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+				}
+			}
+		}
+		gDX.end();
+	}
+
+	if (solid_color)
+	{
+		gUIProgram.bind();
+	}
 }
 
 void gl_draw_rotated_image(S32 x, S32 y, F32 degrees, LLTexture* image, const LLColor4& color, const LLRectf& uv_rect)
@@ -714,243 +679,262 @@ void gl_draw_rotated_image(S32 x, S32 y, F32 degrees, LLTexture* image, const LL
 
 void gl_draw_scaled_rotated_image(S32 x, S32 y, S32 width, S32 height, F32 degrees, LLTexture* image, const LLColor4& color, const LLRectf& uv_rect, LLRenderTarget* target)
 {
-    if (!image && !target)
-    {
-        LL_WARNS() << "image == NULL; aborting function" << LL_ENDL;
-        return;
-    }
+	if (!image && !target)
+	{
+		LL_WARNS() << "image == NULL; aborting function" << LL_ENDL;
+		return;
+	}
 
-    if(image != NULL)
-    {
-        gDX.getTexUnit(0)->bind(image, true);
-    }
-    else
-    {
-        gDX.getTexUnit(0)->bind(target);
-    }
+	if (image != NULL)
+	{
+		gDX.getTexUnit(0)->bind(image, true);
+	}
+	else
+	{
+		// S24: LLTexUnit::bind(LLRenderTarget*, bool, bool) already has real
+		// DX_RENDER handling (llrender.cpp) - shadow maps and hero-probe
+		// mirrors use it for exactly this. This call site just never wired
+		// it up; the stale comment that used to be here was wrong.
+            // This Firestorm base has no DX LLRenderTarget bind overload.
+            // Keep the uncommon target-only path safe; regular UI images use
+            // the real LLTexture branch above.
+            gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
+	}
 
-    gDX.color4fv(color.mV);
+	gDX.color4fv(color.mV);
 
-    if (degrees == 0.f)
-    {
-        constexpr S32 NUM_VERTICES = 2 * 3;
-        static thread_local LLVector2 uv[NUM_VERTICES +1];
-        static thread_local LLVector4a pos[NUM_VERTICES +1];
+	if (degrees == 0.f)
+	{
+		constexpr S32 NUM_VERTICES = 2 * 3;
+		static thread_local LLVector2 uv[NUM_VERTICES + 1];
+		static thread_local LLVector4a pos[NUM_VERTICES + 1];
 
-        gDX.begin(LLRender::TRIANGLES);
-        {
-            LLVector3 ui_scale = gDX.getUIScale();
-            LLVector3 ui_translation = gDX.getUITranslation();
-            ui_translation.mV[VX] += x;
-            ui_translation.mV[VY] += y;
-            ui_translation.scaleVec(ui_scale);
-            S32 index = 0;
-            S32 scaled_width = ll_round(width * ui_scale.mV[VX]);
-            S32 scaled_height = ll_round(height * ui_scale.mV[VY]);
+		gDX.begin(LLRender::TRIANGLES);
+		{
+			LLVector3 ui_scale = gDX.getUIScale();
+			LLVector3 ui_translation = gDX.getUITranslation();
+			ui_translation.mV[VX] += x;
+			ui_translation.mV[VY] += y;
+			ui_translation.scaleVec(ui_scale);
+			S32 index = 0;
+			S32 scaled_width = ll_round(width * ui_scale.mV[VX]);
+			S32 scaled_height = ll_round(height * ui_scale.mV[VY]);
 
-            uv[index].set(uv_rect.mRight, uv_rect.mTop);
-            pos[index].set(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY] + scaled_height, 0.f);
-            index++;
+			uv[index].set(uv_rect.mRight, uv_rect.mTop);
+			pos[index].set(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY] + scaled_height, 0.f);
+			index++;
 
-            uv[index].set(uv_rect.mLeft, uv_rect.mTop);
-            pos[index].set(ui_translation.mV[VX], ui_translation.mV[VY] + scaled_height, 0.f);
-            index++;
+			uv[index].set(uv_rect.mLeft, uv_rect.mTop);
+			pos[index].set(ui_translation.mV[VX], ui_translation.mV[VY] + scaled_height, 0.f);
+			index++;
 
-            uv[index].set(uv_rect.mLeft, uv_rect.mBottom);
-            pos[index].set(ui_translation.mV[VX], ui_translation.mV[VY], 0.f);
-            index++;
+			uv[index].set(uv_rect.mLeft, uv_rect.mBottom);
+			pos[index].set(ui_translation.mV[VX], ui_translation.mV[VY], 0.f);
+			index++;
 
-            uv[index].set(uv_rect.mRight, uv_rect.mTop);
-            pos[index].set(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY] + scaled_height, 0.f);
-            index++;
+			uv[index].set(uv_rect.mRight, uv_rect.mTop);
+			pos[index].set(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY] + scaled_height, 0.f);
+			index++;
 
-            uv[index].set(uv_rect.mLeft, uv_rect.mBottom);
-            pos[index].set(ui_translation.mV[VX], ui_translation.mV[VY], 0.f);
-            index++;
+			uv[index].set(uv_rect.mLeft, uv_rect.mBottom);
+			pos[index].set(ui_translation.mV[VX], ui_translation.mV[VY], 0.f);
+			index++;
 
-            uv[index].set(uv_rect.mRight, uv_rect.mBottom);
-            pos[index].set(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY], 0.f);
-            index++;
+			uv[index].set(uv_rect.mRight, uv_rect.mBottom);
+			pos[index].set(ui_translation.mV[VX] + scaled_width, ui_translation.mV[VY], 0.f);
+			index++;
 
-            gDX.vertexBatchPreTransformed(pos, uv, NUM_VERTICES);
-        }
-        gDX.end();
-    }
-    else
-    {
-        gDX.pushUIMatrix();
-        gDX.translateUI((F32)x, (F32)y, 0.f);
+			// S24: texture/sampler already bound via the bind() call above;
+			// uses whatever shader is currently bound (gUIProgram or
+			// gSolidColorProgram - color4fv() above routes DIFFUSE_COLOR
+			// correctly either way).
+			// Recording-mode fallback: same pattern as
+			// LLFontDX::submitGlyphBatch()'s fix, so LLUIImage's display-list
+			// cache can actually capture something via LLRender::flush().
+			if (gDX.isRecording())
+			{
+				gDX.vertexBatchPreTransformed(pos, uv, NUM_VERTICES);
+			}
+			else if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+			{
+				// Flush any still-queued gDX geometry before this
+				// function's own immediate DXUIBatch draw - draw-order fix,
+				// see LLFontDX::beginTextRender()'s matching comment.
+				gDX.flush();
+				DXRender2DUtils::ScaledImageGeometry geom;
+				for (S32 v = 0; v < NUM_VERTICES; ++v)
+				{
+					const F32* p = pos[v].getF32ptr();
+					geom.pos[v][0] = p[0]; geom.pos[v][1] = p[1]; geom.pos[v][2] = p[2];
+					geom.uv[v][0] = uv[v].mV[0]; geom.uv[v][1] = uv[v].mV[1];
+				}
+				gDXUIBatch.flushPending();
+				DXRender2DUtils::glDrawScaledImage(geom, color);
+				gDX.syncMatrices();
+				if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+				{
+					gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+				}
+			}
+		}
+		gDX.end();
+	}
+	else
+	{
+		gDX.pushUIMatrix();
+		gDX.translateUI((F32)x, (F32)y, 0.f);
 
-        F32 offset_x = F32(width/2);
-        F32 offset_y = F32(height/2);
+		F32 offset_x = F32(width / 2);
+		F32 offset_y = F32(height / 2);
 
-        gDX.translateUI(offset_x, offset_y, 0.f);
+		gDX.translateUI(offset_x, offset_y, 0.f);
 
-        LLMatrix3 quat(0.f, 0.f, degrees*DEG_TO_RAD);
+		LLMatrix3 quat(0.f, 0.f, degrees * DEG_TO_RAD);
 
-        if(image != NULL)
-        {
-            gDX.getTexUnit(0)->bind(image, true);
-        }
-        else
-        {
-            gDX.getTexUnit(0)->bind(target);
-        }
+		if (image != NULL)
+		{
+			gDX.getTexUnit(0)->bind(image, true);
+		}
+		else
+		{
+			// S24: LLTexUnit::bind(LLRenderTarget*, bool) still has no
+			// DX_RENDER handling (see the matching comment in the
+			// degrees==0.f branch above) - draws untextured, gap remains open.
+		}
 
-        gDX.color4fv(color.mV);
+		gDX.color4fv(color.mV);
 
-        gDX.begin(LLRender::TRIANGLES);
-        {
-            LLVector3 v;
+		LLVector3 rv[6];
+		rv[0] = LLVector3(offset_x, offset_y, 0.f) * quat;
+		rv[1] = LLVector3(-offset_x, offset_y, 0.f) * quat;
+		rv[2] = LLVector3(-offset_x, -offset_y, 0.f) * quat;
+		rv[3] = LLVector3(offset_x, offset_y, 0.f) * quat;
+		rv[4] = LLVector3(-offset_x, -offset_y, 0.f) * quat;
+		rv[5] = LLVector3(offset_x, -offset_y, 0.f) * quat;
 
-            v = LLVector3(offset_x, offset_y, 0.f) * quat;
-            gDX.texCoord2f(uv_rect.mRight, uv_rect.mTop);
-            gDX.vertex2f(v.mV[0], v.mV[1] );
+		LLVector2 ruv[6] = {
+			LLVector2(uv_rect.mRight, uv_rect.mTop),
+			LLVector2(uv_rect.mLeft, uv_rect.mTop),
+			LLVector2(uv_rect.mLeft, uv_rect.mBottom),
+			LLVector2(uv_rect.mRight, uv_rect.mTop),
+			LLVector2(uv_rect.mLeft, uv_rect.mBottom),
+			LLVector2(uv_rect.mRight, uv_rect.mBottom),
+		};
 
-            v = LLVector3(-offset_x, offset_y, 0.f) * quat;
-            gDX.texCoord2f(uv_rect.mLeft, uv_rect.mTop);
-            gDX.vertex2f(v.mV[0], v.mV[1] );
-
-            v = LLVector3(-offset_x, -offset_y, 0.f) * quat;
-            gDX.texCoord2f(uv_rect.mLeft, uv_rect.mBottom);
-            gDX.vertex2f(v.mV[0], v.mV[1] );
-
-            v = LLVector3(offset_x, offset_y, 0.f) * quat;
-            gDX.texCoord2f(uv_rect.mRight, uv_rect.mTop);
-            gDX.vertex2f(v.mV[0], v.mV[1]);
-
-            v = LLVector3(-offset_x, -offset_y, 0.f) * quat;
-            gDX.texCoord2f(uv_rect.mLeft, uv_rect.mBottom);
-            gDX.vertex2f(v.mV[0], v.mV[1]);
-
-            v = LLVector3(offset_x, -offset_y, 0.f) * quat;
-            gDX.texCoord2f(uv_rect.mRight, uv_rect.mBottom);
-            gDX.vertex2f(v.mV[0], v.mV[1] );
-        }
-        gDX.end();
-        gDX.popUIMatrix();
-    }
+		// S24: begin()/end() wrapping matters here even though end() itself
+		// is a no-op on the gDXUIBatch path - LLRender::begin() flushes
+		// gDX's own pending immediate-mode buffer first when switching away
+		// from a LINES/TRIANGLES/POINTS mode, which this rotated-icon branch
+		// needs just like the degrees==0.f branch above.
+		gDX.begin(LLRender::TRIANGLES);
+		{
+			// S24: same DXRender2DUtils::glDrawScaledImage()/
+			// ScaledImageGeometry reuse as the degrees==0.f branch - only the
+			// position math (rotated vs axis-aligned) differs.
+			if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+			{
+				gDX.flush();
+				// S24: rv[] is only the rotated corner offset relative to the
+				// icon's own center - ui_translation/ui_scale (screen-space
+				// offset) must be added in too, or this draws near the tiny
+				// local rv[] values instead of the real screen position.
+				LLVector3 ui_scale = gDX.getUIScale();
+				LLVector3 ui_translation = gDX.getUITranslation();
+				ui_translation.scaleVec(ui_scale);
+				DXRender2DUtils::ScaledImageGeometry geom;
+				for (S32 v = 0; v < 6; ++v)
+				{
+					LLVector3 scaled_rv = rv[v];
+					scaled_rv.scaleVec(ui_scale);
+					geom.pos[v][0] = ui_translation.mV[VX] + scaled_rv.mV[VX];
+					geom.pos[v][1] = ui_translation.mV[VY] + scaled_rv.mV[VY];
+					geom.pos[v][2] = ui_translation.mV[VZ] + scaled_rv.mV[VZ];
+					geom.uv[v][0] = ruv[v].mV[0]; geom.uv[v][1] = ruv[v].mV[1];
+				}
+				gDXUIBatch.flushPending();
+				DXRender2DUtils::glDrawScaledImage(geom, color);
+				gDX.syncMatrices();
+				if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+				{
+					gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+				}
+			}
+		}
+		gDX.end();
+		gDX.popUIMatrix();
+	}
 }
 
-void gl_line_3d( const LLVector3& start, const LLVector3& end, const LLColor4& color)
+void gl_line_3d(const LLVector3& start, const LLVector3& end, const LLColor4& color)
 {
-    gDX.color4f(color.mV[VRED], color.mV[VGREEN], color.mV[VBLUE], color.mV[VALPHA]);
+	gDX.flush();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glLineThreeD(start, end, color, gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::LineList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 
-    gDX.flush();
-    gDX.setLineWidth(2.5f); // <FS> Line width OGL core profile fix by Rye Mutt
-
-    gDX.begin(LLRender::LINES);
-    {
-        gDX.vertex3fv( start.mV );
-        gDX.vertex3fv( end.mV );
-    }
-    gDX.end();
-
-    LLRender2D::setLineWidth(1.f);
+	LLRender2D::setLineWidth(1.f);
 }
 
 void gl_arc_2d(F32 center_x, F32 center_y, F32 radius, S32 steps, bool filled, F32 start_angle, F32 end_angle)
 {
-    if (end_angle < start_angle)
-    {
-        end_angle += F_TWO_PI;
-    }
-
-    gDX.pushUIMatrix();
-    {
-        gDX.translateUI(center_x, center_y, 0.f);
-
-        // Inexact, but reasonably fast.
-        F32 delta = (end_angle - start_angle) / steps;
-        F32 sin_delta = sin( delta );
-        F32 cos_delta = cos( delta );
-        F32 x = cosf(start_angle) * radius;
-        F32 y = sinf(start_angle) * radius;
-
-        if (filled)
-        {
-            gDX.begin(LLRender::TRIANGLE_FAN);
-            gDX.vertex2f(0.f, 0.f);
-            // make sure circle is complete
-            steps += 1;
-        }
-        else
-        {
-            gDX.begin(LLRender::LINE_STRIP);
-        }
-
-        while( steps-- )
-        {
-            // Successive rotations
-            gDX.vertex2f( x, y );
-            F32 x_new = x * cos_delta - y * sin_delta;
-            y = x * sin_delta +  y * cos_delta;
-            x = x_new;
-        }
-        gDX.end();
-    }
-    gDX.popUIMatrix();
+	// DXRender2DUtils::glArcTwoD() bakes (center_x, center_y) directly into
+	// each vertex instead of via a pushUIMatrix()/translateUI() layer (see
+	// its own header comment) - mathematically equivalent (translateUI only
+	// ever touches offset, never scale, and addition is commutative), one
+	// fewer stack push/pop.
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glArcTwoD(center_x, center_y, radius, steps, filled, start_angle, end_angle,
+			gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), filled ? DXUITopology::TriangleList : DXUITopology::LineStrip, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 }
 
 void gl_circle_2d(F32 center_x, F32 center_y, F32 radius, S32 steps, bool filled)
 {
-    gDX.pushUIMatrix();
-    {
-        gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-        gDX.translateUI(center_x, center_y, 0.f);
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-        // Inexact, but reasonably fast.
-        F32 delta = F_TWO_PI / steps;
-        F32 sin_delta = sin( delta );
-        F32 cos_delta = cos( delta );
-        F32 x = radius;
-        F32 y = 0.f;
-
-        if (filled)
-        {
-            gDX.begin(LLRender::TRIANGLE_FAN);
-            gDX.vertex2f(0.f, 0.f);
-            // make sure circle is complete
-            steps += 1;
-        }
-        else
-        {
-            gDX.begin(LLRender::LINE_LOOP);
-        }
-
-        while( steps-- )
-        {
-            // Successive rotations
-            gDX.vertex2f( x, y );
-            F32 x_new = x * cos_delta - y * sin_delta;
-            y = x * sin_delta +  y * cos_delta;
-            x = x_new;
-        }
-        gDX.end();
-    }
-    gDX.popUIMatrix();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glCircleTwoD(center_x, center_y, radius, steps, filled,
+			gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), filled ? DXUITopology::TriangleList : DXUITopology::LineStrip, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 }
 
 // Renders a ring with sides (tube shape)
-void gl_deep_circle( F32 radius, F32 depth, S32 steps )
+void gl_deep_circle(F32 radius, F32 depth, S32 steps)
 {
-    F32 x = radius;
-    F32 y = 0.f;
-    F32 angle_delta = F_TWO_PI / (F32)steps;
-    gDX.begin( LLRender::TRIANGLE_STRIP  );
-    {
-        S32 step = steps + 1; // An extra step to close the circle.
-        while( step-- )
-        {
-            gDX.vertex3f( x, y, depth );
-            gDX.vertex3f( x, y, 0.f );
-
-            F32 x_new = x * cosf(angle_delta) - y * sinf(angle_delta);
-            y = x * sinf(angle_delta) +  y * cosf(angle_delta);
-            x = x_new;
-        }
-    }
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glDeepCircle(radius, depth, steps, gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleStrip, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 }
 
 void gl_ring( F32 radius, F32 width, const LLColor4& center_color, const LLColor4& side_color, S32 steps, bool render_center )
@@ -997,111 +981,69 @@ void gl_rect_2d_checkerboard(const LLRect& rect, GLfloat alpha)
 // a doughnut or washer.
 void gl_washer_2d(F32 outer_radius, F32 inner_radius, S32 steps, const LLColor4& inner_color, const LLColor4& outer_color)
 {
-    const F32 DELTA = F_TWO_PI / steps;
-    const F32 SIN_DELTA = sin( DELTA );
-    const F32 COS_DELTA = cos( DELTA );
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    F32 x1 = outer_radius;
-    F32 y1 = 0.f;
-    F32 x2 = inner_radius;
-    F32 y2 = 0.f;
-
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-
-    gDX.begin( LLRender::TRIANGLE_STRIP  );
-    {
-        steps += 1; // An extra step to close the circle.
-        while( steps-- )
-        {
-            gDX.color4fv(outer_color.mV);
-            gDX.vertex2f( x1, y1 );
-            gDX.color4fv(inner_color.mV);
-            gDX.vertex2f( x2, y2 );
-
-            F32 x1_new = x1 * COS_DELTA - y1 * SIN_DELTA;
-            y1 = x1 * SIN_DELTA +  y1 * COS_DELTA;
-            x1 = x1_new;
-
-            F32 x2_new = x2 * COS_DELTA - y2 * SIN_DELTA;
-            y2 = x2 * SIN_DELTA +  y2 * COS_DELTA;
-            x2 = x2_new;
-        }
-    }
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glWasherTwoD(outer_radius, inner_radius, steps, inner_color, outer_color, gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleStrip, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 }
 
 // Draws the area between two concentric circles, like
 // a doughnut or washer.
 void gl_washer_segment_2d(F32 outer_radius, F32 inner_radius, F32 start_radians, F32 end_radians, S32 steps, const LLColor4& inner_color, const LLColor4& outer_color)
 {
-    const F32 DELTA = (end_radians - start_radians) / steps;
-    const F32 SIN_DELTA = sin( DELTA );
-    const F32 COS_DELTA = cos( DELTA );
+	gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-    F32 x1 = outer_radius * cos( start_radians );
-    F32 y1 = outer_radius * sin( start_radians );
-    F32 x2 = inner_radius * cos( start_radians );
-    F32 y2 = inner_radius * sin( start_radians );
-
-    gDX.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-    gDX.begin( LLRender::TRIANGLE_STRIP  );
-    {
-        steps += 1; // An extra step to close the circle.
-        while( steps-- )
-        {
-            gDX.color4fv(outer_color.mV);
-            gDX.vertex2f( x1, y1 );
-            gDX.color4fv(inner_color.mV);
-            gDX.vertex2f( x2, y2 );
-
-            F32 x1_new = x1 * COS_DELTA - y1 * SIN_DELTA;
-            y1 = x1 * SIN_DELTA +  y1 * COS_DELTA;
-            x1 = x1_new;
-
-            F32 x2_new = x2 * COS_DELTA - y2 * SIN_DELTA;
-            y2 = x2 * SIN_DELTA +  y2 * COS_DELTA;
-            x2 = x2_new;
-        }
-    }
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glWasherSegmentTwoD(outer_radius, inner_radius, start_radians, end_radians, steps,
+			inner_color, outer_color, gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleStrip, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 }
 
-void gl_rect_2d_simple_tex( S32 width, S32 height )
+void gl_rect_2d_simple_tex(S32 width, S32 height)
 {
-    gDX.begin( LLRender::TRIANGLES );
-
-        gDX.texCoord2f(1.f, 1.f);
-        gDX.vertex2i(width, height);
-
-        gDX.texCoord2f(0.f, 1.f);
-        gDX.vertex2i(0, height);
-
-        gDX.texCoord2f(0.f, 0.f);
-        gDX.vertex2i(0, 0);
-
-        gDX.texCoord2f(1.f, 1.f);
-        gDX.vertex2i(width, height);
-
-        gDX.texCoord2f(0.f, 0.f);
-        gDX.vertex2i(0, 0);
-
-        gDX.texCoord2f(1.f, 0.f);
-        gDX.vertex2i(width, 0);
-
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glRectTwoDSimpleTex(width, height, gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 }
 
-void gl_rect_2d_simple( S32 width, S32 height )
+void gl_rect_2d_simple(S32 width, S32 height)
 {
-    gDX.begin( LLRender::TRIANGLES );
-        gDX.vertex2i(width, height);
-        gDX.vertex2i(0, height);
-        gDX.vertex2i(0, 0);
-
-        gDX.vertex2i(width, height);
-        gDX.vertex2i(0, 0);
-        gDX.vertex2i(width, 0);
-    gDX.end();
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glRectTwoDSimple(width, height, gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
 }
 
 void gl_segmented_rect_2d_tex(const S32 left,
@@ -1319,431 +1261,60 @@ void gl_segmented_rect_2d_tex(const S32 left,
 }
 
 void gl_segmented_rect_2d_fragment_tex(const LLRect& rect,
-    const S32 texture_width,
-    const S32 texture_height,
-    const S32 border_size,
-    const F32 start_fragment,
-    const F32 end_fragment,
-    const U32 edges)
+	const S32 texture_width,
+	const S32 texture_height,
+	const S32 border_size,
+	const F32 start_fragment,
+	const F32 end_fragment,
+	const U32 edges)
 {
-    LL_PROFILE_ZONE_SCOPED_CATEGORY_UI;
-    const S32 left = rect.mLeft;
-    const S32 right = rect.mRight;
-    const S32 top = rect.mTop;
-    const S32 bottom = rect.mBottom;
-    S32 width = llabs(right - left);
-    S32 height = llabs(top - bottom);
-
-    gDX.pushUIMatrix();
-
-    gDX.translateUI((F32)left, (F32)bottom, 0.f);
-    LLVector2 border_uv_scale((F32)border_size / (F32)texture_width, (F32)border_size / (F32)texture_height);
-
-    if (border_uv_scale.mV[VX] > 0.5f)
-    {
-        border_uv_scale *= 0.5f / border_uv_scale.mV[VX];
-    }
-    if (border_uv_scale.mV[VY] > 0.5f)
-    {
-        border_uv_scale *= 0.5f / border_uv_scale.mV[VY];
-    }
-
-    F32 border_scale = llmin((F32)border_size, (F32)width * 0.5f, (F32)height * 0.5f);
-    LLVector2 border_width_left = ((edges & (~(U32)ROUNDED_RECT_RIGHT)) != 0) ? LLVector2(border_scale, 0.f) : LLVector2::zero;
-    LLVector2 border_width_right = ((edges & (~(U32)ROUNDED_RECT_LEFT)) != 0) ? LLVector2(border_scale, 0.f) : LLVector2::zero;
-    LLVector2 border_height_bottom = ((edges & (~(U32)ROUNDED_RECT_TOP)) != 0) ? LLVector2(0.f, border_scale) : LLVector2::zero;
-    LLVector2 border_height_top = ((edges & (~(U32)ROUNDED_RECT_BOTTOM)) != 0) ? LLVector2(0.f, border_scale) : LLVector2::zero;
-    LLVector2 width_vec((F32)width, 0.f);
-    LLVector2 height_vec(0.f, (F32)height);
-
-    F32 middle_start = border_scale / (F32)width;
-    F32 middle_end = 1.f - middle_start;
-
-    F32 u_min;
-    F32 u_max;
-    LLVector2 x_min;
-    LLVector2 x_max;
-
-    gDX.begin(LLRender::TRIANGLES);
-    {
-        if (start_fragment < middle_start)
-        {
-            u_min = (start_fragment / middle_start)         * border_uv_scale.mV[VX];
-            u_max = llmin(end_fragment / middle_start, 1.f) * border_uv_scale.mV[VX];
-            x_min = (start_fragment / middle_start)         * border_width_left;
-            x_max = llmin(end_fragment / middle_start, 1.f) * border_width_left;
-
-            // draw bottom left
-            gDX.texCoord2f(u_min, 0.f);
-            gDX.vertex2fv(x_min.mV);
-
-            gDX.texCoord2f(border_uv_scale.mV[VX], 0.f);
-            gDX.vertex2fv(x_max.mV);
-
-            gDX.texCoord2f(u_max, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_min, 0.f);
-            gDX.vertex2fv(x_min.mV);
-
-            gDX.texCoord2f(u_max, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_min, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            // draw left
-            gDX.texCoord2f(u_min, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_max, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_max, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_min, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_max, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_min, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            // draw top left
-            gDX.texCoord2f(u_min, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_max, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_max, 1.f);
-            gDX.vertex2fv((x_max + height_vec).mV);
-
-            gDX.texCoord2f(u_min, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_max, 1.f);
-            gDX.vertex2fv((x_max + height_vec).mV);
-
-            gDX.texCoord2f(u_min, 1.f);
-            gDX.vertex2fv((x_min + height_vec).mV);
-        }
-
-        if (end_fragment > middle_start || start_fragment < middle_end)
-        {
-            x_min = border_width_left + ((llclamp(start_fragment, middle_start, middle_end) - middle_start)) * width_vec;
-            x_max = border_width_left + ((llclamp(end_fragment, middle_start, middle_end) - middle_start)) * width_vec;
-
-            // draw bottom middle
-            gDX.texCoord2f(border_uv_scale.mV[VX], 0.f);
-            gDX.vertex2fv(x_min.mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], 0.f);
-            gDX.vertex2fv((x_max).mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(border_uv_scale.mV[VX], 0.f);
-            gDX.vertex2fv(x_min.mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(border_uv_scale.mV[VX], border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            // draw middle
-            gDX.texCoord2f(border_uv_scale.mV[VX], border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(border_uv_scale.mV[VX], border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(border_uv_scale.mV[VX], 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            // draw top middle
-            gDX.texCoord2f(border_uv_scale.mV[VX], 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], 1.f);
-            gDX.vertex2fv((x_max + height_vec).mV);
-
-            gDX.texCoord2f(border_uv_scale.mV[VX], 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(1.f - border_uv_scale.mV[VX], 1.f);
-            gDX.vertex2fv((x_max + height_vec).mV);
-
-            gDX.texCoord2f(border_uv_scale.mV[VX], 1.f);
-            gDX.vertex2fv((x_min + height_vec).mV);
-        }
-
-        if (end_fragment > middle_end)
-        {
-            u_min = 1.f         - ((1.f - llmax(0.f, (start_fragment - middle_end) / middle_start)) * border_uv_scale.mV[VX]);
-            u_max = 1.f         - ((1.f - ((end_fragment - middle_end) / middle_start)) * border_uv_scale.mV[VX]);
-            x_min = width_vec   - ((1.f - llmax(0.f, (start_fragment - middle_end) / middle_start)) * border_width_right);
-            x_max = width_vec   - ((1.f - ((end_fragment - middle_end) / middle_start)) * border_width_right);
-
-            // draw bottom right
-            gDX.texCoord2f(u_min, 0.f);
-            gDX.vertex2fv((x_min).mV);
-
-            gDX.texCoord2f(u_max, 0.f);
-            gDX.vertex2fv(x_max.mV);
-
-            gDX.texCoord2f(u_max, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_min, 0.f);
-            gDX.vertex2fv((x_min).mV);
-
-            gDX.texCoord2f(u_max, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_min, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            // draw right
-            gDX.texCoord2f(u_min, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_max, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_max, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_min, border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + border_height_bottom).mV);
-
-            gDX.texCoord2f(u_max, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_min, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            // draw top right
-            gDX.texCoord2f(u_min, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_max, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_max + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_max, 1.f);
-            gDX.vertex2fv((x_max + height_vec).mV);
-
-            gDX.texCoord2f(u_min, 1.f - border_uv_scale.mV[VY]);
-            gDX.vertex2fv((x_min + height_vec - border_height_top).mV);
-
-            gDX.texCoord2f(u_max, 1.f);
-            gDX.vertex2fv((x_max + height_vec).mV);
-
-            gDX.texCoord2f(u_min, 1.f);
-            gDX.vertex2fv((x_min + height_vec).mV);
-        }
-    }
-    gDX.end();
-
-    gDX.popUIMatrix();
+	// S24: DXRender2DUtils::glSegmentedRectTwoDFragmentTex() replicates this
+	// function's own gDX.pushUIMatrix()/translateUI() internally, so the
+	// DX_RENDER path bypasses the shared setup math below entirely.
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glSegmentedRectTwoDFragmentTex(rect, texture_width, texture_height, border_size,
+			start_fragment, end_fragment, edges, gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
 void gl_segmented_rect_3d_tex(const LLRectf& clip_rect, const LLRectf& center_uv_rect, const LLRectf& center_draw_rect,
-                             const LLVector3& width_vec, const LLVector3& height_vec)
+	const LLVector3& width_vec, const LLVector3& height_vec)
 {
-    LL_PROFILE_ZONE_SCOPED_CATEGORY_UI;
 
-    gDX.begin(LLRender::TRIANGLES);
-    {
-        // draw bottom left
-        gDX.texCoord2f(clip_rect.mLeft, clip_rect.mBottom);
-        gDX.vertex3f(0.f, 0.f, 0.f);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, clip_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mLeft, clip_rect.mBottom);
-        gDX.vertex3f(0.f, 0.f, 0.f);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mBottom * height_vec).mV);
-
-        // draw bottom middle
-        gDX.texCoord2f(center_uv_rect.mLeft, clip_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, clip_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, clip_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        // draw bottom right
-        gDX.texCoord2f(center_uv_rect.mRight, clip_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, clip_rect.mBottom);
-        gDX.vertex3fv(width_vec.mV);
-
-        gDX.texCoord2f(clip_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, clip_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        // draw left
-        gDX.texCoord2f(clip_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mTop * height_vec).mV);
-
-        // draw middle
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        // draw right
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mBottom);
-        gDX.vertex3fv((center_draw_rect.mRight* width_vec + center_draw_rect.mBottom * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        // draw top left
-        gDX.texCoord2f(clip_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, clip_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, clip_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mLeft, clip_rect.mTop);
-        gDX.vertex3fv((height_vec).mV);
-
-        // draw top middle
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, clip_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, clip_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight* width_vec + height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mLeft, clip_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mLeft * width_vec + height_vec).mV);
-
-        // draw top right
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, clip_rect.mTop);
-        gDX.vertex3fv((width_vec + height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, center_uv_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight* width_vec + center_draw_rect.mTop * height_vec).mV);
-
-        gDX.texCoord2f(clip_rect.mRight, clip_rect.mTop);
-        gDX.vertex3fv((width_vec + height_vec).mV);
-
-        gDX.texCoord2f(center_uv_rect.mRight, clip_rect.mTop);
-        gDX.vertex3fv((center_draw_rect.mRight * width_vec + height_vec).mV);
-    }
-    gDX.end();
-
+	if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
+	{
+		gDX.flush();
+		gDXUIBatch.flushPending();
+		DXRender2DUtils::glSegmentedRectThreeDTex(clip_rect, center_uv_rect, center_draw_rect, width_vec, height_vec,
+			gDX.getCurrentColor(), gDX.getUITranslation(), gDX.getUIScale());
+		gDX.syncMatrices();
+		if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
+		{
+			// S24: this is the one gl_segmented_rect_* caller that draws
+			// genuine 3D world-space content (LLHUDNameTag's nametag panel)
+			// rather than 2D screen-space UI - its caller wraps it in
+			// LLGLDepthTest(GL_TRUE, GL_FALSE), wanting real depth-test
+			// occlusion. depth_test is deliberately left false here anyway -
+			// real nametag occlusion is already solved via occlusion
+			// queries, and passing real depth-testing through to
+			// DXUIBatch::flush() here previously caused a regression (found
+			// and fixed along the way: DXUIBatch::flush()'s depth_func
+			// default was still LESS_EQUAL, backwards since the reversed-Z
+			// conversion - now GREATER_EQUAL, DXUIBatch.h). Untested live if
+			// ever re-attempted - verify before trusting it.
+			gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+		}
+	}
+	return;
 }
 
 LLRender2D::LLRender2D(LLImageProviderInterface* image_provider)
@@ -1768,9 +1339,19 @@ LLRender2D::~LLRender2D()
 void LLRender2D::translate(F32 x, F32 y, F32 z)
 {
     gDX.translateUI(x,y,z);
+    // Both font classes track their own "where am I" origin, and the UI only
+    // pushes/pops it here.  LLFontGL is the GL build's class; LLFontDX is the
+    // one the DX build actually renders text with (llstyle.h, LLFontVertexBuffer
+    // and LLStyle all use it).  Updating only LLFontGL's copy left
+    // LLFontDX::sCurOrigin pinned at (0,0), so every label, badge and tooltip
+    // was laid out at the window origin instead of inside its own control -
+    // i.e. all of the UI text piled up in one corner and nothing else changed.
     LLFontGL::sCurOrigin.mX += (S32) x;
     LLFontGL::sCurOrigin.mY += (S32) y;
     LLFontGL::sCurDepth += z;
+    LLFontDX::sCurOrigin.mX = LLFontGL::sCurOrigin.mX;
+    LLFontDX::sCurOrigin.mY = LLFontGL::sCurOrigin.mY;
+    LLFontDX::sCurDepth = LLFontGL::sCurDepth;
 }
 
 // static
@@ -1778,6 +1359,7 @@ void LLRender2D::pushMatrix()
 {
     gDX.pushUIMatrix();
     LLFontGL::sOriginStack.push_back(std::make_pair(LLFontGL::sCurOrigin, LLFontGL::sCurDepth));
+    LLFontDX::sOriginStack.push_back(std::make_pair(LLFontDX::sCurOrigin, LLFontDX::sCurDepth));
 }
 
 // static
@@ -1787,6 +1369,9 @@ void LLRender2D::popMatrix()
     LLFontGL::sCurOrigin = LLFontGL::sOriginStack.back().first;
     LLFontGL::sCurDepth = LLFontGL::sOriginStack.back().second;
     LLFontGL::sOriginStack.pop_back();
+    LLFontDX::sCurOrigin = LLFontDX::sOriginStack.back().first;
+    LLFontDX::sCurDepth = LLFontDX::sOriginStack.back().second;
+    LLFontDX::sOriginStack.pop_back();
 }
 
 // static
@@ -1796,6 +1381,9 @@ void LLRender2D::loadIdentity()
     LLFontGL::sCurOrigin.mX = 0;
     LLFontGL::sCurOrigin.mY = 0;
     LLFontGL::sCurDepth = 0.f;
+    LLFontDX::sCurOrigin.mX = 0;
+    LLFontDX::sCurOrigin.mY = 0;
+    LLFontDX::sCurDepth = 0.f;
 }
 
 // static
@@ -1872,4 +1460,3 @@ void LLImageProviderInterface::deleteOnRemovalCallback(callback_t func)
         mCallbackList.erase(iter);
     }
 }
-

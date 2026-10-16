@@ -646,7 +646,7 @@ LLFontGlyphInfo* LLFontFreetype::addGlyphFromFont(const LLFontFreetype *fontp, l
     LLImageRaw *image_raw = mFontBitmapCachep->getImageRaw(bitmap_glyph_type, bitmap_num);
     if (image_dx && image_raw)
     {
-        image_dx->setSubImage(image_raw, 0, 0, image_dx->getWidth(), image_dx->getHeight());
+        bool uploaded = image_dx->setSubImage(image_raw, 0, 0, image_dx->getWidth(), image_dx->getHeight());
     }
     else
     {

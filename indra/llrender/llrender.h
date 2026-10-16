@@ -251,6 +251,17 @@ public:
 
     U32 getCurrTexture(void) { return mCurrTexture; }
 
+#ifdef DX_RENDER
+    // The SRV/sampler this unit currently has bound in pixel-shader slot
+    // mIndex.  DXUIBatch draws are deferred, so its flush() call sites hand
+    // these over explicitly: the batch must be issued with the texture it was
+    // built for, not whatever happens to be bound by draw time.  Typed as
+    // void* so this header stays free of D3D11 types (they are
+    // ID3D11ShaderResourceView* / ID3D11SamplerState* in practice).
+    void* getCurrentDXSRV(void) const { return mCurrDXSRV; }
+    void* getCurrentDXSampler(void) const { return mCurrDXSampler; }
+#endif
+
     eTextureType getCurrType(void) { return mCurrTexType; }
 
     void setHasMipMaps(bool hasMips) { mHasMipMaps = hasMips; }
@@ -528,6 +539,9 @@ public:
     void color3f(const GLfloat& r, const GLfloat& g, const GLfloat& b);
     void color3fv(const GLfloat* c);
     void color4ubv(const GLubyte* c);
+    // The immediate-mode color slot is also the current color for native DX11
+    // UI batches, so both render paths share exactly the same state.
+    LLColor4U getCurrentColor(void) { return mColorsp[mCount]; }
 
     void diffuseColor3f(F32 r, F32 g, F32 b);
     void diffuseColor3fv(const F32* c);

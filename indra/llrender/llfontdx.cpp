@@ -57,6 +57,7 @@
 
 const S32 BOLD_OFFSET = 1;
 
+
 // static class members
 F32 LLFontDX::sVertDPI = 96.f;
 F32 LLFontDX::sHorizDPI = 96.f;
@@ -178,7 +179,12 @@ void LLFontDX::endTextRender() const
 
 void LLFontDX::bindGlyphTexture(LLImageDX* font_image) const
 {
-    gDX.getTexUnit(0)->bind(font_image);
+    // Only the atlas is bound here.  Deliberately NOT forcing gUIProgram:
+    // every other 2D draw on screen (skin images, nine-slice panels) goes out
+    // on whatever program happens to be current and is visibly correct, so
+    // pinning text to the UI program made it the one thing that drew nothing.
+    // Text now rides the same program as the images around it.
+    gDX.getTexUnit(0)->bind(font_image, false, true);
 }
 
 void LLFontDX::submitGlyphBatch(const LLVector4a* vertices, const LLVector2* uvs, const LLColor4U* colors, S32 vertex_count) const
@@ -190,26 +196,21 @@ void LLFontDX::submitGlyphBatch(const LLVector4a* vertices, const LLVector2* uvs
     {
         return;
     }
-    // S24: when a display-list recording is open (beginList()/endList()),
-    // route through gDX's immediate-mode path instead of gDXUIBatch, so
-    // LLRender::flush()'s sBufferDataList capture builds a real, replayable
-    // LLVertexBufferData - same as GL. Cold path only (once per genBuffers()
-    // call); the common no-recording case is unchanged below.
     if (gDX.isRecording())
     {
+        // Display-list capture: replayable LLVertexBufferData, as in GL.
         gDX.begin(LLRender::TRIANGLES);
         gDX.vertexBatchPreTransformed(vertices, uvs, colors, vertex_count);
         gDX.end();
         return;
     }
+
     if (LLHLSLShader* shader = LLHLSLShader::sCurBoundShaderPtr)
     {
-        // S24: DXUIBatch's batching key is (shader, topology, alpha_blend,
-        // depth) only, with no MVP awareness, so two different-transform
-        // strings can share a key and get merged into one pending batch,
-        // drawing the earlier one with the wrong (later) matrix. Flush any
-        // pending batch here, before pushing this string's own vertices, so
-        // every string always draws under its own transform.
+        // DXUIBatch's batching key deliberately has no MVP term, so a batch
+        // queued under one transform could otherwise be issued under another.
+        // Drain the queue before this string's vertices go in, and again right
+        // after, so every string draws under its own transform.
         gDXUIBatch.flushPending();
 
         static thread_local std::vector<DXUIVertex> dx_verts;
@@ -227,13 +228,15 @@ void LLFontDX::submitGlyphBatch(const LLVector4a* vertices, const LLVector2* uvs
             dx_verts[v].uv[0] = uvs[v].mV[0];
             dx_verts[v].uv[1] = uvs[v].mV[1];
         }
+
         gDXUIBatch.push(dx_verts.data(), vertex_count);
         gDX.syncMatrices();
         // Same defensive null-check as LLVertexBuffer::setupVertexBuffer()'s
         // DX_RENDER branch - only null if the bound shader failed to compile.
         if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
         {
-            gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str());
+            gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+            gDXUIBatch.flushPending();
         }
     }
 }
@@ -284,7 +287,9 @@ void LLFontDX::submitUnderline(F32 x0, F32 x1, F32 y, const LLColor4U& color) co
         gDX.syncMatrices();
         if (ID3DBlob* vsb = shader->mDXVertexShader.getVSBytecode())
         {
-            gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str());
+            gDXUIBatch.flush(vsb->GetBufferPointer(), vsb->GetBufferSize(), shader->mDXVertexShader.getVS(), shader->mDXPixelShader.getPS(), true, shader->mName.c_str(), DXUITopology::TriangleList, false, false, D3D11_COMPARISON_GREATER_EQUAL, gDX.getTexUnit(0)->getCurrentDXSRV(), gDX.getTexUnit(0)->getCurrentDXSampler(), shader->mDXVertexShader.getConstantBuffer(), shader->mDXVertexShader.getConstantBufferBindPoint());
+            // Same immediate-draw rationale as submitGlyphBatch() above.
+            gDXUIBatch.flushPending();
         }
     }
 }

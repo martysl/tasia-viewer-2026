@@ -1,5 +1,6 @@
 #include "DXUIBatch.h"
 #include "DXDevice.h"
+#include "DXSwapChain.h"
 #include "DXVertexLayout.h"
 #include "DXStateCache.h"
 #include "llerror.h"
@@ -28,7 +29,7 @@ namespace
 }
 
 void DXUIBatch::flush(const void* vs_bytecode, size_t vs_bytecode_size, ID3D11VertexShader* vs, ID3D11PixelShader* ps, bool alpha_blend, const char* debug_name, DXUITopology topology,
-    bool depth_test, bool depth_write, D3D11_COMPARISON_FUNC depth_func)
+    bool depth_test, bool depth_write, D3D11_COMPARISON_FUNC depth_func, void* texture0, void* sampler0, void* constant_buffer, UINT constant_buffer_slot)
 {
     BatchState new_state;
     new_state.vs = vs;
@@ -41,6 +42,10 @@ void DXUIBatch::flush(const void* vs_bytecode, size_t vs_bytecode_size, ID3D11Ve
     new_state.depthTest = depth_test;
     new_state.depthWrite = depth_write;
     new_state.depthFunc = depth_func;
+    new_state.texture0 = texture0;
+    new_state.sampler0 = sampler0;
+    new_state.constantBuffer = constant_buffer;
+    new_state.constantBufferSlot = constant_buffer_slot;
 
     // The vertices for THIS call's primitive are the tail-end mLastPushCount
     // entries (the push() that must have immediately preceded this flush()
@@ -91,6 +96,16 @@ void DXUIBatch::drawAndPop(size_t count, const BatchState& state)
         return;
     }
 
+    static bool logged_first_draw = false;
+    if (!logged_first_draw)
+    {
+        logged_first_draw = true;
+        LL_INFOS("DXUI") << "Submitting first DX UI batch: " << count
+            << " via " << (state.debugName ? state.debugName : "unnamed shader")
+            << " vertices"
+            << LL_ENDL;
+    }
+
     const size_t byte_size = count * sizeof(DXUIVertex);
     if (count > mVertexCapacity)
     {
@@ -121,14 +136,56 @@ void DXUIBatch::drawAndPop(size_t count, const BatchState& state)
     ctx->VSSetShader(state.vs, nullptr, 0);
     ctx->PSSetShader(state.ps, nullptr, 0);
 
+    // Re-bind the texture/sampler this batch was built for.  Deferred draws
+    // must not inherit whatever slot 0 happens to hold by draw time - see
+    // BatchState::texture0's comment for the concrete failure this fixes.
+    if (state.texture0)
+    {
+        ID3D11ShaderResourceView* srv = (ID3D11ShaderResourceView*)state.texture0;
+        ctx->PSSetShaderResources(0, 1, &srv);
+    }
+    if (state.sampler0)
+    {
+        ID3D11SamplerState* sampler = (ID3D11SamplerState*)state.sampler0;
+        ctx->PSSetSamplers(0, 1, &sampler);
+    }
+    if (state.constantBuffer)
+    {
+        // The MVP this batch's vertices were built with, not whatever the
+        // currently bound shader uploaded last.
+        ID3D11Buffer* cbuffer = (ID3D11Buffer*)state.constantBuffer;
+        ctx->VSSetConstantBuffers(state.constantBufferSlot, 1, &cbuffer);
+    }
+
     ID3D11InputLayout* layout = DXVertexLayout::getOrCreateUILayout(state.vsBytecode, state.vsBytecodeSize, state.debugName);
     ctx->IASetInputLayout(layout);
+
+    static bool logged_submission_target = false;
+    if (!logged_submission_target)
+    {
+        logged_submission_target = true;
+        ID3D11RenderTargetView* target = nullptr;
+        ctx->OMGetRenderTargets(1, &target, nullptr);
+        LL_INFOS("DXUI") << "First UI submission: input layout=" << (layout ? "valid" : "MISSING")
+            << ", target=" << (target == gDXSwapChain.getBackBufferRTV() ? "back buffer" : "NOT back buffer")
+            << LL_ENDL;
+        if (target)
+        {
+            target->Release();
+        }
+    }
 
     ID3D11Buffer* vb = mVertexBuffer.getBuffer();
     UINT stride = sizeof(DXUIVertex);
     UINT offset = 0;
     ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
     DXStateCache::setPrimitiveTopology(ctx, toD3DTopology(state.topology));
+
+    // UI vertices are emitted in the viewer's Y-up screen convention, while
+    // D3D11's viewport maps Y downward. Never inherit culling or a stale
+    // scissor rectangle from a preceding 3D/post-process pass: either can
+    // discard every otherwise-valid UI primitive before the pixel shader.
+    ctx->RSSetState(DXStateCache::getRasterizerState(false, false));
 
     // Matches GL's BT_ALPHA (LLRender::setSceneBlendType) - src alpha /
     // inverse src alpha, full RGBA write mask. Non-blended (alpha_blend =

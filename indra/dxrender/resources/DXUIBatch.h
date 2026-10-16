@@ -108,7 +108,9 @@ public:
     // caller (e.g. LLHUDNameTag's world-space panel, llrender2dutils.cpp)
     // turns it on, rather than leaving it silently backwards.
     void flush(const void* vs_bytecode, size_t vs_bytecode_size, ID3D11VertexShader* vs, ID3D11PixelShader* ps, bool alpha_blend, const char* debug_name = nullptr, DXUITopology topology = DXUITopology::TriangleList,
-        bool depth_test = false, bool depth_write = false, D3D11_COMPARISON_FUNC depth_func = D3D11_COMPARISON_GREATER_EQUAL);
+        bool depth_test = false, bool depth_write = false, D3D11_COMPARISON_FUNC depth_func = D3D11_COMPARISON_GREATER_EQUAL,
+        void* texture0 = nullptr, void* sampler0 = nullptr,
+        void* constant_buffer = nullptr, UINT constant_buffer_slot = 0);
 
     // Unconditionally draws whatever's currently pending (no-op if nothing
     // is). Call this before anything outside this class's own push()/
@@ -137,11 +139,36 @@ private:
         // S24 (2026-08-31): matches flush()'s own default - see its comment.
         D3D11_COMPARISON_FUNC depthFunc = D3D11_COMPARISON_GREATER_EQUAL;
 
+        // The pixel-shader slot 0 texture/sampler this batch was built for.
+        // Typed as void* so dxrender/ stays independent of any llrender type;
+        // they are ID3D11ShaderResourceView*/ID3D11SamplerState* in practice.
+        //
+        // These MUST be part of the batch state.  Batches are deferred until a
+        // state change or an explicit flushPending(), so a batch queued while
+        // one texture was bound is issued long after some other draw rebound
+        // slot 0 - and two batches differing only in texture used to merge into
+        // a single Draw() that used whichever texture happened to be bound at
+        // that moment.  That is exactly what made font glyph quads sample an
+        // unrelated UI texture (invisible text) while the rest of the UI still
+        // looked correct.
+        void* texture0 = nullptr;
+        void* sampler0 = nullptr;
+
+        // The vertex shader's constant buffer, i.e. the MVP these vertices were
+        // built with.  It is ambient state living on the shader, so without
+        // capturing it a deferred draw silently re-transforms its geometry
+        // under whatever matrix happened to be uploaded last - which is how UI
+        // text disappeared while the rest of the UI kept drawing fine.
+        void* constantBuffer = nullptr;
+        UINT constantBufferSlot = 0;
+
         bool sameDrawState(const BatchState& other) const
         {
             return vs == other.vs && ps == other.ps && topology == other.topology &&
                 alphaBlend == other.alphaBlend && depthTest == other.depthTest &&
-                depthWrite == other.depthWrite && depthFunc == other.depthFunc;
+                depthWrite == other.depthWrite && depthFunc == other.depthFunc &&
+                texture0 == other.texture0 && sampler0 == other.sampler0 &&
+                constantBuffer == other.constantBuffer && constantBufferSlot == other.constantBufferSlot;
         }
     };
 

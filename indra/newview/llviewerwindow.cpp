@@ -29,6 +29,7 @@
 
 #ifdef DX_RENDER
 #include "DXContext.h"
+#include "DXSwapChain.h"
 #endif
 
 // system library includes
@@ -2793,6 +2794,14 @@ void LLViewerWindow::reshape(S32 width, S32 height)
         mWindowRectRaw.mTop = mWindowRectRaw.mBottom + height;
 
         //glViewport(0, 0, width, height );
+#ifdef DX_RENDER
+        // The D3D11 swap chain is a separately-sized GPU resource. Keep it in
+        // lockstep with the native client area whenever the window is reshaped.
+        if (width > 0 && height > 0)
+        {
+            gDXSwapChain.resize(width, height);
+        }
+#endif
 
         LLViewerCamera * camera = LLViewerCamera::getInstance(); // simpleton, might not exist
         if (height > 0 && camera)
@@ -3022,6 +3031,7 @@ void LLViewerWindow::draw()
     static LLCachedControl<bool> displayTimecode(gSavedSettings, "DisplayTimecode");
     gUIProgram.bind();
     gDX.color4f(1, 1, 1, 1);
+
 
     if (displayTimecode)
     {

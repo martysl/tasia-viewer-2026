@@ -1836,6 +1836,12 @@ void LLRender::syncMatricesDX()
         return;
     }
 
+    // Note: pending DXUIBatch vertices are NOT drained here.  They were pushed
+    // after the caller's own flushPending() precisely so they belong to the
+    // matrices being uploaded right now, and DXUIBatch now carries this
+    // shader's constant buffer in its own batch state, so a deferred draw
+    // rebinds the exact matrices its vertices were built with.
+
     DXShader& vs = dx_shader->mDXVertexShader;
     DXShader& ps = dx_shader->mDXPixelShader;
 

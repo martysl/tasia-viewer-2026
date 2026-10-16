@@ -3020,6 +3020,14 @@ void LLViewerMediaImpl::update()
     if (preMediaTexUpdate(media_tex, data, data_width, data_height, x_pos, y_pos, width, height))
     {
         // Push update to worker thread
+        // The GL path can upload media pixels through its shared GL context on
+        // a worker queue.  DXTexture updates use D3D11's immediate context,
+        // which must stay on the viewer/main thread: routing CEF frames to
+        // the GL media worker caused login_html to race the UI renderer and
+        // eventually replace the login surface with an uninitialised frame.
+#ifdef DX_RENDER
+        doMediaTexUpdate(media_tex, data, data_width, data_height, x_pos, y_pos, width, height, false);
+#else
         auto main_queue = LLImageGLThread::sEnabledMedia ? mMainQueue.lock() : nullptr;
         if (main_queue)
         {
@@ -3049,6 +3057,7 @@ void LLViewerMediaImpl::update()
         {
             doMediaTexUpdate(media_tex, data, data_width, data_height, x_pos, y_pos, width, height, false); // otherwise, update on main thread
         }
+#endif
     }
 }
 

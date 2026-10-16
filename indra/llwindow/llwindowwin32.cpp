@@ -2148,6 +2148,19 @@ void LLWindowWin32::recreateWindow(RECT window_rect, DWORD dw_ex_style, DWORD dw
     mWindowHandle = pair.first;
     mhDC = pair.second;
 
+    // CreateWindowEx() runs on the dedicated window thread. updateWindowRect()
+    // posts its cache update back to the main thread, which may not run before
+    // LLViewerWindow asks getSize() to establish its initial 2D projection.
+    // Populate the cache synchronously here so startup never begins with a
+    // zero-sized client area (clamped to 1x1 by the UI projection helper).
+    RECT rect;
+    RECT client_rect;
+    if (mWindowHandle && GetWindowRect(mWindowHandle, &rect) && GetClientRect(mWindowHandle, &client_rect))
+    {
+        mRect = rect;
+        mClientRect = client_rect;
+    }
+
     sWindowHandleForMessageBox = mWindowHandle;
 }
 

@@ -989,6 +989,15 @@ void LLVertexBuffer::drawRange(U32 mode, U32 start, U32 end, U32 count, U32 indi
     llassert(mDXBuffer.getBuffer() == sDXRenderBuffer);
     llassert(mDXIndices.getBuffer() == sDXRenderIndices);
     llassert(sDXMode[mode] != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED);
+    static bool logged_first_dx_draw = false;
+    if (!logged_first_dx_draw)
+    {
+        logged_first_dx_draw = true;
+        LL_INFOS("DXUI") << "Submitting first immediate DX draw: " << count
+            << " vertices via "
+            << (LLHLSLShader::sCurBoundShaderPtr ? LLHLSLShader::sCurBoundShaderPtr->mName : "no shader")
+            << LL_ENDL;
+    }
     gDX.syncMatrices();
     assertShaderStagesBound();
     ID3D11DeviceContext* ctx = gDXDevice.getContext();
@@ -2285,7 +2294,6 @@ void LLVertexBuffer::setIndexData(const U32* data, U32 offset, U32 count)
     }
     flush_vbo(GL_ELEMENT_ARRAY_BUFFER, offset * sizeof(U32), (offset + count) * sizeof(U32) - 1, (U8*)data, mMappedIndexData);
 }
-
 
 
 

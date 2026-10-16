@@ -1643,7 +1643,15 @@ bool LLViewerFetchedTexture::createTexture(S32 usename/*= 0*/)
         return false;
     }
 
+#ifdef DX_RENDER
+    // LLViewerFetchedTexture historically uploads straight to mGLTexturep.
+    // Under DX_RENDER that leaves LLGLTexture's paired LLImageDX empty, so
+    // every fetched skin/UI image falls back to the 1x1 white SRV. Route the
+    // upload through the base texture object, which owns the DX counterpart.
+    bool res = LLGLTexture::createGLTexture(mRawDiscardLevel, mRawImage, usename, true, mBoostLevel);
+#else
     bool res = mGLTexturep->createGLTexture(mRawDiscardLevel, mRawImage, usename, true, mBoostLevel);
+#endif
 
     return res;
 }
@@ -4216,4 +4224,3 @@ void LLTexturePipelineTester::LLTextureTestSession::reset()
 //----------------------------------------------------------------------------------------------
 //end of LLTexturePipelineTester
 //----------------------------------------------------------------------------------------------
-
