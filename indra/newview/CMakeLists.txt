@@ -165,6 +165,14 @@ set(viewer_SOURCE_FILES
     llchatmsgbox.cpp
     llchiclet.cpp
     llchicletbar.cpp
+    lltasia_chat_preview.cpp
+    lltasia_giphy_key.cpp
+    lltasia_giphy_key.generated.cpp
+    lltasia_klipy_key.cpp
+    lltasia_klipy_key.generated.cpp
+    lltasia_user_config.cpp
+    lltasia_welcome_client.cpp
+    lltasiaguard.cpp
     llclassifiedinfo.cpp
     llcofwearables.cpp
     llcolorswatch.cpp
@@ -871,6 +879,12 @@ set(viewer_HEADER_FILES
     llchatmsgbox.h
     llchiclet.h
     llchicletbar.h
+    lltasia_chat_preview.h
+    lltasia_giphy_key.h
+    lltasia_klipy_key.h
+    lltasia_user_config.h
+    lltasia_welcome_client.h
+    lltasiaguard.h
     llclassifiedinfo.h
     llcofwearables.h
     llcolorswatch.h

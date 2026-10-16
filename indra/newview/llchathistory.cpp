@@ -67,6 +67,7 @@
 #include "llviewercontrol.h"
 #include "llviewermenu.h"
 #include "llviewerobjectlist.h"
+#include "lltasia_chat_preview.h"
 
 static LLDefaultChildRegistry::Register<LLChatHistory> r("chat_history");
 
@@ -1591,6 +1592,85 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 
         mEditor->appendText(message, prependNewLineState, body_message_params);
         prependNewLineState = false;
+
+        if (!message_from_log)
+        {
+            bool preview_added = false;
+
+            if (gSavedSettings.getBOOL("TasiaYouTubeChatPreview"))
+            {
+                TasiaYouTubePreview youtube_preview;
+                if (tasiaFindFirstYouTubePreview(message, youtube_preview))
+                {
+                    TasiaYouTubePreviewPanel* youtube_panel = new TasiaYouTubePreviewPanel(youtube_preview);
+
+                    LLRect target_rect = mEditor->getDocumentView()->getRect();
+                    target_rect.mLeft += mLeftWidgetPad + mEditor->getHPad();
+                    target_rect.mRight -= mRightWidgetPad;
+                    youtube_panel->reshape(target_rect.getWidth(), youtube_panel->getRect().getHeight());
+                    youtube_panel->setOrigin(target_rect.mLeft, youtube_panel->getRect().mBottom);
+
+                    LLInlineViewSegment::Params params;
+                    params.force_newline = true;
+                    params.view = youtube_panel;
+                    params.left_pad = mLeftWidgetPad;
+                    params.right_pad = mRightWidgetPad;
+                    params.top_pad = 4;
+                    params.bottom_pad = 4;
+                    mEditor->appendWidget(params, "\n[YouTube] " + youtube_preview.page_url, false);
+                    preview_added = true;
+                }
+            }
+
+            if (!preview_added && gSavedSettings.getBOOL("TasiaImageChatPreview"))
+            {
+                TasiaImagePreview image_preview;
+                if (tasiaFindFirstImagePreview(message, image_preview))
+                {
+                    TasiaImagePreviewPanel* image_panel = new TasiaImagePreviewPanel(image_preview);
+
+                    LLRect target_rect = mEditor->getDocumentView()->getRect();
+                    target_rect.mLeft += mLeftWidgetPad + mEditor->getHPad();
+                    target_rect.mRight -= mRightWidgetPad;
+                    image_panel->reshape(target_rect.getWidth(), image_panel->getRect().getHeight());
+                    image_panel->setOrigin(target_rect.mLeft, image_panel->getRect().mBottom);
+
+                    LLInlineViewSegment::Params params;
+                    params.force_newline = true;
+                    params.view = image_panel;
+                    params.left_pad = mLeftWidgetPad;
+                    params.right_pad = mRightWidgetPad;
+                    params.top_pad = 4;
+                    params.bottom_pad = 4;
+                    mEditor->appendWidget(params, "\n[Image] " + image_preview.url, false);
+                    preview_added = true;
+                }
+            }
+
+            if (!preview_added && gSavedSettings.getBOOL("TasiaAnimatedGifChatPreview"))
+            {
+                TasiaGiphyPreview preview;
+                if (tasiaFindFirstGiphyPreview(message, preview))
+                {
+                    TasiaGiphyPreviewPanel* preview_panel = new TasiaGiphyPreviewPanel(preview);
+
+                    LLRect target_rect = mEditor->getDocumentView()->getRect();
+                    target_rect.mLeft += mLeftWidgetPad + mEditor->getHPad();
+                    target_rect.mRight -= mRightWidgetPad;
+                    preview_panel->reshape(target_rect.getWidth(), preview_panel->getRect().getHeight());
+                    preview_panel->setOrigin(target_rect.mLeft, preview_panel->getRect().mBottom);
+
+                    LLInlineViewSegment::Params params;
+                    params.force_newline = true;
+                    params.view = preview_panel;
+                    params.left_pad = mLeftWidgetPad;
+                    params.right_pad = mRightWidgetPad;
+                    params.top_pad = 4;
+                    params.bottom_pad = 4;
+                    mEditor->appendWidget(params, "\n[GIPHY] " + preview.page_url, false);
+                }
+            }
+        }
     }
 
     mEditor->blockUndo();
