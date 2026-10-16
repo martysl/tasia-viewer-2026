@@ -7,7 +7,7 @@ set(VCPKG_TARGET_TRIPLET "x64-windows-static-boost")
 set(VCPKG_TARGET_ARCHITECTURE x64)
 set(VCPKG_CRT_LINKAGE dynamic)  # /MD to match main project (was static)
 set(VCPKG_LIBRARY_LINKAGE static)  # Static .lib files (not .dll)
-set(VCPKG_PLATFORM_TOOLSET v145) # Visual Studio 2026
+set(VCPKG_PLATFORM_TOOLSET v143)
 
 # Force vcpkg to produce only Release configuration
 set(VCPKG_BUILD_TYPE "release" CACHE STRING "Force Release build" FORCE)
@@ -34,7 +34,7 @@ set(VCPKG_CXX_FLAGS_RELEASE "/O2 /Ob2 /Oi /Ot /GL /arch:AVX2 /fp:fast /Oy /GF /D
 set(VCPKG_LINKER_FLAGS_RELEASE "/LTCG /INCREMENTAL:NO /OPT:REF /OPT:ICF" CACHE STRING "Aggressive linker flags" FORCE)
 
 # Note about VS/vcpkg settings:
-# - __VCPKG_PLATFORM_TOOLSET__ remains v145
+# - __VCPKG_PLATFORM_TOOLSET__ remains v143
 # - __VCPKG_BUILD_CONFIGURATIONS__ is forced to "release"
 #
 # Warnings:

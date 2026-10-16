@@ -7,7 +7,7 @@ set(VCPKG_CRT_LINKAGE static)
 set(VCPKG_LIBRARY_LINKAGE static)
 
 # Toolset override (optional but valid)
-set(VCPKG_PLATFORM_TOOLSET v145)
+set(VCPKG_PLATFORM_TOOLSET v143)
 
 # ============================
 #  Compiler Flags (Release)
