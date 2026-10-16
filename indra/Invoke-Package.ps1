@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     KV Viewer S24 Distribution Packaging Script
@@ -38,10 +38,37 @@ param(
     
     [Parameter()]
     [ValidateSet('Release', 'Debug', 'RelWithDebInfo')]
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+
+    [Parameter()]
+    [string]$BuildDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
+
+# The original S24 script assumed a build-vc145 directory under indra. That
+# silently omits the viewer when CMake is configured elsewhere (for example,
+# the VS2022 build at <repo>\build). Resolve the actual build directory once
+# and use it for every compiled output below.
+$repoRoot = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($BuildDir)) {
+    $rootBuild = Join-Path $repoRoot 'build'
+    $legacyBuild = Join-Path $PSScriptRoot 'build-vc145'
+    if (Test-Path $rootBuild) {
+        $BuildDir = $rootBuild
+    }
+    elseif (Test-Path $legacyBuild) {
+        $BuildDir = $legacyBuild
+    }
+    else {
+        throw "Build directory not found. Pass -BuildDir explicitly. Tried: $rootBuild ; $legacyBuild"
+    }
+}
+if (-not (Test-Path $BuildDir)) {
+    throw "Build directory not found: $BuildDir"
+}
+$BuildDir = (Resolve-Path $BuildDir).Path
+
 
 function Write-PackageHeader {
     Clear-Host
@@ -199,9 +226,9 @@ Write-Stage "Stage 4: Copying compiled binaries"
 $configPath = $Configuration.ToLower()
 
 $binaryCopies = @(
-    @{ Src = "build-vc145\newview\$configPath\Kirstens-S24.exe"; Dest = 'S24-Packaged'; Name = 'Viewer executable' },
-    @{ Src = "build-vc145\llplugin\slplugin\$configPath\SLPlugin.exe"; Dest = 'S24-Packaged'; Name = 'Plugin host' },
-    @{ Src = "build-vc145\llwebrtc\$configPath\llwebrtc.dll"; Dest = 'S24-Packaged'; Name = 'WebRTC library' }
+    @{ Src = (Join-Path $BuildDir "newview\$configPath\Kirstens-S24.exe"); Dest = 'S24-Packaged'; Name = 'Viewer executable' },
+    @{ Src = (Join-Path $BuildDir "llplugin\slplugin\$configPath\SLPlugin.exe"); Dest = 'S24-Packaged'; Name = 'Plugin host' },
+    @{ Src = (Join-Path $BuildDir "llwebrtc\$configPath\llwebrtc.dll"); Dest = 'S24-Packaged'; Name = 'WebRTC library' }
 )
 
 for ($i = 0; $i -lt $binaryCopies.Count; $i++) {
@@ -233,15 +260,15 @@ if (Test-Path 'newview\featuretable.txt') {
 }
 
 # Copy build outputs (message templates only - settings.xml comes from source)
-if (Test-Path "build-vc145\newview\$configPath\app_settings\*.msg") {
+if (Test-Path (Join-Path $BuildDir "newview\$configPath\app_settings\*.msg")) {
     Write-Host "  Copying message templates..." -ForegroundColor Cyan
-    Copy-Item -Path "build-vc145\newview\$configPath\app_settings\*.msg" -Destination 'S24-Packaged\app_settings' -Force
+    Copy-Item -Path (Join-Path $BuildDir "newview\$configPath\app_settings\*.msg") -Destination 'S24-Packaged\app_settings' -Force
 }
 
 # Copy generated XML files EXCEPT settings.xml and settings_files.xml (always use source versions from Stage 2)
-if (Test-Path "build-vc145\newview\$configPath\app_settings\*.xml") {
+if (Test-Path (Join-Path $BuildDir "newview\$configPath\app_settings\*.xml")) {
     Write-Host "  Copying generated XML files (excluding settings.xml and settings_files.xml - using source versions)..." -ForegroundColor Cyan
-    Get-ChildItem "build-vc145\newview\$configPath\app_settings\*.xml" -Exclude 'settings.xml','settings_files.xml' | 
+    Get-ChildItem (Join-Path $BuildDir "newview\$configPath\app_settings\*.xml") -Exclude 'settings.xml','settings_files.xml' | 
         ForEach-Object { Copy-Item $_.FullName -Destination 'S24-Packaged\app_settings' -Force }
 }
 
@@ -254,7 +281,7 @@ Write-Host "✓ Compiled binaries copied" -ForegroundColor Green
 
 Write-Stage "Stage 5: Copying media plugins"
 
-$mediaPluginPath = "build-vc145\media_plugins"
+$mediaPluginPath = Join-Path $BuildDir 'media_plugins' 
 
 # LibVLC plugin
 if (Test-Path "$mediaPluginPath\libvlc\$Configuration\*.dll") {
