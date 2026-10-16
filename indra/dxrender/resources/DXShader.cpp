@@ -716,70 +716,88 @@ void DXShader::injectSkinningInputs(std::string& vertex_source)
 // static
 void DXShader::resolveIncludes(std::string& source)
 {
-    // S24 (2026-07-30): custom raw-string delimiter (RX) required here -
-    // the pattern's own "]+)" sequence contains a literal )" which would
-    // otherwise prematurely terminate a default R"(...)" raw string right
-    // in the middle of the regex, turning the remainder into malformed C++
-    // (the exact cause of a real compile error caught on this line).
-    // S24 (2026-08-01): anchored to the start of a line - without this,
-    // the pattern matched `#include "..."` anywhere in the text, including
-    // inside a `//` comment merely talking about a stray include (e.g.
-    // pointLightF.hlsl's own comment documenting one that was removed).
-    // That phantom match tried to open a file that was never a real
-    // directive, failed, and broke the whole loop - leaving every
-    // subsequent *real* #include (e.g. the varying/*.hlsli one a few lines
-    // later in the same file) unresolved, which is what actually produced
-    // the downstream "X1505: no include handler" failure.
-    //
-    // The line anchoring is expressed as (?:\A|\n) rather than "^" plus
-    // std::regex_constants::multiline: multiline is C++17, but MSVC's
-    // <regex> does not provide it, so asking for it fails to compile with
-    // C2039. The leading group is non-capturing, so the include path is
-    // still match[1].
-    static const std::regex include_pattern(R"RX((?:\A|\n)[ \t]*#include\s*"([^"]+)"[^\n]*\n?)RX",
-        std::regex_constants::ECMAScript);
+    // Do not use std::regex here. MSVC's ECMAScript engine can recurse until
+    // stack exhaustion when this expression is repeatedly applied to the
+    // large, nested HLSL source generated at startup. A small line parser is
+    // both clearer and guarantees that comments containing "#include" are
+    // never mistaken for directives.
+    const std::string shaders_root = gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "shaders", "");
 
-    std::string shaders_root = gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "shaders", "");
-
-    std::smatch match;
-    // Loop (not a single regex_replace pass) since each replacement can
-    // shift subsequent match positions - re-searching from scratch after
-    // every substitution is simplest and safe given how few #include
-    // directives any one file has.
-    while (std::regex_search(source, match, include_pattern))
+    while (true)
     {
-        const std::string included_path = match[1];
-        const std::string full_path = shaders_root + included_path;
+        std::size_t line_begin = 0;
+        std::size_t include_begin = std::string::npos;
+        std::string included_path;
 
+        while (line_begin < source.size())
+        {
+            const std::size_t line_end = source.find('\n', line_begin);
+            const std::size_t content_end = (line_end == std::string::npos) ? source.size() : line_end;
+            std::size_t cursor = line_begin;
+
+            while (cursor < content_end && (source[cursor] == ' ' || source[cursor] == '\t'))
+            {
+                ++cursor;
+            }
+
+            constexpr char include_directive[] = "#include";
+            constexpr std::size_t include_directive_length = sizeof(include_directive) - 1;
+            if (content_end - cursor >= include_directive_length &&
+                source.compare(cursor, include_directive_length, include_directive) == 0)
+            {
+                cursor += include_directive_length;
+                while (cursor < content_end && (source[cursor] == ' ' || source[cursor] == '\t'))
+                {
+                    ++cursor;
+                }
+
+                if (cursor < content_end && source[cursor] == '"')
+                {
+                    const std::size_t path_begin = ++cursor;
+                    const std::size_t path_end = source.find('"', path_begin);
+                    if (path_end != std::string::npos && path_end < content_end)
+                    {
+                        include_begin = line_begin;
+                        included_path = source.substr(path_begin, path_end - path_begin);
+                        break;
+                    }
+                }
+            }
+
+            if (line_end == std::string::npos)
+            {
+                break;
+            }
+            line_begin = line_end + 1;
+        }
+
+        if (include_begin == std::string::npos)
+        {
+            break;
+        }
+
+        const std::string full_path = shaders_root + included_path;
         std::ifstream include_file(full_path.c_str());
         if (!include_file)
         {
-            // S24 (2026-08-01): untagged, not "ShaderLoading" - that tag is
-            // suppressed to ERROR-only in logcontrol.xml (same reasoning as
-            // compileHLSL()'s own warnings), which would otherwise silently
-            // swallow the one message explaining why a real "X1505: no
-            // include handler" compile failure just happened (a stale
-            // packaged tree missing this include file entirely still
-            // produces that exact downstream error, with this warning as
-            // the only clue why).
             LL_WARNS() << "DXShader::resolveIncludes: could not open '" << full_path
                 << "' (referenced via #include \"" << included_path << "\")" << LL_ENDL;
-            // Leave the #include line in place - D3DCompile will fail on it
-            // with a real, locatable error instead of this silently
-            // producing an incomplete shader.
+            // Leave the directive in place so D3DCompile can report it with
+            // a source location instead of silently compiling incomplete HLSL.
             break;
         }
 
         std::string included_text((std::istreambuf_iterator<char>(include_file)), std::istreambuf_iterator<char>());
-        // Strip a leading UTF-8 BOM, same reasoning as loadShaderFile()'s
-        // DX_RENDER branch - this text lands mid-blob, not at a real file
-        // start a text editor would have hidden it at.
         if (included_text.compare(0, 3, "\xEF\xBB\xBF") == 0)
         {
             included_text.erase(0, 3);
         }
 
-        source.replace(match.position(0), match.length(0), included_text);
+        const std::size_t line_end = source.find('\n', include_begin);
+        const std::size_t replace_length = (line_end == std::string::npos)
+            ? source.size() - include_begin
+            : line_end - include_begin + 1;
+        source.replace(include_begin, replace_length, included_text);
     }
 }
 
