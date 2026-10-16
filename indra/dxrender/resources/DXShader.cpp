@@ -826,12 +826,57 @@ void DXShader::injectTextureIndexInputs(std::string& vertex_source)
     // do). Declarations stay unconditional regardless (passTextureIndex()
     // is attached and fully compiled whenever indexedTextureV.hlsl is,
     // independent of whether this specific permutation defines the guard).
-    static const std::regex guarded_pattern(R"(#ifdef\s+(\w+)(?:(?!#endif)[\s\S])*?\w+\s+texture_index\s*:\s*TEXTUREINDEX)");
-    std::smatch guard_match;
+    // MSVC's ECMAScript engine expands the former nested, tempered regex
+    // recursively for long shader sources and overflows the stack. Track the
+    // preprocessor nesting one line at a time instead.
+    std::vector<std::string> ifdef_stack;
     std::string guard_macro;
-    if (std::regex_search(vertex_source, guard_match, guarded_pattern))
+    std::size_t line_begin = 0;
+    while (line_begin < vertex_source.size())
     {
-        guard_macro = guard_match[1];
+        const std::size_t line_end = vertex_source.find('\n', line_begin);
+        const std::size_t content_end = (line_end == std::string::npos) ? vertex_source.size() : line_end;
+        const std::string line = vertex_source.substr(line_begin, content_end - line_begin);
+
+        std::size_t cursor = 0;
+        while (cursor < line.size() && (line[cursor] == ' ' || line[cursor] == '\t'))
+        {
+            ++cursor;
+        }
+        if (line.compare(cursor, 6, "#ifdef") == 0 &&
+            (cursor + 6 == line.size() || line[cursor + 6] == ' ' || line[cursor + 6] == '\t'))
+        {
+            cursor += 6;
+            while (cursor < line.size() && (line[cursor] == ' ' || line[cursor] == '\t'))
+            {
+                ++cursor;
+            }
+            const std::size_t macro_end = line.find_first_of(" \t\r", cursor);
+            ifdef_stack.push_back(line.substr(cursor, macro_end - cursor));
+        }
+        else if (line.compare(cursor, 6, "#endif") == 0 &&
+            (cursor + 6 == line.size() || line[cursor + 6] == ' ' || line[cursor + 6] == '\t' || line[cursor + 6] == '\r'))
+        {
+            if (!ifdef_stack.empty())
+            {
+                ifdef_stack.pop_back();
+            }
+        }
+        else if (line.find("texture_index") != std::string::npos &&
+                 line.find(": TEXTUREINDEX") != std::string::npos)
+        {
+            if (!ifdef_stack.empty())
+            {
+                guard_macro = ifdef_stack.back();
+            }
+            break;
+        }
+
+        if (line_end == std::string::npos)
+        {
+            break;
+        }
+        line_begin = line_end + 1;
     }
 
     // We only got here because indexed texturing is definitely active for
