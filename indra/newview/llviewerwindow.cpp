@@ -2143,14 +2143,23 @@ LLViewerWindow::LLViewerWindow(const Params& p)
     //
     LL_DEBUGS("Window") << "Loading feature tables." << LL_ENDL;
 
-    // Initialize OpenGL Renderer
+    // Initialize the active renderer's shared immediate vertex buffer before
+    // any login/UI draw. In a DX build UI helpers use gDX, not gGL.
     LLVertexBuffer::initClass(mWindow);
     LL_INFOS("RenderInit") << "LLVertexBuffer initialization done." << LL_ENDL ;
+#ifdef DX_RENDER
+    if (!gDX.init(true))
+    {
+        LLError::LLUserWarningMsg::show(LLTrans::getString("MBVideoDrvErr"));
+        LL_ERRS() << "gDX not initialized" << LL_ENDL;
+    }
+#else
     if (!gGL.init(true))
     {
         LLError::LLUserWarningMsg::show(LLTrans::getString("MBVideoDrvErr"));
         LL_ERRS() << "gGL not initialized" << LL_ENDL;
     }
+#endif
     // <FS:Ansariel> Exodus vignette
 
     if (LLFeatureManager::getInstance()->isSafe()
