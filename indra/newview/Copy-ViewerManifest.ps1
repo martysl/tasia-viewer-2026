@@ -50,8 +50,9 @@ if (-not (Test-Path $destDir)) {
 Write-Host "Copying essential runtime files..." -ForegroundColor Yellow
 
 # Message template and configuration
-$scriptsDir = Join-Path (Split-Path $SourceDir -Parent) ".." "scripts"
-$etcDir = Join-Path (Split-Path $SourceDir -Parent) ".." "etc"
+$repoRoot = Join-Path (Split-Path $SourceDir -Parent) ".."
+$scriptsDir = Join-Path $repoRoot "scripts"
+$etcDir = Join-Path $repoRoot "etc"
 
 $appSettingsDir = Join-Path $destDir "app_settings"
 if (-not (Test-Path $appSettingsDir)) {
