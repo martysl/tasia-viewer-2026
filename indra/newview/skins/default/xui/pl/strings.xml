@@ -190,10 +190,10 @@ Wersja serwera głosu (Voice Server): [VOICE_VERSION]
 	</string>
 	<string name="LoginFailedViewerNotPermitted">
 		Przeglądarka używana przez Ciebie nie ma już dostępu do Second Life. Proszę przejść na poniższą stronę i pobrać nową:
-http://secondlife.com/download
+https://tasiaviewer.work/download
 
 Więcej informacji w naszym FAQ:
-http://secondlife.com/viewer-access-faq
+https://tasiaviewer.work/viewer-access-faq
 	</string>
 	<string name="LoginFailed">
 		Logowanie nieudane.
@@ -218,13 +218,13 @@ Sprawdź też, czy klawisz Caps Lock nie jest wciśnięty.
 	</string>
 	<string name="LoginFailedPasswordChanged">
 		W celu zwiększenia bezpieczeństwa Twoje hasło zostało zmienione.
-Przejdź na stronę swojego konta: http://secondlife.com/password
+Przejdź na stronę swojego konta: https://tasiaviewer.work/password
 i odpowiedz na pytanie zabezpieczające, aby zresetować hasło.
 Bardzo przepraszamy za utrudnienia.
 	</string>
 	<string name="LoginFailedPasswordReset">
 		Wprowadziliśmy pewne zmiany do systemu, które wymagają zresetowania hasła.
-Przejdź na stronę swojego konta: http://secondlife.com/password
+Przejdź na stronę swojego konta: https://tasiaviewer.work/password
 i odpowiedz na pytanie zabezpieczające, aby zresetować hasło.
 Bardzo przepraszamy za utrudnienia.
 	</string>
@@ -675,7 +675,7 @@ mogą być dołączane do notek.
 	</string>
 	<string name="AssetUploadRequestInvalid">
 		Błąd podczas przesyłania. Odwiedź
-http://secondlife.com/support aby uzyskać pomoc.
+https://tasiaviewer.work/support aby uzyskać pomoc.
 	</string>
 	<string name="SettingValidationError">
 		Walidacja nie powiodła się - importowanie ustawień [NAME]
@@ -1575,7 +1575,7 @@ Jeśli ciągle otrzymujesz tą wiadomość, to skontaktuj się z pomocą technic
 		aktualizacja...
 	</string>
 	<string name="UploadFeeInfo">
-		Opłata zależy od Twojego poziomu członkostwa. Wyższe poziomy to niższe opłaty. [https://secondlife.com/my/account/membership.php? Więcej]
+		Opłata zależy od Twojego poziomu członkostwa. Wyższe poziomy to niższe opłaty. [https://tasiaviewer.work/my/account/membership.php? Więcej]
 	</string>
 	<string name="Open landmarks">
 		Otwórz landmarki
@@ -2732,7 +2732,7 @@ Oczekiwane .wav, .tga, .bmp, .jpg, .jpeg, lub .anim
 	</string>
 	<string name="MBCmdLineError">
 		Podczas realizacji podanej komendy wystąpił błąd.
-Prosimy odwiedzić stronę internetową: http://wiki.secondlife.com/wiki/Client_parameters
+Prosimy odwiedzić stronę internetową: https://wiki.tasiaviewer.work/wiki/Client_parameters
 Błąd:
 	</string>
 	<string name="MBCmdLineUsg">
@@ -5341,6 +5341,6 @@ Sprawdź również, czy twoja sieć i zapora są poprawnie skonfigurowane.
 Jeśli nadal będziesz otrzymywać ten błąd, to przejdź
 do sekcji wsparcia witryny SecondLife.com i zgłoś problem.
 
-[https://community.secondlife.com/knowledgebase/english/error-messages-r520/#Section__3 Knowledge Base]
+[https://community.tasiaviewer.work/knowledgebase/english/error-messages-r520/#Section__3 Knowledge Base]
 	</string>
 </strings>

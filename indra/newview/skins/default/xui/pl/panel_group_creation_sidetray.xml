@@ -29,7 +29,7 @@
 		</layout_panel>
 		<layout_panel name="create_info">
 			<text name="fee_information">
-				Opłata za utworzenie grupy zależy od Twojego poziomu członkostwa. [https://secondlife.com/my/account/membership.php Więcej]
+				Opłata za utworzenie grupy zależy od Twojego poziomu członkostwa. [https://tasiaviewer.work/my/account/membership.php Więcej]
 			</text>
 			<scroll_list name="membership_list">
 				<scroll_list.rows name="basic" value="Podstawowe (wypełniacz)"/>

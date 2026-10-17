@@ -1143,7 +1143,7 @@ Wprowadź nową nazwę:
 		Wygląda na to, że słownik [DIC_NAME] nie ma pliku "aff"; znaczy to, że jest słownikiem drugorzędnym.
 Może on być użyty jako dodatkowy, ale nie główny słownik.
 
-Zobacz https://wiki.secondlife.com/wiki/Adding_Spelling_Dictionaries
+Zobacz https://wiki.tasiaviewer.work/wiki/Adding_Spelling_Dictionaries
 	</notification>
 	<notification name="SpellingDictImportFailed">
 		Nie można skopiować
@@ -1347,12 +1347,12 @@ Możesz normalnie używać [SECOND_LIFE], inni użytkownicy będą Cię widzieli
 		</form>
 	</notification>
 	<notification name="AgentComplexityWithVisibility">
-		Twój [https://community.secondlife.com/t5/English-Knowledge-Base/Avatar-Rendering-Complexity/ta-p/2967838 stopień złożoności awatara] to [AGENT_COMPLEXITY].
+		Twój [https://community.tasiaviewer.work/t5/English-Knowledge-Base/Avatar-Rendering-Complexity/ta-p/2967838 stopień złożoności awatara] to [AGENT_COMPLEXITY].
 [OVERLIMIT_MSG]
 		<usetemplate ignoretext="Ostrzegaj mnie, gdy stopień złożoności mojego awatara jest zbyt wysoki" name="notifyignore" />
 	</notification>
 	<notification name="AgentComplexity">
-		Twój [https://community.secondlife.com/t5/English-Knowledge-Base/Avatar-Rendering-Complexity/ta-p/2967838 stopień złożoności awatara] to [AGENT_COMPLEXITY].
+		Twój [https://community.tasiaviewer.work/t5/English-Knowledge-Base/Avatar-Rendering-Complexity/ta-p/2967838 stopień złożoności awatara] to [AGENT_COMPLEXITY].
 		<usetemplate ignoretext="Ostrzegaj mnie, gdy zmienia się stopień złożoności mojego awatara" name="notifyignore"/>
 	</notification>
 	<notification name="HUDComplexityWarning">
@@ -1559,7 +1559,7 @@ Wybierz obiekt na sprzedaż i spróbuj jeszcze raz.
 	</notification>
 	<notification name="RequiredUpdate">
 		Do zalogowania się wymagana jest wersja [VERSION].
-Pobierz ją z https://secondlife.com/support/downloads/
+Pobierz ją z https://tasiaviewer.work/support/downloads/
 	</notification>
 	<notification name="PauseForUpdate">
 		Do zalogowania się wymagana jest wersja [VERSION].
@@ -1596,7 +1596,7 @@ Otwieranie stron internetowych z nieznanego źródła może narazić Twój kompu
 		<usetemplate ignoretext="Uruchom przeglądarkę internetową by zobaczyć stronę" name="okcancelignore" notext="Anuluj" />
 	</notification>
 	<notification name="WebLaunchJoinNow">
-		By dokonać zmian i aktualizacji swojego konta, odwiedź [http://secondlife.com/account/ Tablicę].
+		By dokonać zmian i aktualizacji swojego konta, odwiedź [https://tasiaviewer.work/account/ Tablicę].
 		<usetemplate ignoretext="Uruchom przeglądarkę internetową by dokonać zmian w konfiguracji mojego konta" name="okcancelignore" notext="Anuluj" />
 	</notification>
 	<notification name="WebLaunchSecurityIssues">
@@ -1680,13 +1680,13 @@ Chcesz ją opuścić?
 	</notification>
 	<notification name="GroupLimitInfo">
 		Rezydenci z członkostwem podstawowym mogą dołączyć do [MAX_BASIC] grup.
-Członkostwo premium pozwala na [MAX_PREMIUM]. [https://secondlife.com/my/account/membership.php? Dowiedz się więcej]
+Członkostwo premium pozwala na [MAX_PREMIUM]. [https://tasiaviewer.work/my/account/membership.php? Dowiedz się więcej]
 		<usetemplate name="okbutton" yestext="Zamknij" />
 	</notification>
 	<notification name="GroupLimitInfoPlus">
 		Rezydenci z członkostwem podstawowym mogą dołączyć do [MAX_BASIC] grup.
 Członkostwo premium pozwala na [MAX_PREMIUM]. Członkostwo
-Premium Plus pozwala na [MAX_PREMIUM_PLUS]. [https://secondlife.com/my/account/membership.php? Dowiedz się więcej]
+Premium Plus pozwala na [MAX_PREMIUM_PLUS]. [https://tasiaviewer.work/my/account/membership.php? Dowiedz się więcej]
 		<usetemplate name="okbutton" yestext="Zamknij" />
 	</notification>
 	<notification name="KickUser">
@@ -1728,7 +1728,7 @@ Premium Plus pozwala na [MAX_PREMIUM_PLUS]. [https://secondlife.com/my/account/m
 	<notification name="SetDisplayNameSuccess">
 		Witaj [DISPLAY_NAME]!
 
-Podobnie jak w realnym życiu potrzeba trochę czasu zanim wszyscy dowiedzą się o nowym imieniu. Kolejne kilka dni zajmie [http://wiki.secondlife.com/wiki/Setting_your_display_name aktualizacja imienia] w obiektach, skryptach, wyszukiwarce, etc.
+Podobnie jak w realnym życiu potrzeba trochę czasu zanim wszyscy dowiedzą się o nowym imieniu. Kolejne kilka dni zajmie [https://wiki.tasiaviewer.work/wiki/Setting_your_display_name aktualizacja imienia] w obiektach, skryptach, wyszukiwarce, etc.
 	</notification>
 	<notification name="SetDisplayNameBlocked">
 		Przepraszamy, nie można zmienić Twojego Wyświetlanego Imienia. Jeśli uważasz, że jest to spowodowane błędem skontaktuj się z obsługą klienta.
@@ -1747,7 +1747,7 @@ Proszę wprowadzić krótsze imię.
 	<notification name="AgentDisplayNameUpdateThresholdExceeded">
 		Przepraszamy, musisz jeszcze poczekać zanim będzie można zmienić Twoje Wyświetlane Imię.
 
-Zobacz http://wiki.secondlife.com/wiki/Setting_your_display_name
+Zobacz https://wiki.tasiaviewer.work/wiki/Setting_your_display_name
 
 Proszę spróbować ponownie później.
 	</notification>
@@ -1911,7 +1911,7 @@ Czy chcesz kontynuować?
 	<notification name="RegionEntryAccessBlocked">
 		Region, który próbujesz odwiedzić, ma klasyfikację treści przekraczającą Twoje maksymalne preferencje. Możesz je zmienić używając Ja &gt; Ustawienia &gt; Ogólne.
 
-Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.secondlife.com/knowledgebase/english/maturity-ratings-r52/ tutaj].
+Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.tasiaviewer.work/knowledgebase/english/maturity-ratings-r52/ tutaj].
 	</notification>
 	<notification name="RegionEntryAccessBlocked_AdultsOnlyContent">
 		Region, który próbujesz odwiedzić zawiera treści [REGIONMATURITY], które są dostępne tylko dla dorosłych.
@@ -1937,7 +1937,7 @@ Pełne informacje na temat klasyfikacji treści można znaleźć [https://commun
 	<notification name="TeleportEntryAccessBlocked">
 		Region, który próbujesz odwiedzić, ma klasyfikację treści przekraczającą Twoje maksymalne preferencje. Możesz je zmienić używając Ja &gt; Ustawienia &gt; Ogólne.
 
-Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.secondlife.com/knowledgebase/english/maturity-ratings-r52/ tutaj].
+Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.tasiaviewer.work/knowledgebase/english/maturity-ratings-r52/ tutaj].
 	</notification>
 	<notification name="TeleportEntryAccessBlocked_AdultsOnlyContent">
 		Region, który próbujesz odwiedzić zawiera treści [REGIONMATURITY], które są dostępne tylko dla dorosłych.
@@ -1969,7 +1969,7 @@ Pełne informacje na temat klasyfikacji treści można znaleźć [https://commun
 		Mamy trudności techniczne z Twoim teleportem, ponieważ Twoje preferencje są rozsynchronizowane z serwerem.
 	</notification>
 	<notification name="RegionTPSpecialUsageBlocked">
-		Nie można wejść do tego regionu. '[REGION_NAME]' jest miejscem z grami (Skill Gaming Region) - musisz spełnić określone wymagania, jeśli chcesz go odwiedzić. Aby dowiedzieć się więcej zapoznaj się z [http://wiki.secondlife.com/wiki/Linden_Lab_Official:Second_Life_Skill_Gaming_FAQ Skill Gaming FAQ].
+		Nie można wejść do tego regionu. '[REGION_NAME]' jest miejscem z grami (Skill Gaming Region) - musisz spełnić określone wymagania, jeśli chcesz go odwiedzić. Aby dowiedzieć się więcej zapoznaj się z [https://wiki.tasiaviewer.work/wiki/Linden_Lab_Official:Second_Life_Skill_Gaming_FAQ Skill Gaming FAQ].
 	</notification>
 	<notification name="PreferredMaturityChanged">
 		Nie będziesz już otrzymywać żadnych powiadomień związanych z odwiedzaniem regionów z treściami [RATING]. Możesz zmienić swoją preferencję treści w przyszłości używając Ja &gt; Ustawienia &gt; Ogólne w pasku menu.
@@ -1980,7 +1980,7 @@ Pełne informacje na temat klasyfikacji treści można znaleźć [https://commun
 	<notification name="LandClaimAccessBlocked">
 		Ziemia, którą próbujesz odzyskać ma klasyfikację treści przekraczającą Twoje obecne preferencje treści. Możesz je zmienić używając Ja &gt; Ustawienia &gt; Ogólne w pasku menu.
 
-Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.secondlife.com/knowledgebase/english/maturity-ratings-r52/ tutaj].
+Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.tasiaviewer.work/knowledgebase/english/maturity-ratings-r52/ tutaj].
 	</notification>
 	<notification name="LandClaimAccessBlocked_AdultsOnlyContent">
 		Tylko dorośli mogą odzyskać tą ziemię.
@@ -2003,7 +2003,7 @@ Pełne informacje na temat klasyfikacji treści można znaleźć [https://commun
 	<notification name="LandBuyAccessBlocked">
 		Ziemia, którą próbujesz kupić ma klasyfikację treści przekraczającą Twoje obecne preferencje treści. Możesz je zmienić używając Ja &gt; Ustawienia &gt; Ogólne w pasku menu.
 
-Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.secondlife.com/knowledgebase/english/maturity-ratings-r52/ tutaj].
+Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.tasiaviewer.work/knowledgebase/english/maturity-ratings-r52/ tutaj].
 	</notification>
 	<notification name="LandBuyAccessBlocked_AdultsOnlyContent">
 		Tylko dorośli mogą kupić tą ziemię.
@@ -2191,7 +2191,7 @@ Przenieść obiekty szafy?
 		W tym obiekcie nie ma elementów które możesz skopiować.
 	</notification>
 	<notification name="WebLaunchAccountHistory">
-		Przejść na stronę [http://secondlife.com/account/ Tablicy] żeby zobaczyć historię konta?
+		Przejść na stronę [https://tasiaviewer.work/account/ Tablicy] żeby zobaczyć historię konta?
 		<usetemplate ignoretext="Uruchom przeglądarkę internetową by zobaczyć historię konta" name="okcancelignore" notext="Anuluj" yestext="Idź na stronę" />
 	</notification>
 	<notification name="ConfirmAddingChatParticipants">
@@ -2261,9 +2261,9 @@ Dokładne dane pomogą nam w klasyfikacji i przetwarzaniu raportu.
 
 Jeżeli składasz raport dotyczący naruszenia praw autorskich proszę się upewnić, że robisz to poprawnie:
 
-(1) Przypadek Nadużycia. Możesz złożyć raport jeżeli sądzisz, że Rezydent narusza system przywilejów [SECOND_LIFE], na przykład używając CopyBot lub podobnych narzędzi robiących kopie, naruszając prawa autorskie. Komisja Nadużyć bada wykroczenia i stosuje akcje dyscyplinarne za zachowania sprzeczne z zasadami Warunków Umowy [http://secondlife.com/corporate/tos.php Warunków Umowy] i [http://secondlife.com/corporate/cs.php Standardów Społeczeństwa] w [SECOND_LIFE]. Komisja Nadużyć nie zajmuje się i nie odpowiada na żądania usunięcia treści ze środowiska [SECOND_LIFE].
+(1) Przypadek Nadużycia. Możesz złożyć raport jeżeli sądzisz, że Rezydent narusza system przywilejów [SECOND_LIFE], na przykład używając CopyBot lub podobnych narzędzi robiących kopie, naruszając prawa autorskie. Komisja Nadużyć bada wykroczenia i stosuje akcje dyscyplinarne za zachowania sprzeczne z zasadami Warunków Umowy [https://tasiaviewer.work/corporate/tos.php Warunków Umowy] i [https://tasiaviewer.work/corporate/cs.php Standardów Społeczeństwa] w [SECOND_LIFE]. Komisja Nadużyć nie zajmuje się i nie odpowiada na żądania usunięcia treści ze środowiska [SECOND_LIFE].
 
-(2) Przypadek DMCA lub Usuwanie Treści. Aby wystąpić z żądaniem o usunięcie treści ze środowiska [SECOND_LIFE] MUSISZ przedłożyć ważne zawiadomienie o nadużyciu zgodne z naszą polityką DMCA [http://secondlife.com/corporate/dmca.php DMCA Policy].
+(2) Przypadek DMCA lub Usuwanie Treści. Aby wystąpić z żądaniem o usunięcie treści ze środowiska [SECOND_LIFE] MUSISZ przedłożyć ważne zawiadomienie o nadużyciu zgodne z naszą polityką DMCA [https://tasiaviewer.work/corporate/dmca.php DMCA Policy].
 
 Jeżeli chcesz kontynuować dalej zamknij to okno i dokończ wysyłanie raportu. Może być potrzebny wybór kategorii &apos;CopyBot albo Nadużycie Przywilejów&apos;.
 
@@ -2683,7 +2683,7 @@ Nie możesz tutaj latać.
 	<notification name="RegionTPAccessBlocked">
 		Region, który próbujesz odwiedzić, ma klasyfikację treści przekraczającą Twoje maksymalne preferencje. Możesz je zmienić używając Ja &gt; Ustawienia &gt; Ogólne.
 
-Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.secondlife.com/knowledgebase/english/maturity-ratings-r52/ tutaj].
+Pełne informacje na temat klasyfikacji treści można znaleźć [https://community.tasiaviewer.work/knowledgebase/english/maturity-ratings-r52/ tutaj].
 	</notification>
 	<notification name="RegionAboutToShutdown">
 		Region, do którego próbujesz się dostać, właśnie się wyłącza.
@@ -3021,7 +3021,7 @@ Zanim zezwolisz na dostęp upewnij się, że wiesz jaki to obiekt i dlaczego pyt
 
 Twój stan konta L$ zostanie zaktualizowany w momencie zakończenia transakcji. Jeżeli zajmie to ponad 20 minut, to Twój balans konta nie ulegnie zmianie, a transakcja zostanie anulowana. W tym przypadku pobrana kwota zostanie zwrócona na stan konta w US$.
 
-Status transakcji możesz sprawdzić odwiedzając Historię Transakcji swojego konta na [http://secondlife.com/account/ Tablicy]
+Status transakcji możesz sprawdzić odwiedzając Historię Transakcji swojego konta na [https://tasiaviewer.work/account/ Tablicy]
 	</notification>
 	<notification name="FirstOverrideKeys">
 		Twoje klawisze sterujące zostały przejęte przez obiekt.

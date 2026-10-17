@@ -119,14 +119,14 @@
         <menu_item_call.on_click
          function="PromptShowURL"
          name="ManageMyAccount_url"
-         parameter="WebLaunchJoinNow,http://secondlife.com/account/" />
+         parameter="WebLaunchJoinNow,https://tasiaviewer.work/account/" />
       </menu_item_call>
       <menu_item_call
            label="👑 [Membership]"
            name="Membership">
             <menu_item_call.on_click
              function="Advanced.ShowURL"
-             parameter="https://secondlife.com/my/account/membership.php"/>
+             parameter="https://tasiaviewer.work/my/account/membership.php"/>
             <menu_item_call.on_visible
                  function="Membership.UpdateLabel"/>
       </menu_item_call>
@@ -526,7 +526,7 @@
      name="Help with avatars">
         <menu_item_call.on_click
             function="Advanced.ShowURL"
-            parameter="https://community.secondlife.com/knowledgebase/english/controlling-your-avatars-appearance-r216/"/>
+            parameter="https://community.tasiaviewer.work/knowledgebase/english/controlling-your-avatars-appearance-r216/"/>
       </menu_item_call>
     </menu>
     <menu
@@ -697,7 +697,7 @@
              shortcut="control|E">
             <menu_item_call.on_click
              function="Advanced.ShowURL"
-             parameter="https://secondlife.com/my/community/events"/>
+             parameter="https://tasiaviewer.work/my/community/events"/>
         </menu_item_call>
         <menu_item_check
         label="🔍 Search..."
@@ -1866,7 +1866,7 @@ function="World.EnvPreset"
              name="Knowledge Base">
              <menu_item_call.on_click
                  function="Advanced.ShowURL"
-            parameter="http://community.secondlife.com/t5/English-Knowledge-Base/Second-Life-User-s-Guide/ta-p/1244857"/>
+            parameter="https://community.tasiaviewer.work/t5/English-Knowledge-Base/Second-Life-User-s-Guide/ta-p/1244857"/>
         </menu_item_call>
         <menu_item_call
              label="🌐 Wiki"
@@ -1880,14 +1880,14 @@ function="World.EnvPreset"
              name="Community Forums">
              <menu_item_call.on_click
                  function="Advanced.ShowURL"
-                 parameter="http://community.secondlife.com/t5/Forums/ct-p/Forums"/>
+                 parameter="https://community.tasiaviewer.work/t5/Forums/ct-p/Forums"/>
         </menu_item_call>         
         <menu_item_call
              label="⛑️ Support portal"
              name="Support portal">
              <menu_item_call.on_click
                  function="Advanced.ShowURL"
-                 parameter="https://support.secondlife.com/"/>         
+                 parameter="https://support.tasiaviewer.work/"/>         
         </menu_item_call>
         <menu_item_separator/>
         <menu_item_call
@@ -1895,7 +1895,7 @@ function="World.EnvPreset"
              name="Second Life Blogs">
              <menu_item_call.on_click
                  function="Advanced.ShowURL"
-                 parameter="https://community.secondlife.com/news/"/>
+                 parameter="https://community.tasiaviewer.work/news/"/>
         </menu_item_call>
         <menu_item_separator/>
 
@@ -5064,7 +5064,7 @@ function="World.EnvPreset"
                 <menu_item_call.on_click
                  function="PromptShowURL"
                  name="OfficialLindenBlog_url"
-                 parameter="WebLaunchSupportWiki,http://blog.secondlife.com/" />
+                 parameter="WebLaunchSupportWiki,https://blog.tasiaviewer.work/" />
             </menu_item_call>
             <menu_item_call
              label="💻 Scripting Portal"
@@ -5072,7 +5072,7 @@ function="World.EnvPreset"
                 <menu_item_call.on_click
                  function="PromptShowURL"
                  name="ScriptingPortal_url"
-                 parameter="WebLaunchLSLWiki,http://wiki.secondlife.com/wiki/LSL_Portal" />
+                 parameter="WebLaunchLSLWiki,https://wiki.tasiaviewer.work/wiki/LSL_Portal" />
             </menu_item_call>
             <menu
              create_jump_keys="true"
@@ -5093,7 +5093,7 @@ function="World.EnvPreset"
                     <menu_item_call.on_click
                      function="PromptShowURL"
                      name="PublicIssueTrackerHelp_url"
-                     parameter="WebLaunchPublicIssueHelp,http://wiki.secondlife.com/wiki/Issue_tracker" />
+                     parameter="WebLaunchPublicIssueHelp,https://wiki.tasiaviewer.work/wiki/Issue_tracker" />
                 </menu_item_call>
 
                 <menu_item_separator/>
@@ -5104,7 +5104,7 @@ function="World.EnvPreset"
                     <menu_item_call.on_click
                      function="PromptShowURL"
                      name="BugReporting101_url"
-                     parameter="WebLaunchBugReport101,http://wiki.secondlife.com/wiki/Bug_Reporting_101" />
+                     parameter="WebLaunchBugReport101,https://wiki.tasiaviewer.work/wiki/Bug_Reporting_101" />
                 </menu_item_call>
                 <menu_item_call
                  label="🔒 Security Issues"
@@ -5112,7 +5112,7 @@ function="World.EnvPreset"
                     <menu_item_call.on_click
                      function="PromptShowURL"
                      name="SecurityIssues_url"
-                     parameter="WebLaunchSecurityIssues,http://wiki.secondlife.com/wiki/Security_issues" />
+                     parameter="WebLaunchSecurityIssues,https://wiki.tasiaviewer.work/wiki/Security_issues" />
                 </menu_item_call>
                 <menu_item_call
                  label="📖 QA Wiki"
@@ -5120,7 +5120,7 @@ function="World.EnvPreset"
                     <menu_item_call.on_click
                      function="PromptShowURL"
                      name="QAWiki_url"
-                     parameter="WebLaunchQAWiki,http://wiki.secondlife.com/wiki/QA_Portal" />
+                     parameter="WebLaunchQAWiki,https://wiki.tasiaviewer.work/wiki/QA_Portal" />
                 </menu_item_call>
             </menu>
         </menu>

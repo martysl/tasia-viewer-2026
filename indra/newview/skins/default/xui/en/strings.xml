@@ -10,7 +10,7 @@
 	<string name="APP_NAME">Tasia Viewer</string>
 	<string name="CAPITALIZED_APP_NAME">TASIA VIEWER</string>
 	<string name="SECOND_LIFE_GRID">Tasia Grid</string>
-	<string name="SUPPORT_SITE">Second Life Support Portal</string>
+	<string name="SUPPORT_SITE">Tasia Support Portal</string>
 
 	<!-- starting up -->
 	<string name="StartupDetectingHardware">Detecting hardware...</string>
@@ -115,18 +115,18 @@ Voice Server Version: [VOICE_VERSION]
 	<string name="Quit">Quit</string>
 	<string name="create_account_url">http://join.secondlife.com/?sourceid=[sourceid]</string>
 	
-	<string name="AgniGridLabel">Second Life Main Grid (Agni)</string>
-	<string name="AditiGridLabel">Second Life Beta Test Grid (Aditi)</string>
+	<string name="AgniGridLabel">Tasia Main Grid (Agni)</string>
+	<string name="AditiGridLabel">Tasia Beta Test Grid (Aditi)</string>
     <string name="AgniGridLabelShort">Agni (production)</string>
     <string name="AditiGridLabelShort">Aditi (beta)</string>
 	
-	<string name="ViewerDownloadURL">http://secondlife.com/download</string>
+	<string name="ViewerDownloadURL">https://tasiaviewer.work/download</string>
 	<string name="LoginFailedViewerNotPermitted">
 The viewer you are using can no longer access Second Life. Please visit the following page to download a new viewer:
-http://secondlife.com/download
+https://tasiaviewer.work/download
 
 For more information, see our FAQ below:
-http://secondlife.com/viewer-access-faq</string>
+https://tasiaviewer.work/viewer-access-faq</string>
 	<string name="LoginFailed">"Login process did not complete due to system issues. Try again in a few minutes.
 If you feel this is an error, contact Support at https://support.secondlife.com"</string>
 	<string name="LoginIntermediateOptionalUpdateAvailable">Optional viewer update available: [VERSION]</string>
@@ -140,20 +140,20 @@ Please check to make sure you entered the right
     * Second Factor Token (if enabled)
 Also, please make sure your Caps Lock key is off.</string>
 	<string name="LoginFailedPasswordChanged">As a security precaution your password has been changed.
-Please go to your account page at http://secondlife.com/password
+Please go to your account page at https://tasiaviewer.work/password
 and answer the security question to reset your password.
 We are very sorry for the inconvenience.</string>
 	<string name="LoginFailedPasswordReset">We made some changes to our system and you will need to reset your password.
-Please go to your account page at http://secondlife.com/password
+Please go to your account page at https://tasiaviewer.work/password
 and answer the security question to reset your password.
 We are very sorry for the inconvenience.</string>
-	<string name="LoginFailedEmployeesOnly">Second Life is temporarily closed for maintenance.
+	<string name="LoginFailedEmployeesOnly">Tasia is temporarily closed for maintenance.
 Logins are currently restricted to employees only.
 Check www.secondlife.com/status for updates.</string>
-	<string name="LoginFailedPremiumOnly">Second Life logins are temporarily restricted in order to make sure that those in-world have the best possible experience.
+	<string name="LoginFailedPremiumOnly">Tasia logins are temporarily restricted in order to make sure that those in-world have the best possible experience.
 
-People with free accounts will not be able to access Second Life during this time, to make room for those who have paid for Second Life.</string>
-	<string name="LoginFailedComputerProhibited">Second Life cannot be accessed from this computer.
+People with free accounts will not be able to access Tasia during this time, to make room for those who have paid for Tasia.</string>
+	<string name="LoginFailedComputerProhibited">Tasia cannot be accessed from this computer.
 If you feel this is an error, please contact
 support@secondlife.com.</string>
   <!--'Pacific time' placeholder for [TIME] in case time from server can't be decoded-->
@@ -162,7 +162,7 @@ support@secondlife.com.</string>
 [TIME].
 If you feel this is an error, please contact support@secondlife.com.</string>
 	<string name="LoginFailedAccountDisabled">We are unable to complete your request at this time.
-Please contact Second Life support for assistance at http://support.secondlife.com.</string>
+Please contact Tasia support for assistance at https://tasiaviewer.work/support/</string>
 	<string name="LoginFailedTransformError">Data inconsistency found during login.
 Please contact support@secondlife.com.</string>
 	<string name="LoginFailedAccountMaintenance">Your account is undergoing minor maintenance.
@@ -174,7 +174,7 @@ If you feel this is an error, please contact support@secondlife.com.</string>
 Please wait a minute before you try logging in again.</string>
 	<string name="LoginFailedUnableToCreateSession">Unable to create valid session.</string>
 	<string name="LoginFailedUnableToConnectToSimulator">Unable to connect to a simulator.</string>
-	<string name="LoginFailedRestrictedHours">Your account can only access Second Life
+	<string name="LoginFailedRestrictedHours">Your account can only access Tasia
 between [START] and [END] Pacific Time.
 Please come back during those hours.
 If you feel this is an error, please contact support@secondlife.com.</string>
@@ -397,7 +397,7 @@ are allowed.
 	<string name="AssetUploadServerUnavaliable">Service not available or upload timeout was reached.</string>
 	<string name="AssetUploadRequestInvalid">
 Error in upload request.  Please visit 
-http://secondlife.com/support for help fixing this problem.
+https://tasiaviewer.work/support for help fixing this problem.
 </string>
 
 	<!-- Settings errors -->
@@ -2362,7 +2362,7 @@ For AI Character: Get the closest navigable point to the point provided.
 	<string name="InventoryNoMaterial">You do not have a copy of this material in your inventory</string>
 	<string name="InventoryInboxNoItems">Your Marketplace purchases will appear here. You may then drag them into your inventory to use them.</string>
 	<string name="MarketplaceURL">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/</string>
-	<string name="MarketplaceURL_CreateStore">http://community.secondlife.com/t5/English-Knowledge-Base/Selling-in-the-Marketplace/ta-p/700193#Section_.3</string>
+	<string name="MarketplaceURL_CreateStore">https://community.tasiaviewer.work/t5/English-Knowledge-Base/Selling-in-the-Marketplace/ta-p/700193#Section_.3</string>
 	<string name="MarketplaceURL_Dashboard">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/merchants/store/dashboard</string>
 	<string name="MarketplaceURL_Imports">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/merchants/store/imports</string>
 	<string name="MarketplaceURL_LearnMore">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/learn_more</string>
@@ -2391,15 +2391,15 @@ The [[MARKETPLACE_CREATE_STORE_URL] Marketplace store] is returning errors.
 	</string>
 	<string name="InventoryMarketplaceError">
 An error occurred while opening Marketplace Listings.
-If you continue to receive this message, please contact Second Life support for assistance at http://support.secondlife.com
+If you continue to receive this message, please contact Tasia support for assistance at https://tasiaviewer.work/support/
 	</string>
 	<string name="InventoryMarketplaceConnectionError">
 Marketplace Listings failed to connect.
-If you continue to receive this message, please contact Second Life support for assistance at http://support.secondlife.com
+If you continue to receive this message, please contact Tasia support for assistance at https://tasiaviewer.work/support/
 	</string>
 	<string name="InventoryMarketplaceConnectionErrorReason">
 Marketplace Listings failed to connect. Reason: [REASON]
-If you continue to receive this message, please contact Second Life support for assistance at http://support.secondlife.com
+If you continue to receive this message, please contact Tasia support for assistance at https://tasiaviewer.work/support/
 	</string>
 	<string name="InventoryMarketplaceListingsNoItemsTitle">Your Marketplace Listings folder is empty.</string>
 	<string name="InventoryMarketplaceListingsNoItemsTooltip"></string>
@@ -2439,7 +2439,7 @@ If you continue to receive this message, please contact Second Life support for 
 	<string name="MarketplaceNoStock">out of stock</string>
 	<string name="MarketplaceUpdating">updating...</string>
 
-	<string name="UploadFeeInfo">Fee is based on your subscription level. Higher levels are charged lower fees. [https://secondlife.com/my/account/membership.php? Learn more]</string>
+	<string name="UploadFeeInfo">Fee is based on your subscription level. Higher levels are charged lower fees. [https://tasiaviewer.work/my/account/membership.php? Learn more]</string>
 
 	<string name="Open landmarks">Open landmarks</string>
   <string name="Unconstrained">Unconstrained</string>
@@ -3012,7 +3012,7 @@ Expected .wav, .tga, .bmp, .jpg, .jpeg, or .anim
 	<!-- OSMessageBox messages -->
 	<string name="MBCmdLineError">
 		An error was found parsing the command line.
-Please see: http://wiki.secondlife.com/wiki/Client_parameters
+Please see: https://wiki.tasiaviewer.work/wiki/Client_parameters
 Error:
 	</string>
 	<string name="MBCmdLineUsg">[APP_NAME] Command line usage:</string>
@@ -3069,12 +3069,12 @@ If you continue to receive this message, contact the [SUPPORT_SITE].
     <string name="MBOutOfMemoryErr">
         [APP_NAME]'s request for memory failed. Application can't proceed and will be closed.
 
-If your computer's RAM is low, quit any heavy applications before runing Second Life, allocate a page file or reduce graphical settings like draw distance.
+If your computer's RAM is low, quit any heavy applications before runing Tasia, allocate a page file or reduce graphical settings like draw distance.
     </string>
     <string name="MBMissingFile">
         [APP_NAME] couldn't access or find some of the files it needs and will be closed.
 
-Please reinstall viewer from  https://secondlife.com/support/downloads/ and contact https://support.secondlife.com if issue persists after reinstall.
+Please reinstall viewer from  https://tasiaviewer.work/support/downloads/ and contact https://support.secondlife.com if issue persists after reinstall.
     </string>
 
 	<!-- Avatar Shape Information -->
@@ -3852,13 +3852,13 @@ Learn more at https://second.life/scripted-agents.
 
   <string name="Home position set.">Home position set.</string>
 
-  <string name="voice_morphing_url">https://secondlife.com/destination/voice-island</string>
-  <string name="premium_voice_morphing_url">https://secondlife.com/destination/voice-morphing-premium</string>
+  <string name="voice_morphing_url">https://tasiaviewer.work/destination/voice-island</string>
+  <string name="premium_voice_morphing_url">https://tasiaviewer.work/destination/voice-morphing-premium</string>
   <string name="no_voice_morphing_faq_url">https://lindenlab.freshdesk.com/support/solutions/articles/31000173560-webrtc-update-for-voice-chat-faq/</string>
 
-  <string name="lindenhomes_get_home_url">https://secondlife.com/land/lindenhomes/member.php</string>
+  <string name="lindenhomes_get_home_url">https://tasiaviewer.work/land/lindenhomes/member.php</string>
   <string name="lindenhomes_my_home_url">https://land.secondlife.com/en-Us/lindenhomes/my-home.php</string>
-  <string name="membership_url">https://secondlife.com/my/account/membership.php</string>
+  <string name="membership_url">https://tasiaviewer.work/my/account/membership.php</string>
 
   <!-- Financial operations strings -->
   <string name="paid_you_ldollars">[NAME] paid you L$[AMOUNT] [REASON].</string>
@@ -4067,7 +4067,7 @@ Please check http://status.secondlifegrid.net to see if there is a known problem
 
  <!-- External editor status codes -->
  <string name="ExternalEditorNotSet">Select an editor by setting the environment variable LL_SCRIPT_EDITOR or the ExternalEditor setting.
-See https://wiki.secondlife.com/wiki/LSL_Alternate_Editors</string>
+See https://wiki.tasiaviewer.work/wiki/LSL_Alternate_Editors</string>
  <string name="ExternalEditorNotFound">Cannot find the external editor you specified.
 Try enclosing path to the editor with double quotes.
 (e.g. "/path to my/editor" "%s")</string>
@@ -4300,7 +4300,7 @@ name="Command_360_Capture_Tooltip">Capture a 360 equirectangular image</string>
   <string name="Normal">Normal</string>
 
   <!-- Pathfinding -->
-  <string name="Pathfinding_Wiki_URL">http://wiki.secondlife.com/wiki/Pathfinding_Tools_in_the_Second_Life_Viewer</string>
+  <string name="Pathfinding_Wiki_URL">https://wiki.tasiaviewer.work/wiki/Pathfinding_Tools_in_the_Second_Life_Viewer</string>
   <string name="Pathfinding_Object_Attr_None">None</string>
   <string name="Pathfinding_Object_Attr_Permanent">Affects navmesh</string>
   <string name="Pathfinding_Object_Attr_Character">Character</string>
@@ -4416,7 +4416,7 @@ If you continue to receive this error, please go
 to the Support section of the SecondLife.com web site
 and report the problem.
 
-[https://community.secondlife.com/knowledgebase/english/error-messages-r520/#Section__3 Knowledge Base]
+[https://community.tasiaviewer.work/knowledgebase/english/error-messages-r520/#Section__3 Knowledge Base]
   </string>
 
   <!-- Environment Settings Types -->
