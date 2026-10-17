@@ -11,11 +11,11 @@
   width="1024">
   <panel.string
     name="forgot_password_url">
-    http://secondlife.com/account/request.php
+    https://tasiaviewer.work/account/request.php
   </panel.string>
   <panel.string
     name="sign_up_url">
-    https://join.secondlife.com/
+    https://tasiaviewer.work/join/
   </panel.string>
   <layout_stack
    follows="all"
@@ -72,12 +72,12 @@
   <icon
            height="77"
            width="160"
-           image_name="login_sl_logo_horizontal"
+           image_name="login_tasia_logo_horizontal"
            layout="topleft"
            follows="left|top"
            left="70"
            top="39"
-    name="sl_logo_small" />
+    name="tasia_logo_small" />
           <icon
            left="40"
            top_pad="30"

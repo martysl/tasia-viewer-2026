@@ -356,14 +356,14 @@ WorkQueue gMainloopWork("mainloop", 1024 * 1024);
 // Internal globals
 static std::string gArgs = "DX (4015) - Hradr";
 const int MAX_MARKER_LENGTH = 1024;
-const std::string MARKER_FILE_NAME("KirstensS24.exec_marker");
-const std::string START_MARKER_FILE_NAME("KirstensS24.start_marker");
-const std::string ERROR_MARKER_FILE_NAME("KirstensS24.error_marker");
-const std::string LOGOUT_MARKER_FILE_NAME("KirstensS24.logout_marker");
+const std::string MARKER_FILE_NAME("TasiaViewer.exec_marker");
+const std::string START_MARKER_FILE_NAME("TasiaViewer.start_marker");
+const std::string ERROR_MARKER_FILE_NAME("TasiaViewer.error_marker");
+const std::string LOGOUT_MARKER_FILE_NAME("TasiaViewer.logout_marker");
 static std::string gLaunchFileOnQuit;
 
 // Used on Win32 for other apps to identify our window (eg, win_setup)
-const char* const VIEWER_WINDOW_CLASSNAME = "Second Life";
+const char* const VIEWER_WINDOW_CLASSNAME = "Tasia";
 
 //----------------------------------------------------------------------------
 
@@ -666,9 +666,9 @@ LLAppViewer::LLAppViewer()
 	// dir was already split, see lldir.cpp) so DX alpha testing doesn't
 	// clobber an existing GL install's settings.xml.
 #ifdef DX_RENDER
-	gDirUtilp->initAppDirs("Kirstens S24 DX");
+	gDirUtilp->initAppDirs("Tasia Viewer DX");
 #else
-	gDirUtilp->initAppDirs("Kirstens S24");
+	gDirUtilp->initAppDirs("Tasia Viewer");
 #endif
 	//
 	// IMPORTANT! Do NOT put anything that will write
@@ -1979,7 +1979,7 @@ bool LLAppViewer::cleanup()
 	// gSavedSettings.cleanup() destroyed it.
 	AresWin32::RunFinalSweep(false, doFactoryReset); // S24: also kills stray SLPlugin processes
 	LL_WARNS() << "All subsystems killed" << LL_ENDL;
-	Sleep(250); // Give the LOGS time to catch up! Kirstens closes down in 3 seconds!!
+	Sleep(250); // Give the LOGS time to catch up! Tasia closes down in 3 seconds!!
 
 	LLCore::LLHttp::cleanup();
 
@@ -2218,12 +2218,12 @@ void LLAppViewer::initLoggingAndGetLastDuration()
 	{
 		// Remove the last ".old" log file.
 		std::string old_log_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS,
-			"KirstenS24-LOG.old");
+			"TasiaViewer-LOG.old");
 		LLFile::remove(old_log_file);
 
 		// Get name of the log file
 		std::string log_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS,
-			"KirstensS24-LOG.log");
+			"TasiaViewer-LOG.log");
 		/*
 		* Before touching any log files, compute the duration of the last run
 		* by comparing the ctime of the previous start marker file with the ctime
