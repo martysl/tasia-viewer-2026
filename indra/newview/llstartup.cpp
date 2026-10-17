@@ -47,6 +47,7 @@
 #include "llavatarnamecache.h"
 #include "llexperiencecache.h"
 #include "lllandmark.h"
+#include "llquicglobal.h"
 #include "llcachename.h"
 #include "lldir.h"
 #include "lldonotdisturbnotificationstorage.h"
@@ -635,6 +636,13 @@ bool idle_startup()
 				std::string diagnostic = llformat(" Error: %d", gMessageSystem->getErrorCode());
 				LL_WARNS("AppInit") << diagnostic << LL_ENDL;
 				LLAppViewer::instance()->earlyExit("LoginFailedNoNetwork", LLSD().with("DIAGNOSTIC", diagnostic));
+			}
+
+			// Initialize QUIC if enabled in settings
+			if (gSavedSettings.getBOOL("TasiaQuicEnabled"))
+			{
+				bool verify_cert = gSavedSettings.getBOOL("TasiaQuicVerifyCert");
+				LLQuicGlobal::instance().initialize(true, "", verify_cert);
 			}
 
 			// On the windows dev builds, unpackaged, the message.xml file will

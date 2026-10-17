@@ -31,10 +31,11 @@ class LLQuicGlobal
 public:
     static LLQuicGlobal& instance();
 
-    bool initialize(const std::string& ca_bundle_path = std::string());
+    bool initialize(bool enabled, const std::string& ca_bundle_path = std::string(), bool verify_cert = true);
     void shutdown();
 
     bool isInitialized() const { return static_cast<bool>(mClientConfig); }
+    bool isEnabled() const { return mEnabled; }
 
     std::shared_ptr<LLQuicConfiguration> getClientConfiguration() const { return mClientConfig; }
 
@@ -47,4 +48,5 @@ private:
 
     std::shared_ptr<LLQuicConfiguration> mClientConfig;
     std::string                          mCaBundlePath;
+    bool                                 mEnabled = false;
 };

@@ -31,7 +31,7 @@ set_source_files_properties(${llquic_HEADER_FILES}
 list(APPEND llquic_SOURCE_FILES ${llquic_HEADER_FILES})
 
 add_library(llquic ${llquic_SOURCE_FILES})
-target_include_directories(llquic PRIVATE
+target_include_directories(llquic PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/llcommon
     ${LLCOMMON_INCLUDE_DIRS}

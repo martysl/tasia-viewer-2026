@@ -18860,5 +18860,31 @@
     <key>Backup</key>
     <integer>0</integer>
   </map>
+  <key>TasiaQuicEnabled</key>
+  <map>
+    <key>Comment</key>
+    <string>Enable QUIC (MsQuic) support for OpenSim grid transport. Disable if viewer crashes at startup.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>0</integer>
+    <key>Backup</key>
+    <integer>0</integer>
+  </map>
+  <key>TasiaQuicVerifyCert</key>
+  <map>
+    <key>Comment</key>
+    <string>Enable certificate verification for QUIC connections. Disable to allow connections to grids with self-signed or invalid certificates.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>0</integer>
+    <key>Backup</key>
+    <integer>0</integer>
+  </map>
 </map>
 </llsd>

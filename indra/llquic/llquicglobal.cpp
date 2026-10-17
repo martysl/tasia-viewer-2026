@@ -46,8 +46,16 @@ LLQuicGlobal& LLQuicGlobal::instance()
 LLQuicGlobal::LLQuicGlobal()  = default;
 LLQuicGlobal::~LLQuicGlobal() = default;
 
-bool LLQuicGlobal::initialize(const std::string& ca_bundle_path)
+bool LLQuicGlobal::initialize(bool enabled, const std::string& ca_bundle_path, bool verify_cert)
 {
+    mEnabled = enabled;
+
+    if (!mEnabled)
+    {
+        LL_INFOS("Quic") << "QUIC disabled by setting" << LL_ENDL;
+        return true;
+    }
+
     if (mClientConfig)
     {
         return true;
@@ -104,6 +112,12 @@ bool LLQuicGlobal::initialize(const std::string& ca_bundle_path)
                             "(may fail on packaged builds)." << LL_ENDL;
     }
 #endif
+
+    // Disable certificate verification if requested
+    if (!verify_cert)
+    {
+        LL_WARNS("Quic") << "QUIC certificate verification disabled by user setting" << LL_ENDL;
+    }
 
     auto config = LLQuicConfiguration::create(
         std::move(registration),
