@@ -137,7 +137,7 @@ MediaPluginBase(host_send_func, host_user_data)
     mProxyEnabled = false;
     mProxyHost = "";
     mProxyPort = 0;
-	mDisableGPU = false;
+	mDisableGPU = true;
 	mDisableNetworkService = true;
 	mUseMockKeyChain = true;
 	mDisableWebSecurity = false;
