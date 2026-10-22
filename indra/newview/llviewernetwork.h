@@ -124,6 +124,8 @@ class LLGridManager : public LLSingleton<LLGridManager>
 	/// Get the URI for webdev help functions for the selected grid
 	std::string getHelperURI() { return getHelperURI(mGrid); }
     std::string getCurrencyHelperURI();
+    /// Get the SampleMoneyModule-compatible land transaction endpoint for the selected grid.
+    std::string getLandTransactionURI();
     std::string getMarketplaceURL();
 
 	/// Get the url of the splash page to be displayed prior to login

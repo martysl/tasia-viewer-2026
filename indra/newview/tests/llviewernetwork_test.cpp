@@ -551,4 +551,31 @@ namespace tut
         ensure("Aditi does not use OpenSim compatibility", !LLGridManager::getInstance()->isInOpenSim());
     }
 
+    template<> template<>
+    void viewerNetworkTestObject::test<8>()
+    {
+        LLGridManager* manager = LLGridManager::getInstance();
+        manager->initialize(TEST_FILENAME);
+        std::string error;
+        LLSD first = LLSD::emptyMap();
+        first["helper_uri"] = "https://one.example/helpers/";
+        LLSD second = LLSD::emptyMap();
+        second["helper_uri"] = "https://two.example/economy";
+        ensure("first grid added", manager->addCustomGrid("https://one.example:8002/", "One", error, first));
+        ensure("second grid added", manager->addCustomGrid("https://two.example:8002/", "Two", error, second));
+
+        manager->setGridChoice("one.example:8002");
+        ensure_equals("first grid land endpoint", manager->getLandTransactionURI(),
+            std::string("https://one.example/helpers/landtool.php"));
+        manager->setGridChoice("two.example:8002");
+        ensure_equals("second grid land endpoint", manager->getLandTransactionURI(),
+            std::string("https://two.example/economy/landtool.php"));
+
+        LLSD invalid = LLSD::emptyMap();
+        invalid["helper_uri"] = "https://user:secret@two.example/helpers/";
+        ensure("invalid helper rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
+        ensure_equals("invalid helper cannot route transaction", manager->getLandTransactionURI(),
+            std::string("https://two.example/economy/landtool.php"));
+    }
+
 }

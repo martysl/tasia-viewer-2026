@@ -835,11 +835,12 @@ void LLFloaterBuyLandUI::startTransaction(TransactionType type, const LLSD& para
 
     mTransactionType = type;
 
-    // Select a URI and method appropriate for the transaction type.
-    static std::string transaction_uri;
+    // Resolve for this request so a previous grid's helper can never be reused.
+    const std::string transaction_uri = LLGridManager::getInstance()->getLandTransactionURI();
     if (transaction_uri.empty())
     {
-        transaction_uri = LLGridManager::getInstance()->getHelperURI() + "landtool.php";
+        tellUserError("This grid has no valid land transaction helper configured.", "");
+        return;
     }
 
     const char* method;
@@ -1347,6 +1348,5 @@ void LLFloaterBuyLandUI::onClickErrorWeb()
     LLWeb::loadURLExternal(mCannotBuyURI);
     closeFloater();
 }
-
 
 

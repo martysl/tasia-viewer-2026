@@ -111,6 +111,35 @@ review limits. The `tasia` remote is the configured alias in this checkout; no
 
 ## Protocol-definition details
 
+### OpenSim land transaction endpoint isolation
+
+The checked server's `SampleMoneyModule.AddRegion()` registers XML-RPC methods
+`preflightBuyLandPrep` and `buyLandPrep` through its `/landtool.php` handler.
+The viewer's `LLFloaterBuyLandUI::startTransaction()` previously held the
+transaction URI in a function-static string, initialized from whichever grid
+first started a transaction. That could route subsequent land requests to the
+wrong selected grid. It now asks `LLGridManager::getLandTransactionURI()` for
+every request; this validates the selected grid's configured helper URL, rejects
+query-bearing bases, appends the server-supported path, and returns empty on
+invalid/missing configuration. The floater reports an error and does not create
+an XML-RPC transaction when resolution fails. A pending request remains bound to
+the URI used at its creation; this change does not retry or duplicate it.
+
+Added native `llviewernetwork_test.cpp` test 8 for two distinct grid helpers,
+grid selection changes, and invalid userinfo metadata rollback. Added a compiled
+production-resolver fixture in `tasia_opensim_services_test.py`; it checks two
+selected helper paths and rejects query/userinfo URLs. The full Python service
+suite passes 20 tests. Tasia Farm source review `job_mvjouys9_dfa2a2af7f`
+recommended integration testing; it did not identify a code defect and noted no
+native viewer build/UI or actual economy transaction was run. The native TUT
+test is added but not executed in this Linux environment. No land purchase,
+preflight, or other financial request was sent.
+
+This is a narrow endpoint-cache fix, not complete economy support. The
+`getCurrencyHelperURI()` `/currency.php` fallback, currency purchase/payment-info
+gate, prices/symbols, fees, and no-service UI still require protocol-specific
+work; preserve UDP money transfers and do not run real-money tests.
+
 ### `MapBlockReply.Size` — source fix completed; runtime verification pending
 
 - Both templates now define the variable `Size` block with `SizeX` and `SizeY`;

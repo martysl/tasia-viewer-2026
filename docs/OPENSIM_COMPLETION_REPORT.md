@@ -56,6 +56,8 @@ remote branch at that exact SHA before this documentation-only evidence update.
   from the active-session reply snapshot.
 - OpenSim Search and Destinations endpoint selection with HTTP(S) validation and
   Second Life endpoint isolation.
+- Land transaction endpoint isolation: removed the function-static helper URI
+  and resolve the selected grid's validated `/landtool.php` endpoint per request.
 - Relevant compatibility and protocol status is detailed in
   `OPENSIM_COMPATIBILITY.md`, `OPENSIM_PROTOCOL_AUDIT.md`, and `BUILD_NOTES.md`.
 
@@ -107,6 +109,20 @@ limitations are in `BUILD_NOTES.md`.
    unsupported items. In particular, variable-region seams/topology, broad
    OpenSim service parity, and some map/Hypergrid/economy/mesh/material behavior
    are not claimed complete.
+
+## Additional economy fix in progress
+
+The checked `SampleMoneyModule` registers `preflightBuyLandPrep` and
+`buyLandPrep` at `/landtool.php`. Removed the land floater's process-lifetime
+static URI and added a selected-grid resolver using the existing HTTP(S),
+userinfo/query validation policy; invalid/missing helper metadata now produces a
+visible error instead of an empty XML-RPC request. Added two-grid native TUT
+coverage and a compiled production-resolver fixture. The service suite passes
+20 tests. Tasia Farm reviewed the actual diff (`job_mvjouys9_dfa2a2af7f`) and
+recommended native integration testing; no purchase/preflight was executed.
+Native viewer test/build and live routing remain unverified. This does not
+complete currency purchase, economy discovery/presentation, or land transaction
+runtime support; details are in the protocol audit.
 
 ## Source-trace checkpoint
 

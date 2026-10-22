@@ -507,6 +507,18 @@ std::string LLGridManager::getCurrencyHelperURI()
     return uri + "currency.php";
 }
 
+std::string LLGridManager::getLandTransactionURI()
+{
+    // SampleMoneyModule serves land XML-RPC at /landtool.php on its configured
+    // helper/economy host. Resolve this on every transaction; never cache a
+    // selected-grid URL across logout or grid changes.
+    std::string uri = getHelperURI();
+    if (uri.empty() || !gridURL(uri) || uri.find('?') != std::string::npos) return {};
+    if (uri.back() != '/') uri += '/';
+    uri += "landtool.php";
+    return gridURL(uri) ? uri : std::string();
+}
+
 std::string LLGridManager::getMarketplaceURL()
 {
     if (isInSecondLife()) return gSavedSettings.getString("MarketplaceURL");

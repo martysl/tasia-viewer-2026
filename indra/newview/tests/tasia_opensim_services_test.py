@@ -289,6 +289,60 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         self.assertIn('isInOpenSim()', buy)
         self.assertIn('isInSecondLife()', buy)
 
+    def test_land_transactions_resolve_selected_grid_without_static_cache(self):
+        network = (NV/'llviewernetwork.cpp').read_text()
+        resolver = method(network, 'std::string LLGridManager::getLandTransactionURI(')
+        self.assertIn('getHelperURI()', resolver)
+        self.assertIn('gridURL(uri)', resolver)
+        self.assertIn("uri.find('?')", resolver)
+        self.assertIn('uri += "landtool.php"', resolver)
+
+        floater = method((NV/'llfloaterbuyland.cpp').read_text(),
+                         'void LLFloaterBuyLandUI::startTransaction(')
+        self.assertIn('getLandTransactionURI()', floater)
+        self.assertIn('transaction_uri.empty()', floater)
+        self.assertIn('tellUserError(', floater)
+        self.assertNotIn('static std::string transaction_uri', floater)
+
+        server = (Path('/home/marty/opensim/telep-npc')/
+                  'OpenSim/Region/OptionalModules/World/MoneyModule/SampleMoneyModule.cs').read_text()
+        self.assertIn('new SimpleStreamHandler("/landtool.php", processPHP)', server)
+
+        fixture = r'''
+#include <cassert>
+#include <string>
+bool gridURL(const std::string& value, bool login = false) {
+    (void)login;
+    const auto scheme = value.find("://");
+    if (scheme == std::string::npos ||
+        (value.substr(0, scheme) != "http" && value.substr(0, scheme) != "https")) return false;
+    const auto authority_start = scheme + 3;
+    const auto authority_end = value.find('/', authority_start);
+    const auto authority = value.substr(authority_start, authority_end - authority_start);
+    return !authority.empty() && authority.find('@') == std::string::npos &&
+        value.find(' ') == std::string::npos &&
+        value.find('#') == std::string::npos;
+}
+struct LLGridManager {
+    std::string helper;
+    std::string getHelperURI() { return helper; }
+    std::string getLandTransactionURI();
+};
+''' + resolver + r'''
+int main() {
+    LLGridManager grid;
+    grid.helper = "https://one.example/helpers/";
+    assert(grid.getLandTransactionURI() == "https://one.example/helpers/landtool.php");
+    grid.helper = "http://two.example/economy";
+    assert(grid.getLandTransactionURI() == "http://two.example/economy/landtool.php");
+    grid.helper = "https://two.example/helpers/?token=x";
+    assert(grid.getLandTransactionURI().empty());
+    grid.helper = "https://user:secret@two.example/helpers/";
+    assert(grid.getLandTransactionURI().empty());
+}
+'''
+        compile_run(fixture)
+
     def test_marketplace_uses_grid_endpoint(self):
         network = (NV/'llviewernetwork.cpp').read_text()
         market = method(network,'std::string LLGridManager::getMarketplaceURL(')
