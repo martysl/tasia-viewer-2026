@@ -340,6 +340,49 @@ consumer requiring this diagnostic phase to remain active; its sole start and
 error/normal stops are the three occurrences in `llappearancemgr.cpp`. No Windows
 build, live AIS failure injection, or outfit runtime test was run.
 
+### 2026-10-22 legacy bake / BoM parity audit
+
+Compared the reference `indra/newview/llviewertexlayer.cpp::doUpload()` with
+the current `indra/newview/llviewertexlayer.cpp::doUpload()` and
+`processUploadCompletion()`. The reference's `glReadPixels(GL_RGBA)` path is not
+copied: the active viewer is DX11, and current `LLBake::readColor()` uses
+`DXReadback::readPixels()` with bounds/sample/format validation, row-pitch
+compaction, and BGRA-to-RGBA conversion. The current bake still gathers the
+morph mask, packs RGBA plus mask into five `RGBHM` channels, validates encoded
+J2C dimensions/components, uploads through `UploadBakedTexture` when available,
+and otherwise uses asset storage. Legacy baking is gated to OpenSim regions with
+central bake version 0 and valid baked slots; Second Life/server-bake paths remain
+separate. Upload completion uses revision/ticket checks and bounded retries before
+assigning the baked texture, and accepted assignments refresh attachment bake
+bindings. Fully invisible layers assign `IMG_INVISIBLE` without manufacturing an
+empty encoded texture.
+
+The recorded live failure remains specifically `BAKED_HEAD`: Mom reported that
+the visual retest still failed, and the read-only package-log inspection recorded
+under `BUILD_NOTES.md` → “BAKED_HEAD remained solid black after the readiness fix”
+found a later all-RGB-black/nontransparent composite uploaded after readiness
+changed from false to true. The current source guard rejects that summary before
+encoding and lets the existing bounded retry policy run; this is containment, not
+a root-cause repair. That candidate log recorded a 542-byte payload, but its
+decoded inputs could not be attributed because texture IDs were redacted. I did
+not independently observe the viewer image; the unresolved visual status is
+Mom's reported result plus the inspected log, not a new runtime test. No source
+evidence identifies which wearable/texture or compositor layer produced the black
+pixels. Do not change texture routing, bypass readiness, or weaken the head-bake
+guard without a new sanitized per-input failure trace.
+
+Focused fixtures pass in this worktree (command output summarized in
+`BUILD_NOTES.md` → “Phase 3 legacy local-bake / BoM parity audit”):
+`tasia_bake_readback_test.py` (production pixel helper,
+synthetic DX format/pitch, ASan/UBSan), `tasia_bake_upload_test.py` (upload
+policy/appearance sender fixtures, ASan/UBSan), `tasia_bake_refresh_test.py`,
+`tasia_legacy_bake_port_test.py`, and `tasia_bom_limits_test.py`. These do not
+exercise the real D3D device, J2C codec/server, upload endpoint, avatar layers or
+live BoM attachments. The current Linux environment has no configured build tree,
+`msbuild`, `devenv`, or `cl`; no Windows build was run in this worktree. A real
+Windows DX11 build and Mom's visual test remain required. The prior candidate's
+black face is **not fixed** by source guards.
+
 ### Step 3 — legacy purge confirmation contract (design only)
 
 Source facts verified in the current viewer, historical viewer, and checked

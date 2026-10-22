@@ -3966,3 +3966,40 @@ once, then performs the background-fetch completion bookkeeping; repository sear
 shows this phase has one start and exactly the error and normal stops. No later
 outfit callback depends on the phase remaining active. The independent reviewer
 still correctly notes that a Windows build and live AIS validation are missing.
+
+### Phase 3 legacy local-bake / BoM parity audit (2026-10-22)
+
+Compared the old reference's GL `glReadPixels` upload path with the active
+DX11-specific implementation. The current path retains protocol behavior (RGBA
+and morph-mask five-channel `RGBHM` J2C, UploadBakedTexture capability with asset
+storage fallback, successful-upload appearance assignment) while using
+`DXReadback` bounds/format/sample validation, row-pitch compaction and BGRA
+normalization. It gates local legacy upload to OpenSim legacy-bake regions and
+keeps invisible-alpha assignment semantic. Ticket/revision validation, bounded
+retry handling, and attachment bake refresh are present in current source.
+
+The previously recorded solid-black `BAKED_HEAD` remains a user-visible failure.
+The all-black/nontransparent pre-upload rejection is only containment; no
+sanitized evidence attributes the bad composite to a specific input layer or
+asset, so the root cause remains unresolved and no speculative texture/transport
+changes were made. Focused verification passed:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bake_readback_test.py PASS (ASan/UBSan synthetic fixture)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bake_upload_test.py PASS (ASan/UBSan fixture)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bake_refresh_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_legacy_bake_port_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bom_limits_test.py PASS
+```
+
+These fixtures are not a real D3D GPU, J2C codec, upload server, avatar or live
+BoM test. No full Windows DX11 build was available in this Linux worktree, and
+the previously tested visual failure is not fixed. The audit details and exact
+file paths are recorded in `OPENSIM_PROTOCOL_AUDIT.md`. Farm review
+`job_mvjmtuoj_3f576dfcb5` and its follow-up `job_mvjmuqw3_790245fd60` could not
+independently read the repository files and challenged the evidence citations,
+not the source-path summary. The audit now links the black-head status to the
+earlier candidate-log entry and labels it as Mom-reported plus read-only log
+evidence; fixture results and missing Windows/live validation are explicit. This
+review is therefore recorded as limited documentation feedback, not independent
+runtime or source verification.
