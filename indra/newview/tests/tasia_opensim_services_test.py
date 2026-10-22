@@ -314,39 +314,55 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
 
     def test_currency_symbol_follows_login_and_active_region(self):
         ui_string = (ROOT/'indra/llui/lluistring.cpp').read_text()
-        self.assertIn('LLCurrencySymbol::grid(symbol)', ui_string)
-        self.assertIn('LLCurrencySymbol::region(symbol)', ui_string)
-        self.assertIn('return sRegionCurrencySymbol.empty() ? sGridCurrencySymbol : sRegionCurrencySymbol', ui_string)
-        self.assertIn('LLCurrencySymbol::replaceLindenSymbol(mResult, getCurrencySymbol())', ui_string)
+        self.assertIn('LLCurrencySymbol::grid(symbol, opensim)', ui_string)
+        self.assertIn('LLCurrencySymbol::region(symbol, opensim)', ui_string)
+        self.assertIn('LLCurrencySymbol::active(sGridCurrencySymbol, sRegionCurrencySymbol)', ui_string)
+        update_result = method(ui_string, 'void LLUIString::updateResult() const')
+        self.assertIn('LLCurrencySymbol::replaceCurrencyToken(mResult, getCurrencySymbol())', update_result)
+        self.assertNotIn('replaceFormattedAmount', update_result)
         helper_fixture = f'''#include <cassert>
 #include "{ROOT}/indra/llui/llcurrency_symbol.h"
 int main() {{
     using namespace LLCurrencySymbol;
-    assert(grid("G$") == "G$");
-    assert(grid("") == "L$");
-    assert(grid(std::string("bad\\x01", 4)) == "L$");
-    assert(region("").empty());
-    assert(region("OS$") == "OS$");
-    std::string text = "Buy L$ and L$";
-    replaceLindenSymbol(text, grid("G$"));
-    assert(text == "Buy G$ and G$");
-    replaceLindenSymbol(text, grid("L$"));
-    assert(text == "Buy G$ and G$");
+    assert(grid("G$", true) == "G$");
+    assert(grid("", true) == "OS$");
+    assert(grid(std::string("bad\\x01", 4), true) == "OS$");
+    assert(grid(std::string(17, 'x'), true) == "OS$");
+    assert(grid("[BAD]", true) == "OS$");
+    assert(grid("", false) == "L$");
+    assert(region("OS$", true) == "OS$");
+    assert(region("G$", false).empty());
+    std::string current = active(grid("", true), region("G$", true));
+    assert(current == "G$");
+    current = active(grid("", true), region("", true));
+    assert(current == "OS$");
+    current = active(grid("", false), region("G$", false));
+    assert(current == "L$");
+
+    std::string arbitrary = "Custom user text says L$ literally";
+    replaceCurrencyToken(arbitrary, current);
+    assert(arbitrary == "Custom user text says L$ literally");
+    std::string label = "Buy [CURRENCY] now";
+    replaceCurrencyToken(label, "OS$");
+    assert(label == "Buy OS$ now");
+    std::string amount = "L$ 25";
+    replaceFormattedAmount(amount, "G$");
+    assert(amount == "G$ 25");
 }}'''
         compile_run(helper_fixture)
 
         startup = (NV/'llstartup.cpp').read_text()
         world_init = method(startup, 'if (STATE_WORLD_INIT == LLStartUp::getStartupState())')
         self.assertIn('login_response["currency"].asString()', world_init)
-        self.assertIn('? "OS$" : "L$"', world_init)
-        self.assertIn('setGridCurrencySymbol(currency_symbol)', world_init)
-        self.assertIn('setRegionCurrencySymbol(std::string())', world_init)
+        self.assertIn('setGridCurrencySymbol(currency_symbol,', world_init)
+        self.assertIn('isInOpenSim()', world_init)
+        self.assertIn('setRegionCurrencySymbol(std::string(),', world_init)
 
         region_source = (NV/'llviewerregion.cpp').read_text()
         update = method(region_source, 'void LLViewerRegion::updateCurrencySymbol()')
         self.assertIn('isInOpenSim()', update)
         self.assertIn('extras["currency"]', update)
-        self.assertIn('setRegionCurrencySymbol(symbol)', update)
+        self.assertIn('setRegionCurrencySymbol(symbol,', update)
         self.assertIn('gStatusBar->updateCurrencySymbols()', update)
         self.assertIn('LLFloaterBuyCurrency::updateCurrencySymbols()', update)
         feature_update = method(region_source, 'void LLViewerRegion::setSimulatorFeatures(')
@@ -355,6 +371,21 @@ int main() {{
         self.assertIn('active_region->updateCurrencySymbol()', feature_update)
         agent_region = method((NV/'llagent.cpp').read_text(), 'void LLAgent::setRegion(')
         self.assertIn('regionp->updateCurrencySymbol()', agent_region)
+
+        status_xui = ET.parse(NV/'skins/default/xui/en/panel_status_bar.xml').getroot()
+        status_xui_pl = ET.parse(NV/'skins/default/xui/pl/panel_status_bar.xml').getroot()
+        currency_xui = ET.parse(NV/'skins/default/xui/en/floater_buy_currency.xml').getroot()
+        currency_xui_pl = ET.parse(NV/'skins/default/xui/pl/floater_buy_currency.xml').getroot()
+        for root in (status_xui, status_xui_pl, currency_xui, currency_xui_pl):
+            self.assertTrue(any('[CURRENCY]' in value for value in root.itertext()) or
+                            any('[CURRENCY]' in value for node in root.iter()
+                                for value in node.attrib.values()))
+        self.assertIn('[CURRENCY]', status_xui.find(".//panel[@name='balance_bg']/text[@name='balance']").attrib['value'])
+        self.assertIn('[CURRENCY]', currency_xui.attrib['title'])
+        for name in ('target_price', 'balance_amount', 'required_amount', 'currency_label', 'total_amount'):
+            control = currency_xui.find(f".//text[@name='{name}']")
+            self.assertIsNotNone(control)
+            self.assertIn('[CURRENCY]', ''.join(control.itertext()))
 
     def test_land_transactions_resolve_selected_grid_without_static_cache(self):
         network = (NV/'llviewernetwork.cpp').read_text()

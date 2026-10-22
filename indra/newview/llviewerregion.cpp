@@ -2675,7 +2675,8 @@ void LLViewerRegion::updateCurrencySymbol()
         const LLSD& extras = mSimulatorFeatures["OpenSimExtras"];
         if (extras["currency"].isString()) symbol = extras["currency"].asString();
     }
-    LLUIString::setRegionCurrencySymbol(symbol);
+    LLUIString::setRegionCurrencySymbol(symbol,
+        LLGridManager::getInstance()->isInOpenSim());
     if (gStatusBar) gStatusBar->updateCurrencySymbols();
     LLFloaterBuyCurrency::updateCurrencySymbols();
 }

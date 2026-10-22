@@ -74,8 +74,8 @@ public:
 	void setArg(const std::string& key, const std::string& replacement);
 	void updateCurrencySymbols() { dirty(); }
 
-	static void setGridCurrencySymbol(const std::string& symbol);
-	static void setRegionCurrencySymbol(const std::string& symbol);
+	static void setGridCurrencySymbol(const std::string& symbol, bool opensim);
+	static void setRegionCurrencySymbol(const std::string& symbol, bool opensim);
 	static std::string getCurrencySymbol();
 
 	const std::string& getString() const { return getUpdatedResult(); }

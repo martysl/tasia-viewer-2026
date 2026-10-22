@@ -14,26 +14,43 @@ inline std::string validated(const std::string& value)
     if (value.empty() || value.size() > 16) return {};
     for (unsigned char character : value)
     {
-        if (character < 0x20 || character == 0x7f) return {};
+        if (character <= 0x20 || character == 0x7f || character == '[' || character == ']') return {};
     }
     return value;
 }
 
-inline std::string grid(const std::string& value)
+inline std::string grid(const std::string& value, bool opensim)
 {
     const std::string symbol = validated(value);
-    return symbol.empty() ? "L$" : symbol;
+    return symbol.empty() ? (opensim ? "OS$" : "L$") : symbol;
 }
 
-inline std::string region(const std::string& value)
+inline std::string region(const std::string& value, bool opensim)
 {
-    return validated(value);
+    return opensim ? validated(value) : std::string();
 }
 
-inline void replaceLindenSymbol(std::string& text, const std::string& symbol)
+inline std::string active(const std::string& grid_symbol, const std::string& region_symbol)
 {
-    if (symbol == "L$") return;
-    if (symbol.empty()) return;
+    return region_symbol.empty() ? grid_symbol : region_symbol;
+}
+
+inline void replaceCurrencyToken(std::string& text, const std::string& symbol)
+{
+    static const std::string token = "[CURRENCY]";
+    std::string::size_type position = 0;
+    while ((position = text.find(token, position)) != std::string::npos)
+    {
+        text.replace(position, token.size(), symbol);
+        position += symbol.size();
+    }
+}
+
+// This helper is reserved for formatted numeric money values, never arbitrary
+// UI, profile, chat, or other user-provided text.
+inline void replaceFormattedAmount(std::string& text, const std::string& symbol)
+{
+    if (symbol.empty() || symbol == "L$") return;
     std::string::size_type position = 0;
     while ((position = text.find("L$", position)) != std::string::npos)
     {

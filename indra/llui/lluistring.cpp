@@ -88,19 +88,19 @@ void LLUIString::setArg(const std::string& key, const std::string& replacement)
 	dirty();
 }
 
-void LLUIString::setGridCurrencySymbol(const std::string& symbol)
+void LLUIString::setGridCurrencySymbol(const std::string& symbol, bool opensim)
 {
-    sGridCurrencySymbol = LLCurrencySymbol::grid(symbol);
+    sGridCurrencySymbol = LLCurrencySymbol::grid(symbol, opensim);
 }
 
-void LLUIString::setRegionCurrencySymbol(const std::string& symbol)
+void LLUIString::setRegionCurrencySymbol(const std::string& symbol, bool opensim)
 {
-    sRegionCurrencySymbol = LLCurrencySymbol::region(symbol);
+    sRegionCurrencySymbol = LLCurrencySymbol::region(symbol, opensim);
 }
 
 std::string LLUIString::getCurrencySymbol()
 {
-    return sRegionCurrencySymbol.empty() ? sGridCurrencySymbol : sRegionCurrencySymbol;
+    return LLCurrencySymbol::active(sGridCurrencySymbol, sRegionCurrencySymbol);
 }
 
 void LLUIString::truncate(S32 maxchars)
@@ -166,7 +166,7 @@ void LLUIString::updateResult() const
 		combined_args.insert(mArgs->begin(), mArgs->end());
 	}
     LLStringUtil::format(mResult, combined_args);
-    LLCurrencySymbol::replaceLindenSymbol(mResult, getCurrencySymbol());
+    LLCurrencySymbol::replaceCurrencyToken(mResult, getCurrencySymbol());
 }
 
 void LLUIString::updateWResult() const

@@ -34,7 +34,7 @@
     </panel.string>
 	<panel.string
      name="buycurrencylabel">
-        L$ [AMT]
+         [CURRENCY] [AMT]
     </panel.string>
   <panel.string name="quic_disconnected">QUIC: not in use — no region connection.</panel.string>
   <panel.string name="quic_secondlife">QUIC: not in use — Second Life uses the standard UDP/HTTP transport.</panel.string>
@@ -96,11 +96,11 @@
      height="18"
      left="0" 
      name="balance"
-     tool_tip="L$ [AMT]&#10;Click to refresh your L$ balance.&#10;Double-click to display or hide your L$ balance."
+      tool_tip="[CURRENCY] [AMT]&#10;Click to refresh your [CURRENCY] balance.&#10;Double-click to display or hide your [CURRENCY] balance."
      v_pad="2"
      top="0"
      wrap="false" 
-     value="L$??" 
+      value="[CURRENCY]??"
      width="40" />
     <button
      halign="center"
@@ -110,13 +110,13 @@
      image_unselected="PushButton_Off"
      image_pressed="PushButton_Selected"
      height="18"
-     label="Buy L$"
+      label="Buy [CURRENCY]"
      label_color="White"
      left_pad="0"
      label_shadow="true"
      name="buyL"
      pad_right="0"
-     tool_tip="Click to buy more L$"
+      tool_tip="Click to buy more [CURRENCY]"
      top="0"
      width="80" />
     <button

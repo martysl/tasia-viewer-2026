@@ -30,9 +30,11 @@
 
 // viewer includes
 #include "llcurrencyuimanager.h"
+#include "llbutton.h"
 #include "llfloater.h"
 #include "llfloaterreg.h"
 #include "lllayoutstack.h"
+#include "lllineeditor.h"
 #include "lliconctrl.h"
 #include "llnotificationsutil.h"
 #include "llstatusbar.h"
@@ -329,8 +331,9 @@ void LLFloaterBuyCurrency::updateCurrencySymbols()
 
     floater->updateCurrencySymbols();
     static const std::vector<std::string> text_boxes = {
-        "info_need_more", "info_buying", "target_price", "required_amount",
-        "currency_label", "purchase_warning_repurchase"
+        "info_need_more", "info_buying", "target_price", "balance_amount",
+        "required_amount", "currency_label", "buying_amount", "total_amount",
+        "purchase_warning_repurchase"
     };
     for (const std::string& name : text_boxes)
     {
@@ -338,6 +341,14 @@ void LLFloaterBuyCurrency::updateCurrencySymbols()
         {
             text_box->updateCurrencySymbols();
         }
+    }
+    if (LLLineEditor* amount = floater->findChild<LLLineEditor>("currency_amt"))
+    {
+        amount->updateCurrencySymbols();
+    }
+    if (LLButton* buy_button = floater->findChild<LLButton>("buy_btn"))
+    {
+        buy_button->updateCurrencySymbols();
     }
 }
 

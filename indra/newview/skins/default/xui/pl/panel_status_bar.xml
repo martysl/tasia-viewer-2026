@@ -11,7 +11,7 @@
   <panel.string name="timeTooltip">
         [weekday, datetime, slt], [day, datetime, slt] [month, datetime, slt] [year, datetime, slt]
     </panel.string>
-  <panel.string name="buycurrencylabel">L$ [AMT]</panel.string>
+  <panel.string name="buycurrencylabel">[CURRENCY] [AMT]</panel.string>
   <panel.string name="quic_disconnected">QUIC: nieużywany — brak połączenia z regionem.</panel.string>
   <panel.string name="quic_secondlife">QUIC: nieużywany — Second Life korzysta ze standardowego transportu UDP/HTTP.</panel.string>
   <panel.string name="quic_disabled">QUIC: nieużywany — wyłączony; standardowy transport UDP/HTTP.</panel.string>
@@ -25,8 +25,8 @@
     </search_editor>
   </panel>
   <panel height="18" left="-420" width="185" top="1" follows="right|top" name="balance_bg">
-    <text halign="center" font="SansSerifSmall" follows="all" height="18" left="0" name="balance" tool_tip="L$ [AMT]&#10;Click to refresh your L$ balance.&#10;Double-click to display or hide your L$ balance." v_pad="2" top="0" wrap="false" value="L$??" width="40" />
-    <button halign="center" font="SansSerifSmall" follows="right|top|bottom" image_hover_unselected="PushButton_Over" image_unselected="PushButton_Off" image_pressed="PushButton_Selected" height="18" label="Buy L$" label_color="White" left_pad="0" label_shadow="true" name="buyL" pad_right="0" tool_tip="Kliknij, aby kupić więcej L$." top="0" width="80" />
+    <text halign="center" font="SansSerifSmall" follows="all" height="18" left="0" name="balance" tool_tip="[CURRENCY] [AMT]&#10;Click to refresh your [CURRENCY] balance.&#10;Double-click to display or hide your [CURRENCY] balance." v_pad="2" top="0" wrap="false" value="[CURRENCY]??" width="40" />
+    <button halign="center" font="SansSerifSmall" follows="right|top|bottom" image_hover_unselected="PushButton_Over" image_unselected="PushButton_Off" image_pressed="PushButton_Selected" height="18" label="Buy [CURRENCY]" label_color="White" left_pad="0" label_shadow="true" name="buyL" pad_right="0" tool_tip="Kliknij, aby kupić więcej [CURRENCY]." top="0" width="80" />
     <button halign="left" font="SansSerifSmall" follows="right|top|bottom" imgoverlay_label_space="7" image_overlay="Command_MiniCart_Icon" image_overlay_alignment="left" image_hover_unselected="PushButton_Over" image_unselected="PushButton_Off" image_pressed="PushButton_Selected" height="18" label="Shop" label_color="White" left_pad="0" label_shadow="true" name="goShop" tool_tip="Otwórz marketplace" top="0" width="65" />
   </panel>
   <text type="string" font="SansSerifSmall" text_readonly_color="TimeTextColor" follows="right|top" halign="right" height="16" top="3" layout="topleft" left_pad="0" name="TimeText" tool_tip="Obecny czas (Pacyficzny)" width="85">

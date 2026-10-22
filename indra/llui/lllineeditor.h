@@ -201,6 +201,7 @@ public:
     /*virtual*/ bool    setLabelArg(const std::string& key, const LLStringExplicit& text) override;
 
     void            setLabel(const LLStringExplicit &new_label) { mLabel = new_label; }
+    void            updateCurrencySymbols() { mLabel.updateCurrencySymbols(); }
     const std::string&  getLabel()  { return mLabel.getString(); }
 
     void            setDefaultText() { setText(mDefaultText); }

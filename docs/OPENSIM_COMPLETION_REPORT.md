@@ -163,11 +163,17 @@ fallback `OS$` (Second Life remains `L$`), and active-region
 `OpenSimExtras.currency`. Status-bar and static buy-currency controls refresh on
 region changes; OpenSim region data is applied on the main coroutine and only
 when its region UUID is still active. A compiled helper fixture and source
-contracts are included in the 22/22 offline service suite. No native build or
-live grid/UI verification was run. Farm review `job_mvjppk0x_779bf3dcd4` produced
-zero reviews because its file-inspector peer was unavailable; **REVIEW PENDING —
-TASIA FARM UNAVAILABLE.** Real quote/purchase semantics remain unverified and no
-financial request was sent.
+contracts are included in the 22/22 offline service suite. Invalid values use
+grid-aware fallbacks; only explicit `[CURRENCY]` controls and the formatted
+numeric balance are adapted, preserving arbitrary literal `L$` text. Tests
+cover invalid symbols, region override/reset, Second Life isolation and
+arbitrary-text preservation. No native build or live grid/UI verification was
+run. The first Farm job was unavailable; revised source excerpts were then
+independently reviewed by `ciocia-amber` in
+`job_mvjq35ht_c3e81aff10`, with no critical findings in the supplied excerpts.
+The reviewer noted the 16-byte validation cap and that other currency displays
+require explicit markers. This is not native/runtime verification. Real
+quote/purchase semantics remain unverified and no financial request was sent.
 
 ## Source-trace checkpoint
 

@@ -162,25 +162,31 @@ No arbitrary region-advertised host is accepted as a financial endpoint.
 
 The legacy reference also supports a login-level `currency` symbol (default
 `OS$` on OpenSim) and a region-level `OpenSimExtras.currency` override. The
-current source now restores this behavior through `LLUIString`, applies login
-defaults and active-region updates, and refreshes the status-bar balance and
-static buy-currency floater. The region update is applied in the existing main
-coroutine work item and checked against the active region UUID; Second Life
-ignores OpenSim region overrides. A compiled helper fixture covers symbol
-validation, default/region selection inputs, and replacement; source-contract
-checks cover login and region call paths.
+current source applies grid-aware invalid/missing fallbacks and active-region
+updates, refreshing the status-bar balance and static buy-currency floater.
+Region updates run in the existing main-coroutine work item and are checked
+against the active region UUID; Second Life ignores OpenSim region overrides.
+To avoid rewriting arbitrary names, profiles, chat or explanatory text, UI
+strings substitute only explicit `[CURRENCY]` markers; the numeric status
+balance has a separate formatted-amount path. Compiled helper tests cover
+invalid symbols, OpenSim/SL defaults, region override/reset, literal `L$`
+preservation, and explicit marker substitution; source-contract checks cover
+login and region call paths.
 
 Important limitation: the checked `SampleMoneyModule` quote/buy methods are
 under “Standalone box enablers only”; `quote_func` returns a zero-cost estimate
 and `buy_func` returns success without implementing a real purchase. That source
 proves handler names/routes only, not production money fulfillment. No quote,
 purchase, transfer, or land operation was executed. Offline service tests pass
-22/22 and `git diff --check` is clean. Farm job
-`job_mvjppk0x_779bf3dcd4` returned zero reviews because the file-inspector peer
-was unavailable: **REVIEW PENDING — TASIA FARM UNAVAILABLE.** Native build, live
-endpoint behavior, production module semantics, grid-specific currency
-symbol/pricing, and all financial operations remain unverified. Do not claim
-working real purchases from this patch.
+22/22 and `git diff --check` is clean. The original symbol-patch Farm job
+`job_mvjppk0x_779bf3dcd4` returned zero reviews and is not approval. Revised
+source excerpts were independently reviewed in Farm job
+`job_mvjq35ht_c3e81aff10`; reviewer `ciocia-amber` found no critical issue in
+those excerpts and noted the 16-byte bound and the requirement to mark any other
+currency-specific display explicitly. This was not a native/runtime review.
+Native build, live endpoint behavior, production module semantics, grid-specific
+currency symbol/pricing, and all financial operations remain unverified. Do not
+claim working real purchases from this patch.
 
 ### Grid Status page/RSS routing and TLS
 

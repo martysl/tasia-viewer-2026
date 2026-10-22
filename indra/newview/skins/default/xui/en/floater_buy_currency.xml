@@ -4,14 +4,14 @@
  can_minimize="false"
  height="285"
  layout="topleft"
- title="BUY L$"
+ title="BUY [CURRENCY]"
  name="buy currency"
  help_topic="buy_linden_dollars"
  single_instance="true"
  width="350">
     <floater.string
      name="buy_currency">
-        Buy L$ [LINDENS] for approx. [LOCALAMOUNT]
+        Buy [CURRENCY] [LINDENS] for approx. [LOCALAMOUNT]
     </floater.string>
     <floater.string
      name="info_cannot_buy">
@@ -58,7 +58,7 @@
        top="8"
        width="340"
        name="info_need_more">
-          You need more L$
+           You need more [CURRENCY]
       </text>
       <text
        type="string"
@@ -71,7 +71,7 @@
        top="8"
        width="300"
        name="info_buying">
-          Buy L$
+           Buy [CURRENCY]
       </text>
       <view_border
        bevel_style="none"
@@ -112,7 +112,7 @@
        name="target_price"
        top_delta="0"
        width="120">
-          L$ [AMT]
+           [CURRENCY] [AMT]
       </text>
     </layout_panel>
     <layout_panel
@@ -145,7 +145,7 @@
        name="balance_amount"
        top_delta="0"
        width="120">
-        L$ [AMT]
+         [CURRENCY] [AMT]
       </text>
     </layout_panel>
     <layout_panel
@@ -179,7 +179,7 @@
        name="required_amount"
        top_delta="0"
        width="120">
-        L$ [AMT]
+         [CURRENCY] [AMT]
       </text>
     </layout_panel>
     <layout_panel
@@ -219,7 +219,7 @@
        left="247"
        name="currency_label"
        width="15">
-        L$
+         [CURRENCY]
       </text>
       <line_editor
        type="string"
@@ -229,7 +229,7 @@
        follows="top|left"
        top_delta="-4"
        height="22"
-       label="L$"
+        label="[CURRENCY]"
        left_pad="3"
        name="currency_amt"
        width="55">
@@ -287,7 +287,7 @@
        halign="right"
        name="total_amount"
        width="120">
-          L$ [AMT]
+           [CURRENCY] [AMT]
       </text>
     </layout_panel>
     <layout_panel
@@ -343,7 +343,7 @@ Re-enter amount to see the latest exchange rate.
        width="310"
        height="35"
        name="purchase_warning_repurchase">
-After you receive your L$, you should try your
+ After you receive your [CURRENCY], you should try your
 purchase again.
       </text>
     </layout_panel>
@@ -369,7 +369,7 @@ purchase again.
       <button
        follows="top|left|right"
        height="20"
-       label="Buy L$ now"
+        label="Buy [CURRENCY] now"
        layout="topleft"
        left="151"
        name="buy_btn"

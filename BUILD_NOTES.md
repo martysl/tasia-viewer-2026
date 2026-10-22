@@ -4335,3 +4335,20 @@ tree was found, so no native viewer build was run. No live grid/UI or financial
 request was performed. **REVIEW PENDING — TASIA FARM UNAVAILABLE:** job
 `job_mvjppk0x_779bf3dcd4` returned no reviews because the file-inspector peer was
 unavailable.
+
+### Currency-symbol review corrections (2026-10-22)
+
+Addressed feedback on commit `63892cc`: invalid/missing login symbols now fall
+back by selected grid (`OS$` for OpenSim, `L$` for SL). Removed blanket
+replacement of every `L$` in `LLUIString`; only explicit `[CURRENCY]` markers in
+the status bar and buy-currency floater, plus the separately formatted numeric
+status balance, use the active symbol. Literal `L$` in arbitrary user-provided
+text is left intact. Added compiled-helper cases for invalid/control/oversized/
+bracketed symbols, OpenSim/SL defaults, region override/switch/reset, SL
+override isolation, literal-text preservation and explicit marker substitution.
+The first Farm job was unavailable and is not approval. Revised source excerpts
+were independently reviewed by `ciocia-amber` in
+`job_mvjq35ht_c3e81aff10`; no critical issue was found in those excerpts. The
+reviewer noted the 16-byte validation cap and the need to mark other currency
+displays explicitly. This does not replace native/runtime verification.
+GridInfo/economy audit continues after this fix.

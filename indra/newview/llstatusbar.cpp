@@ -32,6 +32,8 @@
 #include "lltasia_transport_status.h"
 #include "llquicglobal.h"
 #include "llviewernetwork.h"
+#include "lluistring.h"
+#include "llcurrency_symbol.h"
 #include "lliconctrl.h"
 
 // viewer includes
@@ -423,6 +425,7 @@ void LLStatusBar::setBalance(S32 balance)
     }
 
     std::string money_str = LLResMgr::getInstance()->getMonetaryString( balance );
+    LLCurrencySymbol::replaceFormattedAmount(money_str, LLUIString::getCurrencySymbol());
 
     LLStringUtil::format_map_t string_args;
     if (mObscureBalance)
@@ -434,7 +437,10 @@ void LLStatusBar::setBalance(S32 balance)
     string_args["[AMT]"] = llformat("%s", money_str.c_str());
     }
     std::string label_str = getString("buycurrencylabel", string_args);
+    LLCurrencySymbol::replaceCurrencyToken(label_str, LLUIString::getCurrencySymbol());
     mBoxBalance->setValue(label_str);
+    mBoxBalance->setToolTipArg(LLStringExplicit("[CURRENCY]"),
+        LLStringExplicit(LLUIString::getCurrencySymbol()));
     mBoxBalance->setToolTipArg(LLStringExplicit("[AMT]"), llformat("%s", money_str.c_str()));
 
     updateBalancePanelPosition();
