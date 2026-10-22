@@ -36,6 +36,12 @@
      name="buycurrencylabel">
         L$ [AMT]
     </panel.string>
+  <panel.string name="quic_disconnected">QUIC: not in use — no region connection.</panel.string>
+  <panel.string name="quic_secondlife">QUIC: not in use — Second Life uses the standard UDP/HTTP transport.</panel.string>
+  <panel.string name="quic_disabled">QUIC: not in use — disabled; standard UDP/HTTP transport.</panel.string>
+  <panel.string name="quic_unavailable">QUIC: not in use — library unavailable; standard UDP/HTTP transport.</panel.string>
+  <panel.string name="quic_not_routed">QUIC: not in use — simulator session not ready or using UDP fallback. Standard HTTP services remain unchanged.</panel.string>
+  <panel.string name="quic_active">QUIC: active — current simulator authenticated and ready. HTTP services remain unchanged.</panel.string>
   <panel
 	 height="18"
 	 left="-398"
@@ -78,7 +84,7 @@
   </panel>
   <panel
     height="18"
-    left="-398"
+    left="-420"
     width="185"
     top="1"
     follows="right|top" 
@@ -148,6 +154,8 @@
      width="85">
         24:00 AM PST
     </text>
+    <icon name="quic_status" image_name="Tasia_QUIC_Off" follows="right|top"
+     height="18" width="18" left_pad="4" top="0" mouse_opaque="true" />
     <icon
      follows="right|top"
      height="16"

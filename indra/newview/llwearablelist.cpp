@@ -45,13 +45,15 @@ struct LLWearableArrivedData
         const std::string& wearable_name,
         LLAvatarAppearance* avatarp,
         void(*asset_arrived_callback)(LLViewerWearable*, void* userdata),
-                          void* userdata) :
+                          void* userdata,
+                          std::function<bool()> is_current) :
         mAssetType( asset_type ),
         mCallback( asset_arrived_callback ),
         mUserdata( userdata ),
         mName( wearable_name ),
         mRetries(0),
-        mAvatarp(avatarp)
+        mAvatarp(avatarp),
+        mIsCurrent(std::move(is_current))
         {}
 
     LLAssetType::EType mAssetType;
@@ -60,6 +62,7 @@ struct LLWearableArrivedData
     std::string mName;
     S32 mRetries;
     LLAvatarAppearance *mAvatarp;
+    std::function<bool()> mIsCurrent;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -76,9 +79,14 @@ void LLWearableList::cleanup()
     mList.clear();
 }
 
-void LLWearableList::getAsset(const LLAssetID& assetID, const std::string& wearable_name, LLAvatarAppearance* avatarp, LLAssetType::EType asset_type, void(*asset_arrived_callback)(LLViewerWearable*, void* userdata), void* userdata)
+void LLWearableList::getAsset(const LLAssetID& assetID, const std::string& wearable_name, LLAvatarAppearance* avatarp, LLAssetType::EType asset_type, void(*asset_arrived_callback)(LLViewerWearable*, void* userdata), void* userdata, std::function<bool()> is_current)
 {
     llassert( (asset_type == LLAssetType::AT_CLOTHING) || (asset_type == LLAssetType::AT_BODYPART) );
+    if (is_current && !is_current())
+    {
+        if (asset_arrived_callback) asset_arrived_callback(nullptr, userdata);
+        return;
+    }
     LLViewerWearable* instance = get_if_there(mList, assetID, (LLViewerWearable*)NULL );
     if( instance )
     {
@@ -90,7 +98,7 @@ void LLWearableList::getAsset(const LLAssetID& assetID, const std::string& weara
         gAssetStorage->getAssetData(assetID,
             asset_type,
             LLWearableList::processGetAssetReply,
-            (void*)new LLWearableArrivedData( asset_type, wearable_name, avatarp, asset_arrived_callback, userdata ),
+            (void*)new LLWearableArrivedData( asset_type, wearable_name, avatarp, asset_arrived_callback, userdata, std::move(is_current) ),
             true);
     }
 }
@@ -101,7 +109,7 @@ void LLWearableList::processGetAssetReply( const char* filename, const LLAssetID
     if (!LLCoros::on_main_coro())
     {
         // if triggered from a coroutine, dispatch to main thread before accessing app state
-        std::string filename_in = filename;
+        std::string filename_in = filename ? filename : "";
         LLUUID uuid_in = uuid;
 
         LLAppViewer::instance()->postToMainCoro([=]()
@@ -115,6 +123,16 @@ void LLWearableList::processGetAssetReply( const char* filename, const LLAssetID
 
     bool isNewWearable = false;
     LLWearableArrivedData* data = (LLWearableArrivedData*) userdata;
+    // A legacy bootstrap can outlive logout, teleport or replacement of the
+    // avatar. Check its generation/session BEFORE importStream dereferences
+    // the request's avatar pointer, not merely in the completion callback.
+    if (data->mIsCurrent && !data->mIsCurrent())
+    {
+        if (filename) LLFile::remove(std::string(filename));
+        if (data->mCallback) data->mCallback(nullptr, data->mUserdata);
+        delete data;
+        return;
+    }
     LLViewerWearable* wearable = NULL; // NULL indicates failure
     LLAvatarAppearance *avatarp = data->mAvatarp;
 

@@ -39,11 +39,14 @@
 #include "llavatarappearancedefines.h"
 #include "llwearabledata.h"
 #include "llinitdestroyclass.h"
+#include <memory>
 
 class LLInventoryItem;
 class LLVOAvatarSelf;
 class LLViewerWearable;
 class LLViewerObject;
+class LLMessageSystem;
+struct LLTasiaLegacyWearablesLoad;
 
 class LLAgentWearables : public LLInitClass<LLAgentWearables>, public LLWearableData
 {
@@ -79,7 +82,10 @@ public:
 	// Note: False for shape, skin, eyes, and hair, unless you have MORE than 1.
 	bool            canWearableBeRemoved(const LLViewerWearable* wearable) const;
 
-	void            animateAllWearableParams(F32 delta);
+	// <FS:Ansariel> [Legacy Bake]
+	//void          animateAllWearableParams(F32 delta);
+	void            animateAllWearableParams(F32 delta, bool upload_bake);
+	// </FS:Ansariel> [Legacy Bake]
 
 	//--------------------------------------------------------------------
 	// Accessors
@@ -167,6 +173,11 @@ public:
 	// it for now to maintain compatibility with release viewers. Can
 	// remove this function once the SH-3455 changesets are universally deployed.
 	void            sendDummyAgentWearablesUpdate();
+	bool            startLegacyInitialWearables(bool cof_fetch_failed = false);
+	void            recoverLegacyBodyPartsFromSimulator();
+	void            retryLegacyCOFLinkFetch(U64 generation, unsigned attempt);
+	static void     processAgentInitialWearablesUpdate(LLMessageSystem* msg, void** userdata);
+	bool            isLegacyInitialWearablesCurrent(U64 generation) const;
 
 	//--------------------------------------------------------------------
 	// Static UI hooks
@@ -211,6 +222,25 @@ private:
 	//--------------------------------------------------------------------
 private:
 	static bool     mInitialWearablesUpdateReceived;
+	U64             mLegacyWearablesGeneration = 0;
+	bool            mLegacyBodyPartRecovery = false;
+	bool            mLegacyBodyPartRecoveryAttempted = false;
+	bool            mLegacyCOFLinkFetchAttempted = false;
+	bool            mLegacyCOFLibraryFetchAttempted = false;
+	bool            mLegacyCOFLinkFetchActive = false;
+	uuid_vec_t      mLegacyBodyPartUnresolvedTargets;
+	U8              mLegacyBodyPartMask = 0;
+	S32             mLegacyBodyPartCOFVersion = -1;
+	LLUUID          mLegacyWearablesSession;
+	LLUUID          mLegacyWearablesAvatar;
+	bool            mLegacyWearablesWaiting = false;
+	bool            mLegacyInitialCOFFetchFailed = false;
+	unsigned        mLegacyWearablesRequests = 0;
+	std::shared_ptr<LLTasiaLegacyWearablesLoad> mLegacyWearablesLoad;
+	void            sendLegacyWearablesRequest();
+	void            retryLegacyWearablesRequest(U64 generation);
+	void            finishLegacyInitialWearables();
+	static void     onLegacyWearableAssetArrived(LLViewerWearable* wearable, void* userdata);
 	bool            mWearablesLoaded;
 
 	/**

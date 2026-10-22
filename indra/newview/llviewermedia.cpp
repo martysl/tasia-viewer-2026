@@ -25,6 +25,8 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "llfloatermusicplayer.h"
+#include "llfloaterreg.h"
 
 #include "llviewermedia.h"
 
@@ -927,6 +929,10 @@ bool LLViewerMedia::isAnyMediaPlaying()
 //////////////////////////////////////////////////////////////////////////////////////////
 void LLViewerMedia::setAllMediaEnabled(bool val)
 {
+    LLViewerAudio::getInstance()->setParcelAudioStoppedByUser(!val);
+    if (!val)
+        if (auto* player = LLFloaterReg::findTypedInstance<LLFloaterMusicPlayer>("music_player"))
+            player->stopFromMediaControls();
 	// Set "tentative" autoplay first.  We need to do this here or else
 	// re-enabling won't start up the media below.
 	gSavedSettings.setBOOL("MediaTentativeAutoPlay", val);
@@ -982,6 +988,10 @@ void LLViewerMedia::setAllMediaEnabled(bool val)
 //////////////////////////////////////////////////////////////////////////////////////////
 void LLViewerMedia::setAllMediaPaused(bool val)
 {
+    LLViewerAudio::getInstance()->setParcelAudioStoppedByUser(val);
+    if (val)
+        if (auto* player = LLFloaterReg::findTypedInstance<LLFloaterMusicPlayer>("music_player"))
+            player->stopFromMediaControls();
 	// Set "tentative" autoplay first.  We need to do this here or else
 	// re-enabling won't start up the media below.
 	gSavedSettings.setBOOL("MediaTentativeAutoPlay", !val);

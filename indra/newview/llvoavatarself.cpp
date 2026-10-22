@@ -60,6 +60,10 @@
 #include "llstartup.h"
 #include "llsdserialize.h"
 #include "llcorehttputil.h"
+#include "llviewernetwork.h"
+#include "llquantize.h"
+#include "message.h"
+#include "message_prehash.h"
 #include "lluiusage.h"
 
 #include <boost/lexical_cast.hpp>
@@ -726,32 +730,50 @@ void LLVOAvatarSelf::renderJoints()
 }
 
 // virtual
-bool LLVOAvatarSelf::setVisualParamWeight(const LLVisualParam *which_param, F32 weight)
+// <FS:Ansariel> [Legacy Bake]
+//bool LLVOAvatarSelf::setVisualParamWeight(const LLVisualParam *which_param, F32 weight)
+bool LLVOAvatarSelf::setVisualParamWeight(const LLVisualParam *which_param, F32 weight, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     if (!which_param)
     {
         return false;
     }
     LLViewerVisualParam *param = (LLViewerVisualParam*) LLCharacter::getVisualParam(which_param->getID());
-    return setParamWeight(param,weight);
+    // <FS:Ansariel> [Legacy Bake]
+    //return setParamWeight(param,weight);
+    return setParamWeight(param,weight,upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
 }
 
 // virtual
-bool LLVOAvatarSelf::setVisualParamWeight(const char* param_name, F32 weight)
+// <FS:Ansariel> [Legacy Bake]
+//bool LLVOAvatarSelf::setVisualParamWeight(const char* param_name, F32 weight)
+bool LLVOAvatarSelf::setVisualParamWeight(const char* param_name, F32 weight, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     if (!param_name)
     {
         return false;
     }
     LLViewerVisualParam *param = (LLViewerVisualParam*) LLCharacter::getVisualParam(param_name);
-    return setParamWeight(param,weight);
+    // <FS:Ansariel> [Legacy Bake]
+    //return setParamWeight(param,weight);
+    return setParamWeight(param,weight,upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
 }
 
 // virtual
-bool LLVOAvatarSelf::setVisualParamWeight(S32 index, F32 weight)
+// <FS:Ansariel> [Legacy Bake]
+//bool LLVOAvatarSelf::setVisualParamWeight(S32 index, F32 weight)
+bool LLVOAvatarSelf::setVisualParamWeight(S32 index, F32 weight, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     LLViewerVisualParam *param = (LLViewerVisualParam*) LLCharacter::getVisualParam(index);
-    return setParamWeight(param,weight);
+    // <FS:Ansariel> [Legacy Bake]
+    //return setParamWeight(param,weight);
+    return setParamWeight(param,weight,upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
 }
 
 bool LLVOAvatarSelf::setVisualParamWeight(S32 index, S32 type, F32 weight)
@@ -775,7 +797,10 @@ bool LLVOAvatarSelf::setVisualParamWeight(S32 index, S32 type, F32 weight)
     return false;
 }
 
-bool LLVOAvatarSelf::setParamWeight(const LLViewerVisualParam *param, F32 weight)
+// <FS:Ansariel> [Legacy Bake]
+//bool LLVOAvatarSelf::setParamWeight(const LLViewerVisualParam *param, F32 weight)
+bool LLVOAvatarSelf::setParamWeight(const LLViewerVisualParam *param, F32 weight, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     if (!param)
     {
@@ -791,12 +816,18 @@ bool LLVOAvatarSelf::setParamWeight(const LLViewerVisualParam *param, F32 weight
             LLViewerWearable *wearable = gAgentWearables.getViewerWearable(type,count);
             if (wearable)
             {
-                wearable->setVisualParamWeight(param->getID(), weight);
+                // <FS:Ansariel> [Legacy Bake]
+                //wearable->setVisualParamWeight(param->getID(), weight);
+                wearable->setVisualParamWeight(param->getID(), weight, upload_bake);
+                // </FS:Ansariel> [Legacy Bake]
             }
         }
     }
 
-    return LLCharacter::setVisualParamWeight(param,weight);
+    // <FS:Ansariel> [Legacy Bake]
+    //return LLCharacter::setVisualParamWeight(param,weight);
+    return LLCharacter::setVisualParamWeight(param,weight,upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
 }
 
 /*virtual*/
@@ -822,7 +853,7 @@ void LLVOAvatarSelf::writeWearablesToAvatar()
 void LLVOAvatarSelf::idleUpdateAppearanceAnimation()
 {
     // Animate all top-level wearable visual parameters
-    gAgentWearables.animateAllWearableParams(calcMorphAmount());
+    gAgentWearables.animateAllWearableParams(calcMorphAmount(), false);
 
     // Apply wearable visual params to avatar
     writeWearablesToAvatar();
@@ -920,7 +951,10 @@ void LLVOAvatarSelf::removeMissingBakedTextures()
         {
             LLViewerTexLayerSet *layerset = getTexLayerSet(i);
             layerset->setUpdatesEnabled(true);
-            invalidateComposite(layerset);
+            // <FS:Ansariel> [Legacy Bake]
+            //invalidateComposite(layerset);
+            invalidateComposite(layerset, false);
+            // </FS:Ansariel> [Legacy Bake]
         }
         updateMeshTextures();
     }
@@ -1133,7 +1167,7 @@ void LLVOAvatarSelf::updateAttachmentVisibility(U32 camera_mode)
 // forces an update to any baked textures relevant to type.
 // will force an upload of the resulting bake if the second parameter is true
 //-----------------------------------------------------------------------------
-void LLVOAvatarSelf::wearableUpdated(LLWearableType::EType type)
+void LLVOAvatarSelf::wearableUpdated(LLWearableType::EType type, bool upload_result)
 {
     for (LLAvatarAppearanceDictionary::BakedTextures::const_iterator baked_iter = sAvatarDictionary->getBakedTextures().begin();
          baked_iter != sAvatarDictionary->getBakedTextures().end();
@@ -1155,7 +1189,10 @@ void LLVOAvatarSelf::wearableUpdated(LLWearableType::EType type)
                     if (layerset)
                     {
                         layerset->setUpdatesEnabled(true);
-                        invalidateComposite(layerset);
+                        // <FS:Ansariel> [Legacy Bake]
+                        //invalidateComposite(layerset);
+                        invalidateComposite(layerset, upload_result);
+                        // </FS:Ansariel> [Legacy Bake]
                     }
                     break;
                 }
@@ -1631,10 +1668,113 @@ bool LLVOAvatarSelf::isTextureVisible(LLAvatarAppearanceDefines::ETextureIndex t
 
 bool LLVOAvatarSelf::areTexturesCurrent() const
 {
-    return gAgentWearables.areWearablesLoaded();
+    return gAgentWearables.areWearablesLoaded() && (!usesLegacyBakes() || !hasPendingBakedUploads());
 }
 
-void LLVOAvatarSelf::invalidateComposite( LLTexLayerSet* layerset)
+bool LLVOAvatarSelf::usesLegacyBakes() const
+{
+    return LLGridManager::getInstance()->isInOpenSim() && getRegion() &&
+           getRegion()->getCentralBakeVersion() == 0;
+}
+
+bool LLVOAvatarSelf::hasPendingBakedUploads() const
+{
+    for (S32 i = BAKED_HEAD; i < getNumBakes(); ++i)
+    {
+        const LLViewerTexLayerSet* layer = getTexLayerSet(i);
+        if (layer && layer->getViewerComposite() && layer->getViewerComposite()->uploadPending())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void LLVOAvatarSelf::setNewBakedTexture(EBakedTextureIndex index, const LLUUID& id)
+{
+    if (!usesLegacyBakes() || index < BAKED_HEAD || index >= getNumBakes() || id.isNull()) return;
+    const ETextureIndex te = getDictionary()->bakedToLocalTextureIndex(index);
+    setTEImage(te, LLViewerTextureManager::getFetchedTextureFromHost(id, FTT_HOST_BAKE, getObjectHost()));
+    mUseServerBakes = false;
+    updateMeshTextures();
+    dirtyMesh();
+    // Refresh attachment BOM textures: attachments using baked texture
+    // magic IDs (IMG_USE_BAKED_*) need to rebind to the newly assigned
+    // bake, otherwise surfaces like Genus Eyebrow Tintable A stay black.
+    for (const auto& [attachment_point_id, attachment] : mAttachmentPoints)
+    {
+        if (attachment)
+        {
+            for (auto& objectp : attachment->mAttachedObjects)
+            {
+                if (!objectp.isNull())
+                {
+                    objectp->refreshBakeTexture();
+                }
+            }
+        }
+    }
+    if (!hasPendingBakedUploads()) sendLegacyAppearance();
+}
+
+void LLVOAvatarSelf::sendLegacyAppearance()
+{
+    // SL never sends this legacy packet. Optional OpenSim server baking also
+    // remains authoritative when the region advertises it.
+    if (!usesLegacyBakes() || !isAgentAvatarValid() || gAgentAvatarp.get() != this ||
+        getRegion() != gAgent.getRegion() || !gMessageSystem ||
+        !gAgentWearables.areWearablesLoaded() || hasPendingBakedUploads() || isEditingAppearance())
+    {
+        return;
+    }
+    // Validate the 6 original legacy bake slots. Extended slots (LEFT_ARM,
+    // LEFT_LEG, AUX1-3) are optional — skip undefined ones instead of aborting
+    // the whole appearance send, otherwise an undefined tattoo slot would
+    // prevent ALL baked textures (including face) from being sent.
+    for (U32 i = BAKED_HEAD; i <= BAKED_HAIR; ++i)
+    {
+        if (i == BAKED_SKIRT && !isWearingWearableType(LLWearableType::WT_SKIRT)) continue;
+        const ETextureIndex te = getDictionary()->bakedToLocalTextureIndex(static_cast<EBakedTextureIndex>(i));
+        if (!isTextureDefined(te, 0)) return;
+    }
+    std::vector<U8> weights;
+    for (LLVisualParam* param = getFirstVisualParam(); param; param = getNextVisualParam())
+    {
+        if (param->getGroup() == VISUAL_PARAM_GROUP_TWEAKABLE ||
+            param->getGroup() == VISUAL_PARAM_GROUP_TRANSMIT_NOT_TWEAKABLE)
+        {
+            weights.push_back(F32_to_U8(param->getWeight(), param->getMinWeight(), param->getMaxWeight()));
+        }
+    }
+    if (weights.empty() || weights.size() > MAX_TRANSMITTED_VISUAL_PARAMS) return;
+
+    LLMessageSystem* msg = gMessageSystem;
+    msg->newMessageFast(_PREHASH_AgentSetAppearance);
+    msg->nextBlockFast(_PREHASH_AgentData);
+    msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+    msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+    msg->addVector3Fast(_PREHASH_Size, mBodySize);
+    if (++mLegacyAppearanceSerialNum == 0) ++mLegacyAppearanceSerialNum;
+    msg->addU32Fast(_PREHASH_SerialNum, mLegacyAppearanceSerialNum);
+    // No invented wearable-cache hashes: WearableData is a variable block and
+    // may be empty. The simulator receives the actual baked TEs and params.
+    msg->nextBlockFast(_PREHASH_ObjectData);
+    if (!sendAppearanceMessage(msg)) return;
+    for (U8 weight : weights)
+    {
+        msg->nextBlockFast(_PREHASH_VisualParam);
+        msg->addU8Fast(_PREHASH_ParamValue, weight);
+    }
+    gAgent.sendReliableMessage();
+    mUseLocalAppearance = false;
+    updateMeshTextures();
+    LL_INFOS_ONCE("LocalBake") << "Legacy appearance sent with completed local bakes" << LL_ENDL;
+}
+
+// <FS:Ansariel> [Legacy Bake]
+//void LLVOAvatarSelf::invalidateComposite( LLTexLayerSet* layerset)
+void LLVOAvatarSelf::invalidateComposite( LLTexLayerSet* layerset, bool upload_result)
+// </FS:Ansariel> [Legacy Bake]
 {
     LLViewerTexLayerSet *layer_set = dynamic_cast<LLViewerTexLayerSet*>(layerset);
     if( !layer_set || !layer_set->getUpdatesEnabled() )
@@ -1645,6 +1785,12 @@ void LLVOAvatarSelf::invalidateComposite( LLTexLayerSet* layerset)
 
     layer_set->requestUpdate();
     layer_set->invalidateMorphMasks();
+    if (usesLegacyBakes())
+    {
+        mUseLocalAppearance = true;
+        if (upload_result) layer_set->requestUpload();
+        updateMeshTextures();
+    }
 }
 
 void LLVOAvatarSelf::invalidateAll()
@@ -1652,7 +1798,10 @@ void LLVOAvatarSelf::invalidateAll()
     for (U32 i = 0; i < mBakedTextureDatas.size(); i++)
     {
         LLViewerTexLayerSet *layerset = getTexLayerSet(i);
-        invalidateComposite(layerset);
+        // <FS:Ansariel> [Legacy Bake]
+        //invalidateComposite(layerset);
+        invalidateComposite(layerset, true);
+        // </FS:Ansariel> [Legacy Bake]
     }
     //mDebugSelfLoadTimer.reset();
 }
@@ -1723,15 +1872,17 @@ S32 LLVOAvatarSelf::getLocalDiscardLevel(ETextureIndex type, U32 wearable_index)
     if (local_tex_obj)
     {
         const LLViewerFetchedTexture* image = dynamic_cast<LLViewerFetchedTexture*>( local_tex_obj->getImage() );
-        if (type >= 0
-            && local_tex_obj->getID() != IMG_DEFAULT_AVATAR
-            && !image->isMissingAsset())
+        if (local_tex_obj->getID() != IMG_DEFAULT_AVATAR)
         {
+            // A failed fetch/decode is not ready input. Returning discard 0 here
+            // lets a layerset bake against an unusable texture (often the black
+            // clear color), which can then be uploaded as the new appearance.
+            if (!image || image->isMissingAsset()) return -1;
             return image->getDiscardLevel();
         }
         else
         {
-            // We don't care about this (no image associated with the layer) treat as fully loaded.
+            // An unset/default texture is an intentional empty optional layer.
             return 0;
         }
     }
@@ -1977,6 +2128,33 @@ bool LLVOAvatarSelf::getHasMissingParts() const
     S32 hair_count = gAgentWearables.getWearableCount(LLWearableType::WT_HAIR);
     S32 eye_count = gAgentWearables.getWearableCount(LLWearableType::WT_EYES);
     S32 skin_count = gAgentWearables.getWearableCount(LLWearableType::WT_SKIN);
+    // Ordinary INFO is compiled out in this viewer. Record bounded, delayed
+    // state snapshots instead of guessing which texture keeps self clouded.
+    // Only counts, enum indices and booleans: no assets, names or sessions.
+    static U32 diagnostic_samples = 0;
+    if (do_warn && usesLegacyBakes() && diagnostic_samples < 12)
+    {
+        ++diagnostic_samples;
+        LL_WARNS("CloudReadiness") << "Self readiness; sample=" << diagnostic_samples
+            << "; shape=" << shape_count << "; skin=" << skin_count
+            << "; hair=" << hair_count << "; eyes=" << eye_count
+            << "; hair_defined=" << isTextureDefined(TEX_HAIR, 0)
+            << "; previous_loaded=" << mPreviousFullyLoaded
+            << "; local_appearance=" << isUsingLocalAppearance()
+            << "; uploads_pending=" << hasPendingBakedUploads() << LL_ENDL;
+        for (U32 i = 0; i < mBakedTextureDatas.size(); ++i)
+        {
+            const ETextureIndex te = mBakedTextureDatas[i].mTextureIndex;
+            const LLViewerTexture* image = getImage(te, 0);
+            LL_WARNS("CloudReadiness") << "Self bake readiness; sample=" << diagnostic_samples
+                << "; slot=" << i << "; te=" << static_cast<S32>(te)
+                << "; defined=" << isTextureDefined(te, 0)
+                << "; image_present=" << (image != nullptr)
+                << "; gpu_ready=" << (image && image->hasGLTexture())
+                << "; invisible=" << (image && image->getID() == IMG_INVISIBLE)
+                << "; local_available=" << isLocalTextureDataAvailable(getLayerSet(static_cast<EBakedTextureIndex>(i))) << LL_ENDL;
+        }
+    }
     if (!shape_count || !hair_count || !eye_count || !skin_count)
     {
         if (do_warn)
@@ -2659,7 +2837,10 @@ void LLVOAvatarSelf::forceBakeAllTextures(bool slam_for_debug)
                 layer_set->setUpdatesEnabled(true);
             }
 
-            invalidateComposite(layer_set);
+            // <FS:Ansariel> [Legacy Bake]
+            //invalidateComposite(layer_set);
+            invalidateComposite(layer_set, true);
+            // </FS:Ansariel> [Legacy Bake]
             add(LLStatViewer::TEX_REBAKES, 1);
         }
         else
@@ -2715,7 +2896,7 @@ LLViewerTexLayerSet* LLVOAvatarSelf::getLayerSet(EBakedTextureIndex baked_index)
                case TEX_HEAD_BAKED:
                case TEX_HEAD_BODYPAINT:
                        return mHeadLayerSet; */
-       if (baked_index >= 0 && baked_index < BAKED_NUM_INDICES)
+       if (baked_index >= 0 && baked_index < getNumBakes())
        {
            return  getTexLayerSet(baked_index);
        }

@@ -30,9 +30,12 @@
 #include "lldynamictexture.h"
 #include "llextendedstatus.h"
 #include "lltexlayer.h"
+#include "lltasia_bake_upload.h"
+#include <memory>
 
 class LLVOAvatarSelf;
 class LLViewerTexLayerSetBuffer;
+struct LLTasiaBakeCompletion;
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // LLViewerTexLayerSet
@@ -47,6 +50,8 @@ public:
     virtual ~LLViewerTexLayerSet();
 
     /*virtual*/void             requestUpdate();
+    void                        requestUpload();
+    void                        cancelUpload();
     bool                        isLocalTextureDataAvailable() const;
     bool                        isLocalTextureDataFinal() const;
     void                        updateComposite();
@@ -119,15 +124,27 @@ protected:
 public:
     void                    requestUpdate();
     bool                    requestUpdateImmediate();
+    void                    requestUpload();
+    void                    cancelUpload();
+    bool                    uploadPending() const { return mUploadPolicy.pending(); }
+    bool                    uploadNeeded() const { return mUploadPolicy.needed(); }
+    bool                    uploadInProgress() const { return mUploadPolicy.inFlight(); }
 protected:
     bool                    isReadyToUpdate() const;
     void                    doUpdate();
     void                    restartUpdateTimer();
+    bool                    usesLegacyUpload() const;
+    bool                    isReadyToUpload() const;
+    void                    doUpload();
+    bool                    completeInvisibleBake();
+    void                    processUploadCompletion();
 private:
+    TasiaBake::UploadPolicy  mUploadPolicy;
+    LLFrameTimer            mUploadRetryTimer;
+    std::shared_ptr<LLTasiaBakeCompletion> mUploadCompletion;
     bool                    mNeedsUpdate;                   // Whether we need to locally update our baked textures
     U32                     mNumLowresUpdates;              // Number of times we've locally updated with lowres version of our baked textures
     LLFrameTimer            mNeedsUpdateTimer;              // Tracks time since update was requested and performed.
 };
 
 #endif  // LL_VIEWER_TEXLAYER_H
-

@@ -75,7 +75,7 @@ bool LLPluginMessagePipeOwner::writeMessageRaw(const std::string &message)
 	}
 	else
 	{
-		LL_WARNS("Plugin") << "dropping message: " << message << LL_ENDL;
+		LL_WARNS("Plugin") << "dropping message (payload omitted for privacy)" << LL_ENDL;
 		result = false;
 	}
 	
@@ -407,4 +407,3 @@ void LLPluginMessagePipe::processInput(void)
 	}
 	mInputMutex.unlock();
 }
-

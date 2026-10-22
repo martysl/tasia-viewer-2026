@@ -190,8 +190,13 @@ public:
     /// viewer's initialization options and command argunments, see
     /// NoVerifySSLCert
     static void         setDefaultSSLVerifyPeer(bool verify);
+
+    // Zero preserves existing behavior. Enforced while receiving, before append.
+    void setBodyLimit(size_t bytes) { mBodyLimit = bytes; }
+    size_t getBodyLimit() const { return mBodyLimit; }
 	
 protected:
+    size_t mBodyLimit = 0;
 	bool				mWantHeaders;
 	int					mTracing;
 	unsigned int		mTimeout;

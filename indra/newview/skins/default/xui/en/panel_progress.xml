@@ -73,8 +73,19 @@
                        height="100"
                        layout="topleft"
                        min_height="100"
-                       name="panel_login"
-                       width="670">
+                        name="panel_login"
+                        width="670">
+                        <text
+                         follows="left|right|top"
+                         layout="topleft"
+                         font="SansSerifSmall"
+                         font_shadow="none"
+                         height="18"
+                         left="47"
+                         top="8"
+                         right="-47"
+                         name="viewer_tagline"
+                         text_color="LoginProgressBoxTextColor">Advanced Multiverse Viewer by Tasia and Marty</text>
                         <text
                          follows="left|right|top"
                          layout="topleft"

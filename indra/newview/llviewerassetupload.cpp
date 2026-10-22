@@ -1007,7 +1007,8 @@ void LLViewerAssetUpload::HandleUploadError(LLCore::HttpStatus status, LLSD& res
 	std::string reason;
 	std::string label("CannotUploadReason");
 
-	LL_WARNS() << ll_pretty_print_sd(result) << LL_ENDL;
+	// Error bodies can contain capability tokens or an entire HTML page.
+	LL_WARNS() << "Asset upload failed; status=" << status.toTerseString() << LL_ENDL;
 
 	if (result.has("label"))
 	{
@@ -1043,6 +1044,10 @@ void LLViewerAssetUpload::HandleUploadError(LLCore::HttpStatus status, LLSD& res
 		}
 	}
 
+	// Background uploads (e.g. local avatar bakes) own their retry/error policy.
+	// Honour that before showing a generic file-upload dialog on every retry.
+	if (uploadInfo->failedUpload(result, reason)) return;
+
 	LLSD args;
 	if (label == "ErrorMessage")
 	{
@@ -1056,13 +1061,6 @@ void LLViewerAssetUpload::HandleUploadError(LLCore::HttpStatus status, LLSD& res
 	}
 
 	LLNotificationsUtil::add(label, args);
-
-	if (uploadInfo->failedUpload(result, reason))
-	{
-		// no further action required, already handled by a callback
-		// ex: do not trigger snapshot floater when failing material texture
-		return;
-	}
 
 	// Todo: move these floater specific actions into proper callbacks
 

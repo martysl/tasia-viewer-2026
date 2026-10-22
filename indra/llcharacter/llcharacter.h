@@ -192,9 +192,14 @@ public:
 	void addVisualParam(LLVisualParam *param);
 	void addSharedVisualParam(LLVisualParam *param);
 
-    virtual bool setVisualParamWeight(const LLVisualParam *which_param, F32 weight);
-    virtual bool setVisualParamWeight(const char* param_name, F32 weight);
-    virtual bool setVisualParamWeight(S32 index, F32 weight);
+    // <FS:Ansariel> [Legacy Bake]
+    //virtual bool setVisualParamWeight(const LLVisualParam *which_param, F32 weight);
+    //virtual bool setVisualParamWeight(const char* param_name, F32 weight);
+    //virtual bool setVisualParamWeight(S32 index, F32 weight);
+    virtual bool setVisualParamWeight(const LLVisualParam *which_param, F32 weight, bool upload_bake = false );
+    virtual bool setVisualParamWeight(const char* param_name, F32 weight, bool upload_bake = false );
+    virtual bool setVisualParamWeight(S32 index, F32 weight, bool upload_bake = false );
+    // </FS:Ansariel> [Legacy Bake]
     virtual bool setVisualParamWeight(S32 index, S32 type, F32 weight);
 
 	// get visual param weight by param or name
@@ -248,13 +253,18 @@ public:
 	S32				getVisualParamCount() const { return (S32)mVisualParamIndexMap.size(); }
 	LLVisualParam*	getVisualParam(const char *name);
 
-    void animateTweakableVisualParams(F32 delta)
+    // <FS:Ansariel> [Legacy Bake]
+    //void animateTweakableVisualParams(F32 delta)
+    void animateTweakableVisualParams(F32 delta, bool upload_bake)
     {
         for (auto& it : mVisualParamIndexMap)
         {
             if (it.second->isTweakable())
             {
-                it.second->animate(delta);
+                // <FS:Ansariel> [Legacy Bake]
+                //it.second->animate(delta);
+                it.second->animate(delta, upload_bake);
+                // </FS:Ansariel> [Legacy Bake]
             }
         }
     }
@@ -309,4 +319,3 @@ private:
 };
 
 #endif // LL_LLCHARACTER_H
-

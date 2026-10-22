@@ -889,6 +889,7 @@ void LLPanelNearByMedia::onClickParcelMediaPause()
 
 void LLPanelNearByMedia::onClickParcelAudioPlay()
 {
+    LLViewerAudio::getInstance()->setParcelAudioStoppedByUser(false);
     // User *explicitly* started the internet stream, so keep the stream
     // playing and updated as they cross to other parcels etc.
     mParcelAudioAutoStart = true;
@@ -911,6 +912,7 @@ void LLPanelNearByMedia::onClickParcelAudioPlay()
 
 void LLPanelNearByMedia::onClickParcelAudioStop()
 {
+    LLViewerAudio::getInstance()->setParcelAudioStoppedByUser(true);
     // User *explicitly* stopped the internet stream, so don't
     // re-start audio when i.e. they move to another parcel, until
     // they explicitly start it again.
@@ -926,6 +928,7 @@ void LLPanelNearByMedia::onClickParcelAudioStop()
 
 void LLPanelNearByMedia::onClickParcelAudioPause()
 {
+    LLViewerAudio::getInstance()->setParcelAudioStoppedByUser(true);
     if (!gAudiop)
     {
         LL_WARNS("AudioEngine") << "LLAudioEngine instance doesn't exist!" << LL_ENDL;
@@ -1327,4 +1330,3 @@ std::string LLPanelNearByMedia::getSelectedUrl()
     }
     return url;
 }
-

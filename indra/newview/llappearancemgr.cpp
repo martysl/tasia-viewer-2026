@@ -2876,9 +2876,18 @@ void LLAppearanceMgr::wearCategoryFinal(const LLUUID& cat_id, bool copy_items, b
 
     selfStopPhase("wear_inventory_category_fetch");
 
+    LLInventoryCategory* cat = gInventory.getCategory(cat_id);
+    if (!cat || !gInventory.isCategoryComplete(cat_id))
+    {
+        // Category fetch observers can invoke their callback after a timeout.
+        // Never copy or apply a partial outfit from that failure path.
+        LL_WARNS("Avatar") << "Cannot wear inventory category: fetch did not complete" << LL_ENDL;
+        gAgentWearables.notifyLoadingFinished();
+        return;
+    }
+
     // We now have an outfit ready to be copied to agent inventory. Do
     // it, and wear that outfit normally.
-    LLInventoryCategory* cat = gInventory.getCategory(cat_id);
     if(copy_items)
     {
         LLInventoryModel::cat_array_t* cats;

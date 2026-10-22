@@ -246,7 +246,10 @@ public:
     // Composites
     //--------------------------------------------------------------------
 public:
-    virtual void    invalidateComposite(LLTexLayerSet* layerset) = 0;
+    // <FS:Ansariel> [Legacy Bake]
+    //virtual void  invalidateComposite(LLTexLayerSet* layerset) = 0;
+    virtual void    invalidateComposite(LLTexLayerSet* layerset, bool upload_result) = 0;
+    // </FS:Ansariel> [Legacy Bake]
 
 /********************************************************************************
  **                                                                            **
@@ -281,7 +284,10 @@ protected:
     // Clothing colors (convenience functions to access visual parameters)
     //--------------------------------------------------------------------
 public:
-    void            setClothesColor(LLAvatarAppearanceDefines::ETextureIndex te, const LLColor4& new_color);
+    // <FS:Ansariel> [Legacy Bake]
+    //void          setClothesColor(LLAvatarAppearanceDefines::ETextureIndex te, const LLColor4& new_color);
+    void            setClothesColor(LLAvatarAppearanceDefines::ETextureIndex te, const LLColor4& new_color, bool upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
     LLColor4        getClothesColor(LLAvatarAppearanceDefines::ETextureIndex te);
     static bool     teToColorParams(LLAvatarAppearanceDefines::ETextureIndex te, U32 *param_name);
 
@@ -290,7 +296,10 @@ public:
     //--------------------------------------------------------------------
 public:
     LLColor4        getGlobalColor(const std::string& color_name ) const;
-    virtual void    onGlobalColorChanged(const LLTexGlobalColor* global_color) = 0;
+    // <FS:Ansariel> [Legacy Bake]
+    //virtual void  onGlobalColorChanged(const LLTexGlobalColor* global_color) = 0;
+    virtual void    onGlobalColorChanged(const LLTexGlobalColor* global_color, bool upload_bake) = 0;
+    // </FS:Ansariel> [Legacy Bake]
 protected:
     LLTexGlobalColor* mTexSkinColor{ nullptr };
     LLTexGlobalColor* mTexHairColor{ nullptr };

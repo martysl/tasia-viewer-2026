@@ -193,6 +193,13 @@ void LLThumbnailCtrl::clearTexture()
     mInited = true; // nothing to do
 }
 
+void LLThumbnailCtrl::setTexture(LLViewerFetchedTexture* texture, bool init_immediately)
+{
+    unloadImage();
+    mTexturep = texture;
+    mInited = init_immediately;
+}
+
 // virtual
 // value might be a string or a UUID
 void LLThumbnailCtrl::setValue(const LLSD& value)
@@ -265,5 +272,4 @@ void LLThumbnailCtrl::unloadImage()
     mImagep = nullptr;
     mInited = false;
 }
-
 

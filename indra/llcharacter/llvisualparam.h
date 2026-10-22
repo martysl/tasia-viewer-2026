@@ -122,10 +122,15 @@ public:
 	virtual void			apply( ESex avatar_sex ) = 0;
     virtual S32             getWearableType() const = 0;
 	//  Default functions
-	virtual void			setWeight(F32 weight);
-	virtual void			setAnimationTarget( F32 target_value);
-	virtual void			animate(F32 delta);
-	virtual void			stopAnimating();
+	// <FS:Ansariel> [Legacy Bake]
+	//virtual void			setWeight(F32 weight);
+	//virtual void			setAnimationTarget( F32 target_value);
+	//virtual void			animate(F32 delta);
+	virtual void			setWeight(F32 weight, bool upload_bake = false);
+	virtual void			setAnimationTarget( F32 target_value, bool upload_bake = false);
+	virtual void			animate(F32 delta, bool upload_bake = false);
+	virtual void			stopAnimating(bool upload_bake = false);
+	// </FS:Ansariel> [Legacy Bake]
 
     virtual bool            linkDrivenParams(visual_param_mapper mapper, bool only_cross_params);
 	virtual void			resetDrivenParams();

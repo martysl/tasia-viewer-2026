@@ -31,6 +31,7 @@
 
 #include "llavatarnamecache.h"  // IDEVO
 #include "llavataractions.h"
+#include "llviewernetwork.h" // IDEVO: grid classification for OpenSim P2P IM
 #include "llfloaterconversationlog.h"
 #include "llfloaterreg.h"
 #include "llfontdx.h"
@@ -792,6 +793,7 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id,
     mInitialTargetIDs(ids),
     mVoiceChannel(NULL),
     mP2PAsAdhocCall(false),
+    mOpenSimP2PInvite(false),
     mSpeakers(NULL),
     mSessionInitialized(false),
     mCallBackEnabled(true),
@@ -804,7 +806,21 @@ LLIMModel::LLIMSession::LLIMSession(const LLUUID& session_id,
     // set P2P type by default
     mSessionType        = P2P_SESSION;
 
-    if (IM_NOTHING_SPECIAL == mType || IM_SESSION_P2P_INVITE == mType)
+    // A short initial participant list does NOT prove this is a one-to-one IM:
+    // genuine conferences also start with one peer. Only recognize the canonical
+    // agent-pair session ID, with no supplied voice invitation metadata. Keep
+    // arbitrary conference IDs and Second Life's upstream behavior untouched.
+    const bool opensim_p2p_invite =
+        LLGridManager::getInstance()->isInOpenSim() &&
+        IM_SESSION_INVITE == mType &&
+        !gAgent.isInGroup(mSessionID) &&
+        mInitialTargetIDs.size() <= 1 &&
+        mOtherParticipantID.notNull() &&
+        voice_channel_info.isUndefined() &&
+        mSessionID == LLIMMgr::computeSessionID(IM_NOTHING_SPECIAL, mOtherParticipantID);
+    mOpenSimP2PInvite = opensim_p2p_invite;
+
+    if (IM_NOTHING_SPECIAL == mType || IM_SESSION_P2P_INVITE == mType || opensim_p2p_invite)
     {
         mP2PAsAdhocCall = (LLVoiceClient::getInstance()->getOutgoingCallInterface(voice_channel_info) == NULL);
     }
@@ -874,7 +890,9 @@ void LLIMModel::LLIMSession::initVoiceChannel(const LLSD& voiceChannelInfo)
         mVoiceChannel = NULL;
     }
     mP2PAsAdhocCall = false;
-    if (IM_NOTHING_SPECIAL == mType || IM_SESSION_P2P_INVITE == mType)
+    // mOpenSimP2PInvite keeps the P2P voice path below; without it the session
+    // would fall into the group/conference branch and warn "Invalid Session Type".
+    if (IM_NOTHING_SPECIAL == mType || IM_SESSION_P2P_INVITE == mType || mOpenSimP2PInvite)
     {
         LLVoiceP2POutgoingCallInterface *outgoingInterface = LLVoiceClient::getInstance()->getOutgoingCallInterface(voiceChannelInfo);
 
@@ -1469,12 +1487,16 @@ bool LLIMModel::LLIMSession::isOutgoingAdHoc() const
 
 bool LLIMModel::LLIMSession::isAdHoc()
 {
-    return IM_SESSION_CONFERENCE_START == mType || (IM_SESSION_INVITE == mType && !gAgent.isInGroup(mSessionID, true));
+    // An OpenSim one-to-one IM uses the same IM_SESSION_INVITE dialog type as an
+    // incoming conference, so it must stay out of ad-hoc classification or
+    // findAdHocIMSession() will reuse this chat as a conference later.
+    return IM_SESSION_CONFERENCE_START == mType ||
+        (IM_SESSION_INVITE == mType && !mOpenSimP2PInvite && !gAgent.isInGroup(mSessionID, true));
 }
 
 bool LLIMModel::LLIMSession::isP2P()
 {
-    return IM_NOTHING_SPECIAL == mType;
+    return IM_NOTHING_SPECIAL == mType || mOpenSimP2PInvite;
 }
 
 bool LLIMModel::LLIMSession::isGroupChat()
@@ -4483,4 +4505,3 @@ LLHTTPRegistration<LLViewerChatterBoxSessionUpdate>
 LLHTTPRegistration<LLViewerChatterBoxInvitation>
     gHTTPRegistrationMessageChatterBoxInvitation(
         "/message/ChatterBoxInvitation");
-

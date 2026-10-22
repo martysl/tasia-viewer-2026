@@ -94,9 +94,14 @@ public:
 
     /*virtual*/ void renderJoints();
 
-    /*virtual*/ bool setVisualParamWeight(const LLVisualParam *which_param, F32 weight);
-    /*virtual*/ bool setVisualParamWeight(const char* param_name, F32 weight);
-    /*virtual*/ bool setVisualParamWeight(S32 index, F32 weight);
+    // <FS:Ansariel> [Legacy Bake]
+    ///*virtual*/ bool setVisualParamWeight(const LLVisualParam *which_param, F32 weight);
+    ///*virtual*/ bool setVisualParamWeight(const char* param_name, F32 weight);
+    ///*virtual*/ bool setVisualParamWeight(S32 index, F32 weight);
+    /*virtual*/ bool setVisualParamWeight(const LLVisualParam *which_param, F32 weight, bool upload_bake = false);
+    /*virtual*/ bool setVisualParamWeight(const char* param_name, F32 weight, bool upload_bake = false);
+    /*virtual*/ bool setVisualParamWeight(S32 index, F32 weight, bool upload_bake = false);
+    // </FS:Ansariel> [Legacy Bake]
     /*virtual*/ bool setVisualParamWeight(S32 index, S32 type, F32 weight);
     /*virtual*/ void updateVisualParams();
     void writeWearablesToAvatar();
@@ -104,7 +109,10 @@ public:
 
 private:
     // helper function. Passed in param is assumed to be in avatar's parameter list.
-    bool setParamWeight(const LLViewerVisualParam *param, F32 weight);
+    // <FS:Ansariel> [Legacy Bake]
+    //bool setParamWeight(const LLViewerVisualParam *param, F32 weight);
+    bool setParamWeight(const LLViewerVisualParam *param, F32 weight, bool upload_bake = false);
+    // </FS:Ansariel> [Legacy Bake]
 
     std::mutex          mJointMapMutex; // getJoint gets used from mesh thread
 
@@ -183,6 +191,10 @@ public:
 public:
     S32                 getLocalDiscardLevel(LLAvatarAppearanceDefines::ETextureIndex type, U32 index) const;
     bool                areTexturesCurrent() const;
+    bool                usesLegacyBakes() const;
+    bool                hasPendingBakedUploads() const;
+    void                setNewBakedTexture(LLAvatarAppearanceDefines::EBakedTextureIndex index, const LLUUID& id);
+    void                sendLegacyAppearance();
     bool                isLocalTextureDataAvailable(const LLViewerTexLayerSet* layerset) const;
     bool                isLocalTextureDataFinal(const LLViewerTexLayerSet* layerset) const;
     // If you want to check all textures of a given type, pass gAgentWearables.getWearableCount() for index
@@ -237,7 +249,10 @@ public:
     // Composites
     //--------------------------------------------------------------------
 public:
-    /* virtual */ void  invalidateComposite(LLTexLayerSet* layerset);
+    // <FS:Ansariel> [Legacy Bake]
+    ///* virtual */ void    invalidateComposite(LLTexLayerSet* layerset);
+    /* virtual */ void  invalidateComposite(LLTexLayerSet* layerset, bool upload_result);
+    // </FS:Ansariel> [Legacy Bake]
     /* virtual */ void  invalidateAll();
     /* virtual */ void  setCompositeUpdatesEnabled(bool b); // only works for self
     /* virtual */ void  setCompositeUpdatesEnabled(U32 index, bool b);
@@ -279,7 +294,7 @@ protected:
  **/
 
 public:
-    void                wearableUpdated(LLWearableType::EType type);
+    void                wearableUpdated(LLWearableType::EType type, bool upload_result = false);
 protected:
     U32 getNumWearables(LLAvatarAppearanceDefines::ETextureIndex i) const;
 
@@ -389,6 +404,7 @@ public:
     const std::string       debugDumpAllLocalTextureDataInfo() const; // Lists out which baked textures are at highest LOD
     void                    sendViewerAppearanceChangeMetrics(); // send data associated with completing a change.
 private:
+    U32                     mLegacyAppearanceSerialNum = 0;
     LLFrameTimer            mDebugSelfLoadTimer;
     F32                     mDebugTimeWearablesLoaded;
     F32                     mDebugTimeAvatarVisible;

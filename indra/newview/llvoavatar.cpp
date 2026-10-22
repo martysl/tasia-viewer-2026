@@ -25,6 +25,8 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_user_config.h"
+#include "llviewernetwork.h"
 
 #include "llvoavatar.h"
 
@@ -704,6 +706,7 @@ LLVOAvatar::LLVOAvatar(const LLUUID& id,
     mLastRezzedStatus(-1),
     mIsEditingAppearance(false),
     mUseLocalAppearance(false),
+    mUseServerBakes(LLGridManager::getInstance()->isInSecondLife()),
     mLastUpdateRequestCOFVersion(-1),
     mLastUpdateReceivedCOFVersion(-1),
     mCachedMuteListUpdateTime(0),
@@ -1160,7 +1163,7 @@ void LLVOAvatar::restoreGL()
     gAgentAvatarp->setCompositeUpdatesEnabled(true);
     for (U32 i = 0; i < gAgentAvatarp->mBakedTextureDatas.size(); i++)
     {
-        gAgentAvatarp->invalidateComposite(gAgentAvatarp->getTexLayerSet(i));
+        gAgentAvatarp->invalidateComposite(gAgentAvatarp->getTexLayerSet(i), false);
     }
     gAgentAvatarp->updateMeshTextures();
 }
@@ -1942,15 +1945,15 @@ void LLVOAvatar::renderJoints()
 }
 
 bool LLVOAvatar::lineSegmentIntersect(const LLVector4a& start, const LLVector4a& end,
-                                      S32 face,
-                                      bool pick_transparent,
-                                      bool pick_rigged,
-                                      bool pick_unselectable,
-                                      S32* face_hit,
-                                      LLVector4a* intersection,
-                                      LLVector2* tex_coord,
-                                      LLVector4a* normal,
-                                      LLVector4a* tangent)
+                                       S32 face,
+                                       bool pick_transparent,
+                                       bool pick_rigged,
+                                       bool pick_unselectable,
+                                       S32* face_hit,
+                                       LLVector4a* intersection,
+                                       LLVector2* tex_coord,
+                                       LLVector4a* normal,
+                                       LLVector4a* tangent)
 {
     if ((isSelf() && !gAgent.needsRenderAvatar()) || !LLPipeline::sPickAvatar)
     {
@@ -2030,8 +2033,6 @@ bool LLVOAvatar::lineSegmentIntersect(const LLVector4a& start, const LLVector4a&
             }
         }
     }
-
-
 
     LLVector4a position;
     if (mNameText.notNull() && mNameText->lineSegmentIntersect(start, end, position))
@@ -2640,6 +2641,14 @@ LLViewerFetchedTexture *LLVOAvatar::getBakedTextureImage(const U8 te, const LLUU
     }
     if (!result)
     {
+        if (LLGridManager::getInstance()->isInOpenSim() && !mUseServerBakes)
+        {
+            // Legacy bakes are simulator assets, not Linden appearance URLs.
+            // Return here so the URL path cannot overwrite the host fetch.
+            return LLViewerTextureManager::getFetchedTexture(
+                uuid, FTT_HOST_BAKE, true, LLDXTexture::BOOST_NONE,
+                LLViewerTexture::LOD_TEXTURE, 0, 0, getObjectHost());
+        }
         const std::string url = getImageURL(te,uuid);
 
         if (url.empty())
@@ -3206,7 +3215,7 @@ void LLVOAvatar::idleUpdateAppearanceAnimation()
             {
                 F32 morph_amt = calcMorphAmount();
                 // animate only top level params for non-self avatars
-                animateTweakableVisualParams(morph_amt);
+                animateTweakableVisualParams(morph_amt, false);
             }
 
             // apply all params
@@ -3555,6 +3564,9 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
         || is_cloud != mNameCloud)
     {
         LLColor4 name_tag_color = getNameTagColor(is_friend);
+        LLTasiaUserConfig::User tasia_user;
+        const bool has_tasia_user = LLTasiaUserConfig::getUser(getID(), tasia_user);
+        if (has_tasia_user && tasia_user.has_tag_color) name_tag_color = tasia_user.tag_color;
 
         clearNameTag();
 
@@ -3619,7 +3631,7 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
             // Might be blank if name not available yet, that's OK
             if (show_display_names)
             {
-                addNameTagLine(av_name.getDisplayName(), name_tag_color, LLFontDX::NORMAL,
+                addNameTagLine(LLTasiaUserConfig::renderDisplayName(getID(), av_name), name_tag_color, LLFontDX::NORMAL,
                     LLFontDX::getFontSansSerif(), true);
             }
             // Suppress SLID display if display name matches exactly (ugh)
@@ -3627,7 +3639,7 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
             {
                 // *HACK: Desaturate the color
                 LLColor4 username_color = name_tag_color * 0.83f;
-                addNameTagLine(av_name.getUserName(), username_color, LLFontDX::NORMAL,
+                addNameTagLine(LLTasiaUserConfig::renderUsername(getID(), av_name), username_color, LLFontDX::NORMAL,
                     LLFontDX::getFontSansSerifSmall(), true);
             }
         }
@@ -3635,7 +3647,27 @@ void LLVOAvatar::idleUpdateNameTagText(bool new_name)
         {
             const LLFontDX* font = LLFontDX::getFontSansSerif();
             std::string full_name = LLCacheName::buildFullName( firstname->getString(), lastname->getString() );
+            if (has_tasia_user && !tasia_user.cosmetic_display_name.empty())
+                full_name = tasia_user.cosmetic_display_name;
             addNameTagLine(full_name, name_tag_color, LLFontDX::NORMAL, font, true);
+            // OpenSim grids may not advertise SL display-name support. Keep the
+            // real legacy name as the first line, but still honor an explicit
+            // username override independently, as in the display-name path.
+            if (show_usernames && has_tasia_user && !tasia_user.cosmetic_username.empty())
+            {
+                LLColor4 username_color = name_tag_color * 0.83f;
+                addNameTagLine(tasia_user.cosmetic_username, username_color, LLFontDX::NORMAL,
+                    LLFontDX::getFontSansSerifSmall(), true);
+            }
+        }
+
+        // Put the configured rank/title below the account username, matching
+        // the expected name-tag hierarchy without changing its configured color.
+        const std::string tasia_title = has_tasia_user ? tasia_user.getNametagTitle() : std::string();
+        if (!tasia_title.empty())
+        {
+            addNameTagLine(tasia_title, name_tag_color, LLFontDX::BOLD,
+                LLFontDX::getFontSansSerifSmall(), true);
         }
 
         if (show_rez_status)
@@ -5944,6 +5976,10 @@ const std::string LLVOAvatar::getImageURL(const U8 te, const LLUUID &uuid)
 {
     llassert(isIndexBakedTexture(ETextureIndex(te)));
     std::string url = "";
+    if (LLGridManager::getInstance()->isInOpenSim() && !mUseServerBakes)
+    {
+        return url;
+    }
     const std::string& appearance_service_url = LLAppearanceMgr::instance().getAppearanceServiceURL();
     if (appearance_service_url.empty())
     {
@@ -7471,12 +7507,20 @@ bool LLVOAvatar::updateGeometry(LLDrawable* drawable)
 //-----------------------------------------------------------------------------
 // updateSexDependentLayerSets()
 //-----------------------------------------------------------------------------
-void LLVOAvatar::updateSexDependentLayerSets()
+// <FS:Ansariel> [Legacy Bake]
+//void LLVOAvatar::updateSexDependentLayerSets()
+//{
+//  invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet);
+//  invalidateComposite( mBakedTextureDatas[BAKED_UPPER].mTexLayerSet);
+//  invalidateComposite( mBakedTextureDatas[BAKED_LOWER].mTexLayerSet);
+//}
+void LLVOAvatar::updateSexDependentLayerSets(bool upload_bake)
 {
-    invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet);
-    invalidateComposite( mBakedTextureDatas[BAKED_UPPER].mTexLayerSet);
-    invalidateComposite( mBakedTextureDatas[BAKED_LOWER].mTexLayerSet);
+    invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet, upload_bake);
+    invalidateComposite( mBakedTextureDatas[BAKED_UPPER].mTexLayerSet, upload_bake);
+    invalidateComposite( mBakedTextureDatas[BAKED_LOWER].mTexLayerSet, upload_bake);
 }
+// </FS:Ansariel> [Legacy Bake]
 
 //-----------------------------------------------------------------------------
 // dirtyMesh()
@@ -8253,7 +8297,10 @@ LLViewerObject *    LLVOAvatar::findAttachmentByID( const LLUUID & target_id ) c
 }
 
 // virtual
-void LLVOAvatar::invalidateComposite( LLTexLayerSet* layerset)
+// <FS:Ansariel> [Legacy Bake]
+//void LLVOAvatar::invalidateComposite( LLTexLayerSet* layerset)
+void LLVOAvatar::invalidateComposite( LLTexLayerSet* layerset, bool upload_result)
+// </FS:Ansariel> [Legacy Bake]
 {
 }
 
@@ -8262,18 +8309,30 @@ void LLVOAvatar::invalidateAll()
 }
 
 // virtual
-void LLVOAvatar::onGlobalColorChanged(const LLTexGlobalColor* global_color)
+// <FS:Ansariel> [Legacy Bake]
+//void LLVOAvatar::onGlobalColorChanged(const LLTexGlobalColor* global_color)
+void LLVOAvatar::onGlobalColorChanged(const LLTexGlobalColor* global_color, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     if (global_color == mTexSkinColor)
     {
-        invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet);
-        invalidateComposite( mBakedTextureDatas[BAKED_UPPER].mTexLayerSet);
-        invalidateComposite( mBakedTextureDatas[BAKED_LOWER].mTexLayerSet);
+        // <FS:Ansariel> [Legacy Bake]
+        //invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet);
+        //invalidateComposite( mBakedTextureDatas[BAKED_UPPER].mTexLayerSet);
+        //invalidateComposite( mBakedTextureDatas[BAKED_LOWER].mTexLayerSet);
+        invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet, upload_bake);
+        invalidateComposite( mBakedTextureDatas[BAKED_UPPER].mTexLayerSet, upload_bake);
+        invalidateComposite( mBakedTextureDatas[BAKED_LOWER].mTexLayerSet, upload_bake);
+        // </FS:Ansariel> [Legacy Bake]
     }
     else if (global_color == mTexHairColor)
     {
-        invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet);
-        invalidateComposite( mBakedTextureDatas[BAKED_HAIR].mTexLayerSet);
+        // <FS:Ansariel> [Legacy Bake]
+        //invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet);
+        //invalidateComposite( mBakedTextureDatas[BAKED_HAIR].mTexLayerSet);
+        invalidateComposite( mBakedTextureDatas[BAKED_HEAD].mTexLayerSet, upload_bake);
+        invalidateComposite( mBakedTextureDatas[BAKED_HAIR].mTexLayerSet, upload_bake);
+        // </FS:Ansariel> [Legacy Bake]
 
         // ! BACKWARDS COMPATIBILITY !
         // Fix for dealing with avatars from viewers that don't bake hair.
@@ -8294,7 +8353,10 @@ void LLVOAvatar::onGlobalColorChanged(const LLTexGlobalColor* global_color)
     }
     else if (global_color == mTexEyeColor)
     {
-        invalidateComposite( mBakedTextureDatas[BAKED_EYES].mTexLayerSet);
+        // <FS:Ansariel> [Legacy Bake]
+        //invalidateComposite( mBakedTextureDatas[BAKED_EYES].mTexLayerSet);
+        invalidateComposite( mBakedTextureDatas[BAKED_EYES].mTexLayerSet, upload_bake);
+        // </FS:Ansariel> [Legacy Bake]
     }
     updateMeshTextures();
 }
@@ -8567,6 +8629,24 @@ bool LLVOAvatar::updateIsFullyLoaded()
                 mLastCloudAttachmentCount = (S32)mSimAttachments.size();
             }
         }
+    }
+    // Delayed and bounded self-only diagnostic. This observes existing gates;
+    // it must not force readiness or change SL behavior.
+    static LLTimer cloud_diagnostic_timer;
+    static U32 cloud_diagnostic_samples = 0;
+    if (isSelf() && LLGridManager::getInstance()->isInOpenSim() && loading &&
+        cloud_diagnostic_samples < 12 && cloud_diagnostic_timer.getElapsedTimeF32() > 30.f)
+    {
+        cloud_diagnostic_timer.reset();
+        ++cloud_diagnostic_samples;
+        LL_WARNS("CloudReadiness") << "Self load gates; sample=" << cloud_diagnostic_samples
+            << "; rez_status=" << rez_status << "; first_visible=" << mFirstFullyVisible
+            << "; callbacks_loaded=" << mLoadedCallbackTextures
+            << "; callbacks_total=" << mCallbackTextureList.size()
+            << "; callback_wait_active=" << (mLastTexCallbackAddedTime.getElapsedTimeF32() < MAX_TEXTURE_WAIT_TIME_SEC)
+            << "; pending_attachments=" << mPendingAttachment.size()
+            << "; fully_baked=" << isFullyBaked()
+            << "; waiting_meshes=" << mWaitingForMeshes << LL_ENDL;
     }
     updateRezzedStatusTimers(rez_status);
     updateRuthTimer(loading);
@@ -9330,7 +9410,7 @@ void LLVOAvatar::releaseComponentTextures()
         }
     }
 
-    for (U8 baked_index = 0; baked_index < BAKED_NUM_INDICES; baked_index++)
+    for (U8 baked_index = 0; baked_index < getNumBakes(); baked_index++)
     {
         const LLAvatarAppearanceDictionary::BakedEntry * bakedDicEntry = LLAvatarAppearance::getDictionary()->getBakedTexture((EBakedTextureIndex)baked_index);
         // skip if this is a skirt and av is not wearing one, or if we don't have a baked texture UUID
@@ -9766,13 +9846,14 @@ bool resolve_appearance_version(const LLAppearanceMessageContents& contents, S32
     {
         appearance_version = contents.mParamAppearanceVersion;
     }
-    else if (contents.mAppearanceVersion > 0)
+    else if (contents.mAppearanceVersion > 0 ||
+             (LLGridManager::getInstance()->isInOpenSim() && contents.mAppearanceVersion == 0))
     {
         appearance_version = contents.mAppearanceVersion;
     }
-    else // still not set, go with 1.
+    else // Legacy OpenSim may omit both version fields; SL keeps its default.
     {
-        appearance_version = 1;
+        appearance_version = LLGridManager::getInstance()->isInOpenSim() ? 0 : 1;
     }
     //LL_DEBUGS("Avatar") << "appearance version info - field " << contents.mAppearanceVersion
     //                  << " param: " << contents.mParamAppearanceVersion
@@ -9812,7 +9893,8 @@ void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
         LL_WARNS() << "bad appearance version info, discarding" << LL_ENDL;
         return;
     }
-    llassert(appearance_version > 0);
+    const bool legacy_opensim = LLGridManager::getInstance()->isInOpenSim() && appearance_version == 0;
+    llassert(appearance_version > 0 || legacy_opensim);
     if (appearance_version > 1)
     {
         LL_WARNS() << "unsupported appearance version " << appearance_version << ", discarding appearance message" << LL_ENDL;
@@ -9833,7 +9915,7 @@ void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
             " (highest seen #" << mLastUpdateReceivedCOFVersion <<
             ") (AISCOF=#" << aisCOFVersion << ")" << LL_ENDL;
 
-        if (mLastUpdateReceivedCOFVersion >= thisAppearanceVersion)
+        if (!legacy_opensim && mLastUpdateReceivedCOFVersion >= thisAppearanceVersion)
         {
 			// S24 demoted - this will be silent in production builds and only logged in debug.
             LL_INFOS("Avatar") << "Stale appearance received #" << thisAppearanceVersion <<
@@ -9880,7 +9962,20 @@ void LLVOAvatar::processAvatarAppearance( LLMessageSystem* mesgsys )
     // which is called from various places.  This should match the simhost's
     // idea of what the COF version is.  AIS however maintains its own version
     // of the COF that should be considered canonical.
-    mLastUpdateReceivedCOFVersion = thisAppearanceVersion;
+    if (!legacy_opensim)
+    {
+        mLastUpdateReceivedCOFVersion = thisAppearanceVersion;
+    }
+
+    // Select the source before applying texture entries, including when an
+    // OpenSim avatar changes between server and legacy baking.
+    mUseServerBakes = !legacy_opensim;
+
+    if (legacy_opensim && isSelf())
+    {
+        LL_INFOS_ONCE("OpenSimPresence") << "Legacy self appearance accepted; visual parameter count: "
+            << num_params << "; baked texture source: simulator host" << LL_ENDL;
+    }
 
     mLastProcessedAppearance = contents;
 
@@ -9983,7 +10078,7 @@ void LLVOAvatar::applyParsedAppearanceMessage(LLAppearanceMessageContents& conte
             ESex new_sex = getSex();
             if( old_sex != new_sex )
             {
-                updateSexDependentLayerSets();
+                updateSexDependentLayerSets(false);
             }
         }
 
@@ -10041,9 +10136,19 @@ void LLVOAvatar::applyParsedAppearanceMessage(LLAppearanceMessageContents& conte
 
 }
 
+// <FS:Beq/> BOM constrain number of bake requests when BOM not supported
+S32 LLVOAvatar::getNumBakes() const
+{
+    // The dictionary already contains all eleven slots. Only restrict the
+    // extended five on OpenSim regions which do not advertise BOM support.
+    return LLGridManager::getInstance()->isInSecondLife() ||
+           (getRegion() && getRegion()->bakesOnMeshEnabled())
+        ? BAKED_NUM_INDICES : BAKED_LEFT_ARM;
+}
+
 LLViewerTexture* LLVOAvatar::getBakedTexture(const U8 te)
 {
-    if (te < 0 || te >= BAKED_NUM_INDICES)
+    if (te < 0 || te >= getNumBakes())
     {
         return NULL;
     }
@@ -11573,7 +11678,7 @@ U32 LLVOAvatar::calculateBodyPartsComplexity()
 {
     constexpr U32 COMPLEXITY_BODY_PART_COST = 200;
     U32 cost = 0;
-    for (U8 baked_index = 0; baked_index < BAKED_NUM_INDICES; baked_index++)
+    for (U8 baked_index = 0; baked_index < getNumBakes(); baked_index++)
     {
         const LLAvatarAppearanceDictionary::BakedEntry* baked_dict
             = LLAvatarAppearance::getDictionary()->getBakedTexture((EBakedTextureIndex)baked_index);
@@ -12370,4 +12475,3 @@ bool LLVOAvatar::isBuddy() const
     }
     return is_friend;
 }
-

@@ -27,6 +27,7 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "lltranslate.h"
+#include "lltasia_ai_translate.h"
 
 #include <curl/curl.h>
 
@@ -1113,6 +1114,11 @@ LLTranslate::~LLTranslate()
 void LLTranslate::translateMessage(const std::string &from_lang, const std::string &to_lang,
     const std::string &mesg, TranslationSuccess_fn success, TranslationFailure_fn failure)
 {
+    if (gSavedSettings.getString("TranslationService") == "tasia_ai")
+    {
+        tasia_ai_translate(to_lang, mesg, success, failure);
+        return;
+    }
     LLTranslationAPIHandler& handler = getPreferredHandler();
 
     handler.translateMessage(LLTranslationAPIHandler::LanguagePair_t(from_lang, to_lang), addNoTranslateTags(mesg), success, failure);
@@ -1120,6 +1126,7 @@ void LLTranslate::translateMessage(const std::string &from_lang, const std::stri
 
 std::string LLTranslate::addNoTranslateTags(std::string mesg)
 {
+    if (gSavedSettings.getString("TranslationService") == "tasia_ai") return mesg;
     if (getPreferredHandler().getCurrentService() == SERVICE_GOOGLE)
     {
         return mesg;
@@ -1151,6 +1158,7 @@ std::string LLTranslate::addNoTranslateTags(std::string mesg)
 
 std::string LLTranslate::removeNoTranslateTags(std::string mesg)
 {
+    if (gSavedSettings.getString("TranslationService") == "tasia_ai") return mesg;
     if (getPreferredHandler().getCurrentService() == SERVICE_GOOGLE)
     {
         return mesg;
@@ -1214,6 +1222,8 @@ std::string LLTranslate::getTranslateLanguage()
 // static
 bool LLTranslate::isTranslationConfigured()
 {
+    if (gSavedSettings.getString("TranslationService") == "tasia_ai")
+        return tasia_ai_translation_configured();
     return getPreferredHandler().isConfigured();
 }
 

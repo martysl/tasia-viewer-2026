@@ -282,10 +282,13 @@ void LLCurrencyUIManager::Impl::finishCurrencyBuy()
 void LLCurrencyUIManager::Impl::startTransaction(TransactionType type,
         const char* method, const LLSD& params)
 {
-    static std::string transactionURI;
+    // Resolve for each request: a static URI can send a later grid's session
+    // to the first grid's economy helper. Never guess or retry a purchase URL.
+    const std::string transactionURI = LLGridManager::getInstance()->getCurrencyHelperURI();
     if (transactionURI.empty())
     {
-        transactionURI = LLGridManager::getInstance()->getHelperURI() + "currency.php";
+        setError("This grid has no valid currency helper configured.", "");
+        return;
     }
 
     delete mTransaction;
@@ -623,6 +626,5 @@ std::string LLCurrencyUIManager::errorURI()
 {
     return impl.mErrorURI;
 }
-
 
 

@@ -5,7 +5,7 @@
  name="Main Menu">
     <menu
      create_jump_keys="true"
-     label="🌟 S24"
+     label="🌟 Tasia"
      name="Me"
      tear_off="true">
       <menu_item_call
@@ -142,7 +142,7 @@
              parameter="preferences" />
         </menu_item_call>
         <menu_item_call
-         label="⚠️ S24 Engine..."
+         label="⚠️ Tasia Engine..."
          name="S24 Engine">
             <menu_item_call.on_click
              function="Floater.ToggleOrBringToFront"
@@ -534,6 +534,12 @@
      label="💬 Communicate"
      name="Communicate"
      tear_off="true">
+       <menu_item_call label="Tasia Chat" name="TasiaChat">
+         <menu_item_call.on_click function="Tasia.Chat" />
+       </menu_item_call>
+       <menu_item_call label="Tasia Feed" name="TasiaFeedWeb">
+         <menu_item_call.on_click function="Tasia.Feed" />
+       </menu_item_call>
        <menu_item_check
          label="💬 Conversations..."
          name="Conversations"
@@ -1738,6 +1744,12 @@ function="World.EnvPreset"
          layout="topleft"
          name="Upload"
          tear_off="true">
+            <menu_item_call label="Image from clipboard..." name="Upload Clipboard">
+                <menu_item_call.on_click function="File.UploadClipboard" />
+            </menu_item_call>
+            <menu_item_call label="MP3 as sound parts..." name="Upload MP3">
+                <menu_item_call.on_click function="File.UploadMP3BatchSound" />
+            </menu_item_call>
             <menu_item_call
              label="Image..."
              layout="topleft"
@@ -1846,7 +1858,7 @@ function="World.EnvPreset"
 	 name="Help"
 	 tear_off="true">
 		<menu_item_call
-		 label="⚙️ S24 Engine Guide"
+		 label="⚙️ Tasia Engine Guide"
 		 name="S24 Engine Guide"
 		 shortcut="F1">
 			<menu_item_call.on_click
@@ -2968,7 +2980,7 @@ function="World.EnvPreset"
                  parameter="texture" />
             </menu_item_check>            
             <menu_item_check
-             label="S24 Console"
+             label="Tasia Console"
              name="S24 Console"
              shortcut="control|shift|4"
              use_mac_ctrl="true">
@@ -3024,21 +3036,21 @@ function="World.EnvPreset"
             <menu_item_separator/>
 
             <menu_item_call
-             label="Region Info to S24 Console"
+             label="Region Info to Tasia Console"
              name="Region Info to S24 Console">
                 <menu_item_call.on_click
                  function="Advanced.DumpInfoToConsole"
                  parameter="region" />
             </menu_item_call>
             <menu_item_call
-             label="Group Info to S24 Console"
+             label="Group Info to Tasia Console"
              name="Group Info to S24 Console">
                 <menu_item_call.on_click
                  function="Advanced.DumpInfoToConsole"
                  parameter="group" />
             </menu_item_call>
             <menu_item_call
-             label="Capabilities Info to S24 Console"
+             label="Capabilities Info to Tasia Console"
              name="Capabilities Info to S24 Console">
                 <menu_item_call.on_click
                  function="Advanced.DumpInfoToConsole"

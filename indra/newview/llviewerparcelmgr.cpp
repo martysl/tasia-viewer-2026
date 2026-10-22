@@ -25,6 +25,8 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_region_compat.h"
+#include <memory>
 
 #include "llviewerparcelmgr.h"
 
@@ -143,6 +145,8 @@ LLViewerParcelMgr::LLViewerParcelMgr()
     mCollisionParcel = new LLParcel();
 
     mParcelsPerEdge = S32(  REGION_WIDTH_METERS / PARCEL_GRID_STEP_METERS );
+    mParcelBufferGridsPerEdge = mAgentParcelGridsPerEdge =
+        mHighlightGridsPerEdge = mCollisionGridsPerEdge = mParcelsPerEdge;
     mHighlightSegments = new U8[(mParcelsPerEdge+1)*(mParcelsPerEdge+1)];
     resetSegments(mHighlightSegments);
 
@@ -155,7 +159,7 @@ LLViewerParcelMgr::LLViewerParcelMgr()
     mBlockedImage = LLViewerTextureManager::getFetchedTextureFromFile("world/NoEntryLines.png", FTT_LOCAL_FILE, true, LLDXTexture::BOOST_UI);
     mPassImage = LLViewerTextureManager::getFetchedTextureFromFile("world/NoEntryPassLines.png", FTT_LOCAL_FILE, true, LLDXTexture::BOOST_UI);
 
-    S32 overlay_size = mParcelsPerEdge * mParcelsPerEdge / PARCEL_OVERLAY_CHUNKS;
+    const S32 overlay_size = LLTasiaRegion::OVERLAY_CHUNK_BYTES;
     sPackedOverlay = new U8[overlay_size];
 
     mAgentParcelOverlay = new U8[mParcelsPerEdge * mParcelsPerEdge];
@@ -168,6 +172,47 @@ LLViewerParcelMgr::LLViewerParcelMgr()
     mTeleportInProgress = true; // the initial parcel update is treated like teleport
 }
 
+
+bool LLViewerParcelMgr::ensureParcelCapacity(S32 grids_per_edge)
+{
+    if (grids_per_edge < S32(LLTasiaRegion::DEFAULT_WIDTH / LLTasiaRegion::PARCEL_STEP) ||
+        grids_per_edge > S32(LLTasiaRegion::MAX_WIDTH / LLTasiaRegion::PARCEL_STEP) ||
+        (grids_per_edge & (grids_per_edge - 1)) != 0)
+    {
+        LL_WARNS("ParcelMgr") << "Invalid parcel grid width " << grids_per_edge << LL_ENDL;
+        return false;
+    }
+    if (grids_per_edge <= mParcelBufferGridsPerEdge) return true;
+
+    const size_t old_segments = size_t(mParcelBufferGridsPerEdge + 1) * (mParcelBufferGridsPerEdge + 1);
+    const size_t new_segments = size_t(grids_per_edge + 1) * (grids_per_edge + 1);
+    const size_t old_cells = size_t(mParcelBufferGridsPerEdge) * mParcelBufferGridsPerEdge;
+    const size_t new_cells = size_t(grids_per_edge) * grids_per_edge;
+    std::unique_ptr<U8[]> highlights(new U8[new_segments]());
+    std::unique_ptr<U8[]> collisions(new U8[new_segments]());
+    std::unique_ptr<U8[]> agent(new U8[new_cells]());
+    memcpy(highlights.get(), mHighlightSegments, old_segments);
+    memcpy(collisions.get(), mCollisionSegments, old_segments);
+    memcpy(agent.get(), mAgentParcelOverlay, old_cells);
+    delete[] mHighlightSegments;
+    delete[] mCollisionSegments;
+    delete[] mAgentParcelOverlay;
+    mHighlightSegments = highlights.release();
+    mCollisionSegments = collisions.release();
+    mAgentParcelOverlay = agent.release();
+    mParcelBufferGridsPerEdge = grids_per_edge;
+    return true;
+}
+
+void LLViewerParcelMgr::resetAgentParcelOverlay(F32 region_width)
+{
+    const S32 edge = S32(region_width / PARCEL_GRID_STEP_METERS);
+    if (!ensureParcelCapacity(edge)) return;
+    mParcelsPerEdge = mAgentParcelGridsPerEdge = edge;
+    memset(mAgentParcelOverlay, 0, size_t(edge) * edge);
+    mAgentParcelSequenceID = -1;
+    mRenderCollision = false;
+}
 
 LLViewerParcelMgr::~LLViewerParcelMgr()
 {
@@ -297,6 +342,8 @@ S32 LLViewerParcelMgr::getSelectedArea() const
 
 void LLViewerParcelMgr::resetSegments(U8* segments)
 {
+    if (segments == mHighlightSegments) mHighlightGridsPerEdge = mParcelsPerEdge;
+    if (segments == mCollisionSegments) mCollisionGridsPerEdge = mParcelsPerEdge;
     S32 i;
     S32 count = (mParcelsPerEdge+1)*(mParcelsPerEdge+1);
     for (i = 0; i < count; i++)
@@ -322,6 +369,13 @@ void LLViewerParcelMgr::writeHighlightSegments(F32 west, F32 south, F32 east,
     S32 max_x = ll_round( east / PARCEL_GRID_STEP_METERS );
     S32 min_y = ll_round( south / PARCEL_GRID_STEP_METERS );
     S32 max_y = ll_round( north / PARCEL_GRID_STEP_METERS );
+
+    if (min_x < 0 || min_y < 0 || max_x > mParcelsPerEdge || max_y > mParcelsPerEdge ||
+        min_x > max_x || min_y > max_y)
+    {
+        LL_WARNS("ParcelMgr") << "Selection exceeds the advertised parcel grid" << LL_ENDL;
+        return;
+    }
 
     const S32 STRIDE = mParcelsPerEdge+1;
 
@@ -396,6 +450,7 @@ void LLViewerParcelMgr::writeSegmentsFromBitmap(U8* bitmap, U8* segments)
 
 void LLViewerParcelMgr::writeAgentParcelFromBitmap(U8* bitmap)
 {
+    mAgentParcelGridsPerEdge = mParcelsPerEdge;
     S32 x;
     S32 y;
     const S32 IN_STRIDE = mParcelsPerEdge;
@@ -857,7 +912,10 @@ bool LLViewerParcelMgr::inAgentParcel(const LLVector3d &pos_global) const
     S32 row =    S32(pos_region.mV[VY] / PARCEL_GRID_STEP_METERS);
     S32 column = S32(pos_region.mV[VX] / PARCEL_GRID_STEP_METERS);
 
-    if (mAgentParcelOverlay[row*mParcelsPerEdge + column])
+    if (row < 0 || column < 0 || row >= mAgentParcelGridsPerEdge || column >= mAgentParcelGridsPerEdge)
+        return false;
+
+    if (mAgentParcelOverlay[row*mAgentParcelGridsPerEdge + column])
     {
         return true;
     }
@@ -1516,8 +1574,7 @@ void LLViewerParcelMgr::processParcelOverlay(LLMessageSystem *msg, void **user)
         return;
     }
 
-    S32 parcels_per_edge = LLViewerParcelMgr::getInstance()->mParcelsPerEdge;
-    S32 expected_size = parcels_per_edge * parcels_per_edge / PARCEL_OVERLAY_CHUNKS;
+    const S32 expected_size = LLTasiaRegion::OVERLAY_CHUNK_BYTES;
     if (packed_overlay_size != expected_size)
     {
         LL_WARNS() << "Got parcel overlay size " << packed_overlay_size
@@ -1537,6 +1594,14 @@ void LLViewerParcelMgr::processParcelOverlay(LLMessageSystem *msg, void **user)
     LLViewerRegion *region = LLWorld::getInstance()->getRegion(host);
     if (region)
     {
+        const S32 edge = S32(region->getWidth() / PARCEL_GRID_STEP_METERS);
+        const S32 allocation = edge * edge;
+        if (!LLTasiaRegion::overlayChunkFits(allocation, sequence_id, expected_size))
+        {
+            LL_WARNS("ParcelMgr") << "Ignoring parcel overlay with sequence_id "
+                << sequence_id << " (valid range 0.." << (allocation / expected_size - 1) << ")" << LL_ENDL;
+            return;
+        }
         region->mParcelOverlay->uncompressLandOverlay( sequence_id, sPackedOverlay );
     }
 }
@@ -1591,6 +1656,11 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
     S32     other_clean_time = 0;
 
     LLViewerParcelMgr& parcel_mgr = LLViewerParcelMgr::instance();
+    LLViewerRegion* message_region = LLWorld::getInstance()->getRegion(msg->getSender());
+    if (!message_region) return;
+    const S32 message_grids = S32(message_region->getWidth() / PARCEL_GRID_STEP_METERS);
+    if (!parcel_mgr.ensureParcelCapacity(message_grids)) return;
+    parcel_mgr.mParcelsPerEdge = message_grids;
 
     msg->getS32Fast(_PREHASH_ParcelData, _PREHASH_RequestResult, request_result);
     msg->getS32Fast(_PREHASH_ParcelData, _PREHASH_SequenceID, sequence_id);
@@ -1624,6 +1694,12 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
     }
     else if (sequence_id == 0 || sequence_id > parcel_mgr.mAgentParcelSequenceID)
     {
+        if (message_region != gAgent.getRegion()) return;
+        if (msg->getSizeFast(_PREHASH_ParcelData, _PREHASH_Bitmap) != message_grids * message_grids / 8)
+        {
+            LL_WARNS("ParcelMgr") << "Agent parcel bitmap size does not match region dimensions" << LL_ENDL;
+            return;
+        }
         // new agent parcel
         // *TODO: Does it really make sense to set the agent parcel to this
         // parcel if the client doesn't know what kind of parcel data this is?
@@ -1755,6 +1831,11 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
             S32 bitmap_size =   parcel_mgr.mParcelsPerEdge
                                 * parcel_mgr.mParcelsPerEdge
                                 / 8;
+            if (msg->getSizeFast(_PREHASH_ParcelData, _PREHASH_Bitmap) != bitmap_size)
+            {
+                LL_WARNS("ParcelMgr") << "Agent parcel bitmap size does not match region dimensions" << LL_ENDL;
+                return;
+            }
             U8* bitmap = new U8[ bitmap_size ];
             msg->getBinaryDataFast(_PREHASH_ParcelData, _PREHASH_Bitmap, bitmap, bitmap_size);
 
@@ -1855,11 +1936,10 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
                 S32 size = msg->getSizeFast(_PREHASH_ParcelData, _PREHASH_Bitmap);
                 if (size != bitmap_size)
                 {
-                    // Might be better to ignore bitmap and drop highlights
                     LL_WARNS("ParcelMgr") << "Parcel Bitmap size expected: " << bitmap_size
                         << " actual " << size
-                        << ". Bitmap might be corrupted!" << LL_ENDL;
-                    bitmap_size = size;
+                        << ". Ignoring bitmap rather than reading beyond its data." << LL_ENDL;
+                    return;
                 }
 
                 U8* bitmap = new U8[ bitmap_size ];
@@ -1917,6 +1997,11 @@ void LLViewerParcelMgr::processParcelProperties(LLMessageSystem *msg, void **use
         S32 bitmap_size =   parcel_mgr.mParcelsPerEdge
                             * parcel_mgr.mParcelsPerEdge
                             / 8;
+        if (msg->getSizeFast(_PREHASH_ParcelData, _PREHASH_Bitmap) != bitmap_size)
+        {
+            LL_WARNS("ParcelMgr") << "Collision bitmap size does not match region dimensions" << LL_ENDL;
+            return;
+        }
         U8* bitmap = new U8[ bitmap_size ];
         msg->getBinaryDataFast(_PREHASH_ParcelData, _PREHASH_Bitmap, bitmap, bitmap_size);
 

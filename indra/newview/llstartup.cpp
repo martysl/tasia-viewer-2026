@@ -48,6 +48,7 @@
 #include "llexperiencecache.h"
 #include "lllandmark.h"
 #include "llquicglobal.h"
+#include "lltasia_quic.h"
 #include "llcachename.h"
 #include "lldir.h"
 #include "lldonotdisturbnotificationstorage.h"
@@ -247,6 +248,8 @@ static bool gRememberPassword = true;
 static bool gRememberUser = true;
 
 static U64 gFirstSimHandle = 0;
+static U32 gFirstSimSizeX = 0;
+static U32 gFirstSimSizeY = 0;
 static LLHost gFirstSim;
 static std::string gFirstSimSeedCap;
 static LLVector3 gAgentStartLookAt(1.0f, 0.f, 0.f);
@@ -379,10 +382,29 @@ void set_flags_and_update_appearance()
 {
 	// this may be called from a coroutine but has many side effects
 	// in non-thread-safe classes, post to main loop
-	auto work = []()
+	const LLUUID session = gAgent.getSessionID();
+	auto work = [session]()
 		{
+			if (session != gAgent.getSessionID()) return;
 			LLAppearanceMgr::instance().setAttachmentInvLinkEnable(true);
-			LLAppearanceMgr::instance().updateAppearanceFromCOF(true, true, no_op);
+			const LLUUID cof = LLAppearanceMgr::instance().getCOF();
+			const bool cof_fetch_failed = !gInventory.isCategoryComplete(cof);
+			if (cof_fetch_failed)
+			{
+				LL_WARNS("Avatar") << "COF fetch incomplete at startup; trying simulator worn-item snapshot" << LL_ENDL;
+			}
+			if (!gAgentWearables.startLegacyInitialWearables(cof_fetch_failed))
+			{
+				if (cof_fetch_failed && gAgentAvatarp && gAgentAvatarp->usesLegacyBakes())
+				{
+					LL_WARNS("Avatar") << "Legacy snapshot fallback unavailable; preserving current worn state" << LL_ENDL;
+					gAgentWearables.notifyLoadingFinished();
+				}
+				else
+				{
+					LLAppearanceMgr::instance().updateAppearanceFromCOF(true, true, no_op);
+				}
+			}
 
 			LLInventoryModelBackgroundFetch::instance().start();
 		};
@@ -1063,7 +1085,7 @@ bool idle_startup()
 		//Default the path if one isn't set.
 		// *NOTE: unable to check variable differ from "InstantMessageLogPath" because it was
 		// provided in pre 2.0 viewer. See EXT-6661
-		if (gSavedPerAccountSettings.getString("InstantMessageLogPath").empty())
+		if (gDirUtilp->isPortable() || gSavedPerAccountSettings.getString("InstantMessageLogPath").empty())
 		{
 			gDirUtilp->setChatLogsDir(gDirUtilp->getOSUserAppDir());
 			gSavedPerAccountSettings.setString("InstantMessageLogPath", gDirUtilp->getChatLogsDir());
@@ -1337,6 +1359,7 @@ bool idle_startup()
 		{
 			if (process_login_success_response())
 			{
+				LLPanelLogin::saveLoginAccount(gUserCredential, gRememberUser, gRememberPassword);
 				// Pass the user information to the voice chat server interface.
 				LLVoiceClient::getInstance()->userAuthorized(gUserCredential->userID(), gAgentID);
 				// create the default proximal channel
@@ -1427,7 +1450,7 @@ bool idle_startup()
 		gAgent.initOriginGlobal(from_region_handle(gFirstSimHandle));
 		do_startup_frame();
 
-		LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim);
+		LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim, gFirstSimSizeX, gFirstSimSizeY);
 		do_startup_frame();
 
 		LLViewerRegion* regionp = LLWorld::getInstance()->getRegionFromHandle(gFirstSimHandle);
@@ -2725,7 +2748,7 @@ void update_tech_status()
 		}
 		else
 		{
-			last_status_text = llformat("✓ GPU: %s\n✓ VRAM: %dMB\n⚡ S24 Rendering • PBR • Dynamic Effects", 
+			last_status_text = llformat("✓ GPU: %s\n✓ VRAM: %dMB\n⚡ Tasia Rendering • PBR • Dynamic Effects",
 				gpu_name.c_str(), gGLManager.mVRAM);
 		}
 		gpu_info_set = true;
@@ -2793,6 +2816,7 @@ void use_circuit_callback(void**, S32 result)
 
 void register_viewer_callbacks(LLMessageSystem* msg)
 {
+	msg->setHandlerFuncFast(_PREHASH_AgentWearablesUpdate, LLAgentWearables::processAgentInitialWearablesUpdate);
 	msg->setHandlerFuncFast(_PREHASH_LayerData, process_layer_data);
 	msg->setHandlerFuncFast(_PREHASH_ObjectUpdate, process_object_update);
 	msg->setHandlerFunc("ObjectUpdateCompressed", process_compressed_object_update);
@@ -3671,12 +3695,31 @@ bool init_benefits(LLSD& response)
 		succ = false;
 	}
 
+	// OpenSim and other non-Linden grids do not send Linden benefit packages.
+	// Requiring them blocks otherwise successful logins, so treat the absence
+	// as non-fatal there: benefits simply stay at their defaults (-1 = no
+	// uploaded-cost/limit information available).
+	if (!succ && LLGridManager::getInstance()->isInOpenSim())
+	{
+		LL_INFOS("Benefits") << "OpenSim grid sent no Linden benefit "
+			"packages; using default benefits" << LL_ENDL;
+		succ = true;
+	}
+
 	return succ;
 }
 
 bool process_login_success_response()
 {
 	LLSD response = LLLoginInstance::getInstance()->getResponse();
+
+	// Reset on every login: never carry an OpenSim size into another account/grid.
+	gFirstSimSizeX = gFirstSimSizeY = 0;
+	if (LLGridManager::getInstance()->isInOpenSim())
+	{
+		gFirstSimSizeX = response["region_size_x"].asInteger();
+		gFirstSimSizeY = response["region_size_y"].asInteger();
+	}
 
 	mBenefitsSuccessfullyInit = init_benefits(response);
 
@@ -3810,6 +3853,7 @@ bool process_login_success_response()
 		if (gFirstSim.isOk())
 		{
 			gMessageSystem->enableCircuit(gFirstSim, true);
+			tasiaEnableAdvertisedQuic(gMessageSystem, gFirstSim, response, true);
 		}
 	}
 	std::string region_x_str = response["region_x"];

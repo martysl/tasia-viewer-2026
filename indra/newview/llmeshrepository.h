@@ -563,6 +563,7 @@ public:
     http_request_set                    mHttpRequestSet;            // Outstanding HTTP requests
 
     std::string mGetMeshCapability;
+    bool mMeshCapabilityIsOpenSim = false;
 
     LLMeshRepoThread();
     ~LLMeshRepoThread();
@@ -615,7 +616,7 @@ public:
     // mesh fetch URLs.
     //
     // Mutex:  must be holding mMutex when called
-    void setGetMeshCap(const std::string & get_mesh);
+    void setGetMeshCap(const std::string & get_mesh, bool opensim);
 
     // Mutex:  acquires mMutex
     void constructUrl(LLUUID mesh_id, std::string * url);
@@ -977,4 +978,3 @@ const F32 ANIMATED_OBJECT_BASE_COST = 15.0f;
 const F32 ANIMATED_OBJECT_COST_PER_KTRI = 1.5f;
 
 #endif
-

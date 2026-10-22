@@ -177,7 +177,7 @@ void KVDebugConsole::onOpen(const LLSD& key)
     if (mOutput)
     {
         mOutput->appendText(
-            "S24 VOS [Version 24]\n"
+            "Tasia Viewer Console\n"
             "(c) 1970-2026 Kirstenlee Cinquetti. All rights reserved.\n"
             "\n"
             "System initialized.\n"
@@ -806,10 +806,10 @@ void KVDebugConsole::processHelpCommand(const std::string& topic)
         // General help - brief introduction
         mOutput->appendText(
             "╔═══════════════════════════════════════════════════════════════════════╗\n"
-            "║                      S24 CONSOLE v1.0                                 ║\n"
+            "║                     TASIA CONSOLE v1.0                                ║\n"
             "╚═══════════════════════════════════════════════════════════════════════╝\n"
             "\n"
-            "Welcome to the S24 Console - your command-line interface to the\n"
+            "Welcome to the Tasia Console - your command-line interface to the\n"
             "viewer operating system.\n"
             "\n"
             "For a complete list of available commands, type:\n"
@@ -827,7 +827,7 @@ void KVDebugConsole::processHelpCommand(const std::string& topic)
             "Some commands also support extended help via --help flag:\n"
             "  top --help        Full reference with all flags and examples\n"
             "\n"
-            "Refer to the S24 Command Reference documentation for comprehensive\n"
+            "Refer to the Tasia Command Reference documentation for comprehensive\n"
             "information about all console features and advanced usage.\n",
             false
         );
@@ -870,14 +870,14 @@ void KVDebugConsole::processHelpCommand(const std::string& topic)
                 "║  EXIT / QUIT                                                          ║\n"
                 "╚═══════════════════════════════════════════════════════════════════════╝\n"
                 "\n"
-                "Closes the S24 Console floater.\n"
+                "Closes the Tasia Console floater.\n"
                 "\n"
                 "SYNTAX:\n"
                 "  exit\n"
                 "  quit\n"
                 "\n"
                 "DESCRIPTION:\n"
-                "  Closes the S24 Console window. Does not exit the viewer,\n"
+                "  Closes the Tasia Console window. Does not exit the viewer,\n"
                 "  only closes this floater. Console can be reopened from the\n"
                 "  Advanced menu.\n"
                 "\n"
@@ -1091,7 +1091,7 @@ void KVDebugConsole::processHelpCommand(const std::string& topic)
                 "\n"
                 "DESCRIPTION:\n"
                 "  Shows a comprehensive list of all commands currently available\n"
-                "  in the S24 Debug Console with brief descriptions.\n"
+                "  in the Tasia Debug Console with brief descriptions.\n"
                 "\n"
                 "EXAMPLES:\n"
                 "  list              Show all commands\n"
@@ -1134,7 +1134,7 @@ void KVDebugConsole::processHelpCommand(const std::string& topic)
                 "  open world_map                Open world map\n"
                 "  open close world_map          Close world map\n"
                 "  open toggle beacons           Toggle beacons floater\n"
-                "  open debug_console            Open S24 Console\n"
+                "  open debug_console            Open Tasia Console\n"
                 "  open build                    Open build tools\n"
                 "\n"
                 "COMMON FLOATERS:\n"
@@ -1228,7 +1228,7 @@ void KVDebugConsole::processHelpCommand(const std::string& topic)
                 "  - For normal exit, use File > Quit instead\n"
                 "\n"
                 "SEE ALSO:\n"
-                "  exit - Close the S24 Console only (does not quit viewer)\n",
+                "  exit - Close the Tasia Console only (does not quit viewer)\n",
                 false
             );
             mLineCount += 50;
@@ -1474,7 +1474,7 @@ void KVDebugConsole::processHelpCommand(const std::string& topic)
                 "DESCRIPTION:\n"
                 "  Opens the specified URL using your configured browser preference.\n"
                 "  Respects the 'Web browser' setting in Preferences > Advanced:\n"
-                "  - Internal browser: Opens in S24's built-in web content floater\n"
+                "  - Internal browser: Opens in Tasia's built-in web content floater\n"
                 "  - External browser: Opens in your system's default web browser\n"
                 "\n"
                 "  If no protocol is specified (http://, https://), defaults to https://\n"
@@ -1580,12 +1580,12 @@ void KVDebugConsole::processListCommand()
 {
     mOutput->appendText(
         "╔═══════════════════════════════════════════════════════════════════════╗\n"
-        "║                 S24 CONSOLE - AVAILABLE COMMANDS                      ║\n"
+        "║                TASIA CONSOLE - AVAILABLE COMMANDS                     ║\n"
         "╚═══════════════════════════════════════════════════════════════════════╝\n"
         "\n"
         "SYSTEM COMMANDS:\n"
         "  cls, clear          Clear the console output buffer\n"
-        "  exit, quit          Close the S24 Console floater\n"
+        "  exit, quit          Close the Tasia Console floater\n"
         "  help [command]      Display general help or command-specific help\n"
         "  list                Display this command list\n"
         "  ?                   Alias for help (DOS compatibility)\n"
@@ -1676,7 +1676,7 @@ void KVDebugConsole::processListCommand()
         "For detailed information about a specific command, type:\n"
         "  help <command>\n"
         "\n"
-        "Refer to S24 Command Reference documentation for comprehensive guide.\n",
+        "Refer to Tasia Command Reference documentation for comprehensive guide.\n",
         false
     );
     mLineCount += 52;
@@ -3102,7 +3102,7 @@ void KVDebugConsole::processOpenCommand(const std::string& args)
             {"prefs_graphics_advanced", "Graphics Preferences"},
             {"profile", "My Profile"},
             {"quickchat", "Quick Chat"},
-            {"debug_console", "S24 Console"},
+            {"debug_console", "Tasia Console"},
             {"region_debug_console", "Region Debug Console"},
             {"region_info", "Region/Estate"},
             {"scene_load_stats", "Scene Load Statistics"},
@@ -4565,4 +4565,3 @@ void KVDebugConsole::requestAvatarProfile(const LLUUID& avatar_id)
 
     mLineCount += 12;  // Base lines, profile data adds more via callback
 }
-

@@ -25,6 +25,8 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_quic.h"
+#include "llviewernetwork.h"
 #include "llviewermessage.h"
 
 // Linden libraries
@@ -90,6 +92,8 @@
 #include "llspeakers.h"
 #include "lltrans.h"
 #include "lltranslate.h"
+#include "llgesturemgr.h"
+#include "lltasia_translation_policy.h"
 #include "llviewerfoldertype.h"
 #include "llvoavatar.h"             // IDEVO HACK
 #include "lluri.h"
@@ -2569,7 +2573,12 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
         chat.mOwnerID = owner_id;
 
         LLTranslate::instance().logCharsSeen(mesg.size());
-        if (gSavedSettings.getBOOL("TranslateChat") && chat.mSourceType != CHAT_SOURCE_SYSTEM)
+        if (gSavedSettings.getBOOL("TranslateChat") && LLTranslate::isTranslationConfigured() &&
+            chat.mSourceType == CHAT_SOURCE_AGENT && chat.mFromID != gAgent.getID() &&
+            !chat.mMuted && chat.mChatStyle != CHAT_STYLE_IRC &&
+            (chat.mChatType == CHAT_TYPE_NORMAL || chat.mChatType == CHAT_TYPE_WHISPER ||
+             chat.mChatType == CHAT_TYPE_SHOUT || chat.mChatType == CHAT_TYPE_DIRECT) &&
+            TasiaTranslation::isOrdinaryText(mesg) && !LLGestureMgr::instance().isGestureText(mesg))
         {
             if (chat.mChatStyle == CHAT_STYLE_IRC)
             {
@@ -2884,7 +2893,16 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 
     // Viewer trusts the simulator.
     gMessageSystem->enableCircuit(sim_host, true);
-    LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host);
+    tasiaEnableEventQuic(msg, sim_host, "Info");
+    U32 size_x = 0, size_y = 0;
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        if (msg->getSize("Info", "RegionSizeX") > 0)
+            msg->getU32("Info", "RegionSizeX", size_x);
+        if (msg->getSize("Info", "RegionSizeY") > 0)
+            msg->getU32("Info", "RegionSizeY", size_y);
+    }
+    LLViewerRegion* regionp = LLWorld::getInstance()->addRegion(region_handle, sim_host, size_x, size_y);
 
 /*
     // send camera update to new region
@@ -2969,6 +2987,12 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
     if((gAgent.getID() != agent_id) || (gAgent.getSessionID() != session_id))
     {
 		return; // ignore messages not meant for us
+    }
+
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        LL_INFOS_ONCE("OpenSimPresence") << "AgentMovementComplete accepted for current identity; self avatar valid: "
+            << isAgentAvatarValid() << LL_ENDL;
     }
 
     // *TODO: check timestamp to make sure the movement compleation
@@ -3173,9 +3197,32 @@ void process_crossed_region(LLMessageSystem* msg, void**)
     std::string seedCap;
     msg->getStringFast(_PREHASH_RegionData, _PREHASH_SeedCapability, seedCap);
 
+    if (!msg->mCircuitInfo.findCircuit(sim_host))
+    {
+        msg->enableCircuit(sim_host, true);
+        tasiaEnableEventQuic(msg, sim_host, "RegionData");
+        // A fresh QUIC route must authenticate before CompleteAgentMovement.
+        if (msg->mCircuitInfo.findCircuit(sim_host)->isQuic())
+        {
+            msg->newMessageFast(_PREHASH_UseCircuitCode);
+            msg->nextBlockFast(_PREHASH_CircuitCode);
+            msg->addU32Fast(_PREHASH_Code, msg->getOurCircuitCode());
+            msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+            msg->addUUIDFast(_PREHASH_ID, gAgent.getID());
+            msg->sendReliable(sim_host);
+        }
+    }
     send_complete_agent_movement(sim_host);
 
-    LLViewerRegion* regionp = LLWorld::getInstance()->addRegion(region_handle, sim_host);
+    U32 size_x = 0, size_y = 0;
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        if (msg->getSize("RegionData", "RegionSizeX") > 0)
+            msg->getU32("RegionData", "RegionSizeX", size_x);
+        if (msg->getSize("RegionData", "RegionSizeY") > 0)
+            msg->getU32("RegionData", "RegionSizeY", size_y);
+    }
+    LLViewerRegion* regionp = LLWorld::getInstance()->addRegion(region_handle, sim_host, size_x, size_y);
 
     LL_DEBUGS("CrossingCaps") << "Calling setSeedCapability from process_crossed_region(). Seed cap == "
             << seedCap << LL_ENDL;
@@ -7004,4 +7051,3 @@ void LLOfferInfo::forceResponse(InventoryOfferResponse response)
     params.functor.function(boost::bind(&LLOfferInfo::inventory_offer_callback, this, _1, _2));
     LLNotifications::instance().forceResponse(params, response);
 }
-

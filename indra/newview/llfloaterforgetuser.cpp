@@ -231,8 +231,17 @@ void LLFloaterForgetUser::processForgetUser()
 }
 
 //static
+#include "lltasia_login_store.h"
+
 void LLFloaterForgetUser::forgetUser(const std::string &userid, const std::string &fav_id, const std::string &grid, bool delete_data)
 {
+#if LL_WINDOWS
+    if (!TasiaLoginStore::erase(gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "login_accounts.sqlite3"), grid, userid))
+    {
+        LL_WARNS("Credentials") << "Could not remove SQLite account; leaving the existing credential intact" << LL_ENDL;
+        return;
+    }
+#endif
     // Remove creds
     std::string grid_id = LLGridManager::getInstance()->getGridId(grid);
     if (grid_id.empty())
@@ -356,5 +365,3 @@ void LLFloaterForgetUser::loadGridToList(const std::string &grid, bool show_grid
         }
     }
 }
-
-

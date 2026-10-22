@@ -30,6 +30,7 @@
 #include "llagent.h"
 #include "llagentbenefits.h"
 #include "llavatarpropertiesprocessor.h"
+#include "llviewernetwork.h"
 
 const S32 MAX_AVATAR_PICKS = 10;
 
@@ -50,7 +51,16 @@ public:
 
     void sendAgentPicksRequest()
     {
-        LLAvatarPropertiesProcessor::getInstance()->sendAvatarPropertiesRequest(gAgent.getID());
+        LLAvatarPropertiesProcessor* processor = LLAvatarPropertiesProcessor::getInstance();
+        if (LLGridManager::getInstance()->isInOpenSim() &&
+            gAgent.getRegionCapability("AgentProfile").empty())
+        {
+            processor->sendAvatarPicksRequest(gAgent.getID());
+        }
+        else
+        {
+            processor->sendAvatarPropertiesRequest(gAgent.getID());
+        }
     }
 
     typedef std::function<void(LLAvatarData*)> server_respond_callback_t;
@@ -71,6 +81,17 @@ public:
                 {
                     mServerRespondCallback(picks);
                 }
+            }
+        }
+        else if (APT_PICKS == type)
+        {
+            const LLAvatarPicks* picks = static_cast<const LLAvatarPicks*>(data);
+            if (picks && gAgent.getID() == picks->target_id && mServerRespondCallback)
+            {
+                LLAvatarData avatar_data;
+                avatar_data.avatar_id = picks->target_id;
+                avatar_data.picks_list = picks->picks_list;
+                mServerRespondCallback(&avatar_data);
             }
         }
     }

@@ -1,19 +1,38 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel name="panel_login">
-	<layout_stack name="ui_stack">
-		<layout_panel name="ui_container">
-			<combo_box label="Użytkownik" tool_tip="Nazwa użytkownika wybrana przy rejestracji, np. bobsmith12 lub Steller Sunshine" name="username_combo" />
-			<line_editor name="password_edit" label="Hasło" />
-			<combo_box label="Moje ulubione miejsca" name="start_location_combo">
-				<combo_box.item label="Ostatnia lokalizacja" name="MyLastLocation" />
-				<combo_box.item label="Moje miejsce startu" name="MyHome" />
-			</combo_box>
-			<button label="Zaloguj" name="connect_btn" />
-			<check_box label="Pamiętaj mnie" name="remember_check" />
-			<text name="forgot_password_text">
-				Zapomniałem/am hasła
-			</text>
-			<combo_box label="Wybierz siatkę" name="server_combo" />
+	<panel.string name="password_show">Pokaż</panel.string>
+	<panel.string name="password_hide">Ukryj</panel.string>
+	<panel.string name="password_hash_only">Zapisano tylko nieodwracalny hash hasła. Wpisz hasło ponownie i zaznacz „Pamiętaj hasło”, aby zapisać jego zaszyfrowaną kopię z możliwością podglądu.</panel.string>
+	<panel.string name="accounts_save_failed">Nie udało się zapisać konta w szyfrowanym magazynie SQLite. Dotychczasowe dane logowania nie zostały usunięte.</panel.string>
+	<panel.string name="accounts_imported">Import kont zakończony. Istniejące konta nie zostały nadpisane. Wybierz odpowiedni grid, aby zobaczyć jego konta.</panel.string>
+	<panel.string name="accounts_import_failed">Import nieudany. Wybierz bazę Tasia login_accounts.sqlite3 zaszyfrowaną przez tego samego użytkownika Windows. Inne formaty viewerów i hasła innego użytkownika Windows nie są obsługiwane. Nie zaimportowano żadnych kont.</panel.string>
+	<layout_stack name="main_stack">
+		<layout_panel name="center_stage">
+			<layout_stack name="ui_stack">
+				<layout_panel name="ui_container">
+					<combo_box label="Użytkownik" tool_tip="Nazwa użytkownika wybrana przy rejestracji" name="username_combo" />
+					<line_editor name="password_edit" label="Hasło" />
+					<button name="toggle_password_visibility" label="Pokaż" />
+					<check_box name="remember_name" label="Pamiętaj użytkownika" />
+					<check_box name="remember_password" label="Pamiętaj hasło" />
+					<text name="location_text">Miejsce startowe</text>
+					<combo_box label="Moje ulubione miejsca" name="start_location_combo">
+						<combo_box.item label="Ostatnia lokalizacja" name="MyLastLocation" />
+						<combo_box.item label="Moje miejsce startu" name="MyHome" />
+					</combo_box>
+					<layout_stack name="login_stack">
+						<layout_panel name="grid_panel">
+							<combo_box label="Wybierz grid" name="server_combo" />
+						</layout_panel>
+						<layout_panel name="login_panel">
+							<button label="Zaloguj" name="connect_btn" />
+							<button label="Zarządzaj gridami..." name="manage_grids" />
+							<button label="Importuj konta (SQLite)..." name="import_login_accounts"
+							 tool_tip="Importuj bazę login_accounts.sqlite3 Tasia zaszyfrowaną przez ten sam profil Windows. Istniejące konta pozostaną bez zmian." />
+						</layout_panel>
+					</layout_stack>
+				</layout_panel>
+			</layout_stack>
 		</layout_panel>
 	</layout_stack>
 </panel>

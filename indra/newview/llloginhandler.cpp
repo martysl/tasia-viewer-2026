@@ -137,14 +137,12 @@ bool LLLoginHandler::handle(const LLSD& tokens,
 LLPointer<LLCredential> LLLoginHandler::initializeLoginInfo()
 {
     LLPointer<LLCredential> result = NULL;
-    // so try to load it from the UserLoginInfo
-    result = loadSavedUserLoginInfo();
+    // Try per-grid credential first (OpenSim and multiple grids support)
+    result = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
     if (result.isNull())
     {
-        // Since legacy viewer store login info one per grid, newer viewers have to
-        // reuse same information to remember last user and for compatibility,
-        // but otherwise login info is stored in separate map in gSecAPIHandler
-        result = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
+        // Fall back to legacy UserLoginInfo (single grid, backwards compatibility)
+        result = loadSavedUserLoginInfo();
     }
 
     return result;

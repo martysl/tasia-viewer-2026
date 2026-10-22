@@ -9,9 +9,15 @@
  width="802">
     <menu
      create_jump_keys="true"
-     label="S24"
+     label="Tasia"
      tear_off="true"
      name="File">
+        <menu_item_call label="Tasia Chat" name="TasiaChat">
+            <menu_item_call.on_click function="Tasia.Chat" />
+        </menu_item_call>
+        <menu_item_call label="Tasia Feed" name="TasiaFeedWeb">
+            <menu_item_call.on_click function="Tasia.Feed" />
+        </menu_item_call>
         <menu_item_call
          label="Preferences..."
          name="Preferences..."

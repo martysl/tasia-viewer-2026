@@ -54,6 +54,8 @@
 #include "llstatusbar.h"
 #include "llfloaterworldmap.h"
 #include "llviewermessage.h"
+#include "llviewerregion.h"
+#include "llworld.h"
 
 static LLPanelInjector<LLPanelGroupLandMoney> t_panel_group_money("panel_group_land_money");
 
@@ -503,8 +505,20 @@ void LLPanelGroupLandMoney::impl::processGroupLand(LLMessageSystem* msg)
                 land_type = LLTrans::getString("land_type_unknown");
             }
 
-            S32 region_x = ll_round(global_x) % REGION_WIDTH_UNITS;
-            S32 region_y = ll_round(global_y) % REGION_WIDTH_UNITS;
+            S32 region_x;
+            S32 region_y;
+            LLVector3d global_pos(global_x, global_y, 0.0);
+            if (LLViewerRegion* region = LLWorld::getInstance()->getRegionFromPosGlobal(global_pos))
+            {
+                const LLVector3 local_pos = region->getPosRegionFromGlobal(global_pos);
+                region_x = ll_round(local_pos.mV[VX]);
+                region_y = ll_round(local_pos.mV[VY]);
+            }
+            else
+            {
+                region_x = ll_round(global_x) % REGION_WIDTH_UNITS;
+                region_y = ll_round(global_y) % REGION_WIDTH_UNITS;
+            }
             std::string location = sim_name + llformat(" (%d, %d)", region_x, region_y);
             std::string area;
 
@@ -1649,4 +1663,3 @@ void LLPanelGroupLandMoney::setGroupID(const LLUUID& id)
 
     activate();
 }
-

@@ -22,9 +22,12 @@
    <string
     name="age_format"
     value="[AGE]" />
-   <string
-    name="partner_text"
-    value="Partner: [LINK]" />
+    <string
+     name="partner_text"
+     value="Partner: [LINK]" />
+    <string
+     name="partner_name_loading"
+     value="..." />
    <string
     name="CaptionTextAcctInfo">
 Account: [ACCTTYPE]
@@ -293,16 +296,46 @@ Account: [ACCTTYPE]
      name="account_layout"
      follows="all"
      layout="topleft"
-     height="33"
+     height="44"
      auto_resize="false"
      user_resize="false">
+      <panel
+       name="tasia_profile_badge_layout"
+       top="1"
+       left="5"
+       width="32"
+       height="32"
+       follows="left|top"
+       layout="topleft"
+       visible="false">
+        <icon
+         name="tasia_profile_badge_fallback"
+         image_name="Profile_Badge_Team"
+         tool_tip=""
+         top="0"
+         left="0"
+         width="32"
+         height="32"
+         follows="left|top"
+         layout="topleft"
+         visible="false"/>
+        <thumbnail
+         name="tasia_profile_badge_icon"
+         top="0"
+         left="0"
+         width="32"
+         height="32"
+         follows="left|top"
+         layout="topleft"
+         visible="false"/>
+      </panel>
       <text
        name="account_info"
        value="Account: (loading...)"
-       top="0"
+       top="1"
        left="5"
        right="-1"
-       height="16"
+       height="42"
        follows="left|top|right"
        layout="topleft"
        word_wrap="true"/>

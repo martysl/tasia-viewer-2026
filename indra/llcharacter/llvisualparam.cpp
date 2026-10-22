@@ -236,7 +236,10 @@ BOOL LLVisualParam::parseData(LLXmlTreeNode *node)
 //-----------------------------------------------------------------------------
 // setWeight()
 //-----------------------------------------------------------------------------
-void LLVisualParam::setWeight(F32 weight)
+// <FS:Ansariel> [Legacy Bake]
+//void LLVisualParam::setWeight(F32 weight)
+void LLVisualParam::setWeight(F32 weight, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
 	if (mIsAnimating)
 	{
@@ -254,19 +257,28 @@ void LLVisualParam::setWeight(F32 weight)
 	
 	if (mNext)
 	{
-		mNext->setWeight(weight);
+		// <FS:Ansariel> [Legacy Bake]
+		//mNext->setWeight(weight);
+		mNext->setWeight(weight, upload_bake);
+		// </FS:Ansariel> [Legacy Bake]
 	}
 }
 
 //-----------------------------------------------------------------------------
 // setAnimationTarget()
 //-----------------------------------------------------------------------------
-void LLVisualParam::setAnimationTarget(F32 target_value)
+// <FS:Ansariel> [Legacy Bake]
+//void LLVisualParam::setAnimationTarget(F32 target_value)
+void LLVisualParam::setAnimationTarget(F32 target_value, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
 	// don't animate dummy parameters
 	if (mIsDummy)
 	{
-		setWeight(target_value);
+		// <FS:Ansariel> [Legacy Bake]
+		//setWeight(target_value);
+		setWeight(target_value, upload_bake);
+		// </FS:Ansariel> [Legacy Bake]
 		mTargetWeight = mCurWeight;
 		return;
 	}
@@ -286,7 +298,10 @@ void LLVisualParam::setAnimationTarget(F32 target_value)
 
 	if (mNext)
 	{
-		mNext->setAnimationTarget(target_value);
+		// <FS:Ansariel> [Legacy Bake]
+		//mNext->setAnimationTarget(target_value);
+		mNext->setAnimationTarget(target_value, upload_bake);
+		// </FS:Ansariel> [Legacy Bake]
 	}
 }
 
@@ -311,24 +326,36 @@ void LLVisualParam::clearNextParam()
 //-----------------------------------------------------------------------------
 // animate()
 //-----------------------------------------------------------------------------
-void LLVisualParam::animate( F32 delta)
+// <FS:Ansariel> [Legacy Bake]
+//void LLVisualParam::animate( F32 delta)
+void LLVisualParam::animate( F32 delta, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
 	if (mIsAnimating)
 	{
 		F32 new_weight = ((mTargetWeight - mCurWeight) * delta) + mCurWeight;
-		setWeight(new_weight);
+		// <FS:Ansariel> [Legacy Bake]
+		//setWeight(new_weight);
+		setWeight(new_weight, upload_bake);
+		// </FS:Ansariel> [Legacy Bake]
 	}
 }
 
 //-----------------------------------------------------------------------------
 // stopAnimating()
 //-----------------------------------------------------------------------------
-void LLVisualParam::stopAnimating()
+// <FS:Ansariel> [Legacy Bake]
+//void LLVisualParam::stopAnimating()
+void LLVisualParam::stopAnimating(bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 { 
 	if (mIsAnimating && isTweakable())
 	{
         mIsAnimating = false;
-		setWeight(mTargetWeight);
+		// <FS:Ansariel> [Legacy Bake]
+		//setWeight(mTargetWeight);
+		setWeight(mTargetWeight, upload_bake);
+		// </FS:Ansariel> [Legacy Bake]
 	}
 }
 

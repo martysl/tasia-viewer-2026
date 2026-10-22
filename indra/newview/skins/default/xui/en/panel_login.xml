@@ -9,6 +9,12 @@
   bg_opaque_color="Black"
   background_opaque="true"
   width="1024">
+  <panel.string name="password_show">Show</panel.string>
+  <panel.string name="password_hide">Hide</panel.string>
+  <panel.string name="password_hash_only">Only a one-way password hash is stored for this account. Enter the password once and enable Remember password to save a recoverable, encrypted copy.</panel.string>
+  <panel.string name="accounts_save_failed">Could not save the account in the encrypted SQLite account store. Your existing credentials were not removed.</panel.string>
+  <panel.string name="accounts_imported">Account import completed. Existing accounts were not overwritten. Select the matching grid to see its accounts.</panel.string>
+  <panel.string name="accounts_import_failed">Import failed. Choose a Tasia login_accounts.sqlite3 database protected by the same Windows user. Other viewer formats and passwords encrypted by another Windows user are not supported. No accounts were imported.</panel.string>
   <panel.string
     name="forgot_password_url">
     https://tasiaviewer.work/account/request.php
@@ -70,13 +76,13 @@
          bg_opaque_color="PanelDark"
          background_opaque="true">
   <icon
-           height="77"
-           width="160"
+           height="108"
+           width="192"
            image_name="login_tasia_logo_horizontal"
            layout="topleft"
            follows="left|top"
-           left="70"
-           top="39"
+           left="54"
+           top="8"
     name="tasia_logo_small" />
           <icon
            left="40"
@@ -151,9 +157,20 @@
     select_on_focus="true"
            draw_focus_border="false"
     commit_on_focus_lost="false"
-           width="220" />
+           width="160" />
+  <button
+   follows="left|top"
+   font="SansSerifSmall"
+   label="Show"
+   layout="topleft"
+   left="205"
+   name="toggle_password_visibility"
+   top_delta="0"
+   width="55"
+   height="28" />
           <check_box
            control_name="RememberPassword"
+           left="40"
            follows="left|top"
            font="SansSerifMedium"
            label_text.text_color="White"
@@ -313,7 +330,10 @@
                <button name="manage_grids" label="Manage Grids..." left="40" top="70"
                 width="220" height="23" follows="left|top" layout="topleft">
                    <button.commit_callback function="Floater.Show" parameter="grid_manager" />
-               </button>
+                </button>
+                <button name="import_login_accounts" label="Import accounts (SQLite)..."
+                 tool_tip="Import a Tasia login_accounts.sqlite3 file protected by the same Windows user. Existing accounts are kept."
+                 left="40" top="103" width="220" height="23" follows="left|top" layout="topleft" />
   </layout_panel>
           </layout_stack>
         </layout_panel>
@@ -343,7 +363,7 @@
          background_opaque="true">
   <web_browser
     tab_stop="false"
-    trusted_content="true"
+    trusted_content="false"
     bg_opaque_color="Black_10"
     border_visible="false"
     follows="all"

@@ -3,9 +3,30 @@
     <floater.string name="choose_grid">Dodaj grid, a następnie wybierz go z listy na ekranie logowania.</floater.string>
     <floater.string name="added_grid">Grid zapisany. Wybierz go z listy na ekranie logowania.</floater.string>
     <floater.string name="removed_grid">Grid usunięty z zapisanej listy.</floater.string>
+    <floater.string name="saved_metadata">Adresy gridu zapisane.</floater.string>
+    <floater.string name="new_endpoint">Aby zmienić adres logowania, dodaj nowy grid. Zapisane hasła nie są przenoszone automatycznie.</floater.string>
+    <floater.string name="catalog_updated">Lista sprawdzona. Zachowano istniejące i usunięte gridy.</floater.string>
+    <floater.string name="catalog_failed">Lista wyłączona, zajęta, niedostępna lub nieprawidłowa. Twoje gridy pozostają bez zmian.</floater.string>
+    <floater.string name="discovering">Pobieram informacje o gridzie…</floater.string>
+    <floater.string name="discovered">Informacje gotowe do sprawdzenia. Kliknij Dodaj lub Zapisz adresy.</floater.string>
+    <floater.string name="discovery_failed">Informacje niedostępne lub nieprawidłowe. Zapisane adresy pozostają bez zmian.</floater.string>
     <text name="uri_label">URI logowania OpenSim (HTTP lub HTTPS, z portem, jeśli wymagany)</text>
     <line_editor name="grid_label" label="Nazwa gridu (opcjonalnie)" />
     <button name="add_grid" label="Dodaj" />
+    <button name="discover_grid" label="Pobierz dane" />
+    <button name="save_metadata" label="Zapisz adresy zaznaczonego gridu" />
+    <line_editor name="login_page" label="Adres strony logowania" />
+    <line_editor name="helper_uri" label="Adres usługi ekonomii / helper" />
+    <line_editor name="web_profile_url" label="Adres profilu WWW" />
+    <line_editor name="register" label="Adres rejestracji konta" />
+    <line_editor name="password" label="Adres resetowania hasła" />
+    <line_editor name="help" label="Adres pomocy" />
+    <line_editor name="about" label="Adres informacji o gridzie" />
+    <line_editor name="search" label="Adres wyszukiwarki" />
+    <line_editor name="gatekeeper" label="Adres gatekeepera Hypergrid" />
+    <check_box name="catalog_enabled" label="Zezwalaj na nowe gridy z serwera (bez zastępowania moich)" />
+    <button name="update_catalog" label="Sprawdź listę" />
+    <check_box name="identity_enabled" label="Pokaż tytuły / aliasy z konfiguracji Tasia według gridu i UUID" />
     <scroll_list name="grid_list">
         <scroll_list.columns name="label" label="Nazwa gridu" />
         <scroll_list.columns name="login_uri" label="URI logowania" />

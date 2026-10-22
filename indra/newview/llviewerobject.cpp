@@ -181,6 +181,10 @@ LLViewerObject *LLViewerObject::createObject(const LLUUID &id, const LLPCode pco
                 gAgentAvatarp = new LLVOAvatarSelf(id, pcode, regionp);
                 gAgentAvatarp->initInstance();
                 gAgentWearables.setAvatarObject(gAgentAvatarp);
+                if (LLGridManager::getInstance()->isInOpenSim())
+                {
+                    LL_INFOS_ONCE("OpenSimPresence") << "Self avatar object initialized from ObjectUpdate" << LL_ENDL;
+                }
             }
             else
             {
@@ -766,7 +770,7 @@ bool LLViewerObject::isReturnable()
     {
         //Get list of neighboring regions relative to this vo's region
         std::vector<LLViewerRegion*> uniqueRegions;
-        mRegionp->getNeighboringRegions( uniqueRegions );
+        mRegionp->getAdjacentRegions( uniqueRegions );
 
         //Build aabb's - for root and all children
         std::vector<PotentialReturnableObject> returnables;
@@ -1217,9 +1221,9 @@ U32 LLViewerObject::processUpdateMessage(LLMessageSystem *mesgsys,
     U16 valswizzle[4];
 #endif
     U16 *val;
-    const F32 size = LLWorld::getInstance()->getRegionWidthInMeters();
+    const F32 size = mRegionp->getWidth();
     const F32 MAX_HEIGHT = LLWorld::getInstance()->getRegionMaxHeight();
-    const F32 MIN_HEIGHT = LLWorld::getInstance()->getRegionMinHeight();
+    const F32 MIN_HEIGHT = -size;
     S32 length = 0;
     S32 count = 0;
     S32 this_update_precision = 32;     // in bits
@@ -5407,14 +5411,36 @@ void LLViewerObject::updateTEMaterialTextures(U8 te)
 
 void LLViewerObject::refreshBakeTexture()
 {
+    LLVOAvatar* avatar = getAvatar();
+    if (!avatar) return;
+
     for (int face_index = 0; face_index < getNumTEs(); face_index++)
     {
         LLTextureEntry* tex_entry = getTE(face_index);
-        if (tex_entry && LLAvatarAppearanceDefines::LLAvatarAppearanceDictionary::isBakedImageId(tex_entry->getID()))
+        if (!tex_entry) continue;
+
+        LLUUID image_id = tex_entry->getID();
+
+        // Preserve the original Second Life baked-texture magic-ID route.
+        // These IDs are sent by the simulator and are not the UUID of the
+        // currently assigned baked texture image.
+        if (LLAvatarAppearanceDefines::LLAvatarAppearanceDictionary::isBakedImageId(image_id))
         {
-            const LLUUID& image_id = tex_entry->getID();
-            LLViewerTexture* bakedTexture = getBakedTextureForMagicId(image_id);
-            changeTEImage(face_index, bakedTexture);
+            LLViewerTexture* baked_img = getBakedTextureForMagicId(image_id);
+            if (baked_img) changeTEImage(face_index, baked_img);
+            continue;
+        }
+
+        // Check if this texture ID matches any baked texture slot on the avatar.
+        // Also handle real baked texture UUIDs assigned by setNewBakedTexture.
+        for (U32 i = 0; i < avatar->getNumBakes(); i++)
+        {
+            LLViewerTexture* baked_img = avatar->getBakedTexture(i);
+            if (baked_img && image_id == baked_img->getID())
+            {
+                changeTEImage(face_index, baked_img);
+                break;
+            }
         }
     }
 }
@@ -7817,7 +7843,7 @@ bool LLViewerObject::isReachable()
         pending.pop();
 
         std::vector<LLViewerRegion*> neighbors;
-        current->getNeighboringRegions(neighbors);
+        current->getAdjacentRegions(neighbors);
 
         for (LLViewerRegion* neighbor : neighbors)
         {
@@ -7944,4 +7970,3 @@ public:
 
 LLHTTPRegistration<ObjectPhysicsProperties>
     gHTTPRegistrationObjectPhysicsProperties("/message/ObjectPhysicsProperties");
-

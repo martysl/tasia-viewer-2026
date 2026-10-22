@@ -31,6 +31,9 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_globe.h"
+#include "llviewernetwork.h"
+#include "lltasia_region_compat.h"
 
 #include "llfloaterworldmap.h"
 
@@ -69,9 +72,11 @@
 #include "llviewerstats.h"
 #include "llviewertexture.h"
 #include "llviewerwindow.h"
+#include "llworld.h"
 #include "llworldmap.h"
 #include "llworldmapmessage.h"
 #include "llworldmapview.h"
+#include "llspinctrl.h"
 #include "lluictrlfactory.h"
 #include "llappviewer.h"
 #include "llmapimagetype.h"
@@ -421,6 +426,12 @@ bool LLFloaterWorldMap::postBuild()
 {
     mMapView = dynamic_cast<LLWorldMapView*>(getChild<LLPanel>("objects_mapview"));
     mMapView->setPan(0, 0, true);
+    auto* globe = new LLTasiaGlobePanel([this](const LLVector3d& destination)
+    {
+        trackLocation(destination);
+    });
+    globe->setRect(mMapView->getRect());
+    mMapView->getParent()->addChildInBack(globe);
 
     mTeleportButton = getChild<LLButton>("Teleport");
     mShowDestinationButton = getChild<LLButton>("Show Destination");
@@ -440,7 +451,7 @@ bool LLFloaterWorldMap::postBuild()
 
     mTeleportCoordSpinX = getChild<LLUICtrl>("teleport_coordinate_x");
     mTeleportCoordSpinY = getChild<LLUICtrl>("teleport_coordinate_y");
-    mTeleportCoordSpinZ = getChild<LLUICtrl>("teleport_coordinate_z");
+    mTeleportCoordSpinZ = getChild<LLSpinCtrl>("teleport_coordinate_z");
 
     mFriendCombo = getChild<LLComboBox>("friend combo");
     mFriendCombo->selectFirstItem();
@@ -523,6 +534,20 @@ void LLFloaterWorldMap::onOpen(const LLSD& key)
     mIsClosing = false;
 
     mMapView->clearLastClick();
+    LLViewerRegion* regionp = gAgent.getRegion();
+    const bool opensim = LLGridManager::getInstance()->isInOpenSim();
+    mTeleportCoordSpinZ->setMinValue(LLTasiaRegion::safeMinSimHeight(
+        opensim, regionp ? regionp->getMinSimHeight() : 0.f));
+    if (gSavedSettings.getBOOL("TasiaMapGlobe") && gAgent.getRegion())
+    {
+        // Request a bounded nearby neighborhood, not the entire grid. Searches
+        // still use the original named-region request path and add globe markers.
+        const auto origin = gAgent.getRegion()->getOriginGlobal();
+        const S32 x = llclamp(static_cast<S32>(origin.mdV[0] / 256), 0, 65535);
+        const S32 y = llclamp(static_cast<S32>(origin.mdV[1] / 256), 0, 65535);
+        LLWorldMapMessage::getInstance()->sendMapBlockRequest(
+            llmax(0, x-8), llmax(0, y-8), llmin(65535, x+8), llmin(65535, y+8));
+    }
 
     {
         // reset pan on show, so it centers on you again
@@ -609,6 +634,16 @@ void LLFloaterWorldMap::reshape( S32 width, S32 height, bool called_from_parent 
 // virtual
 void LLFloaterWorldMap::draw()
 {
+    const bool globe_view = gSavedSettings.getBOOL("TasiaMapGlobe");
+    mMapView->setVisible(!globe_view);
+    if (auto* globe = findChild<LLTasiaGlobePanel>("tasia_globe"))
+    {
+        globe->setRect(mMapView->getRect());
+        globe->setVisible(globe_view);
+    }
+    LLStringUtil::format_map_t title_args;
+    title_args["[GRID]"] = LLGridManager::getInstance()->getGridLabel();
+    getChild<LLTextBox>("tasia_map_banner")->setText(getString("tasia_travel", title_args));
     static LLUIColor map_track_color = LLUIColorTable::instance().getColor("MapTrackColor", LLColor4::white);
     static LLUIColor map_track_disabled_color = LLUIColorTable::instance().getColor("MapTrackDisabledColor", LLColor4::white);
 
@@ -920,7 +955,13 @@ void LLFloaterWorldMap::updateTeleportCoordsDisplay( const LLVector3d& pos )
     // convert global specified position to a local one
     F32 region_local_x = (F32)fmod( pos.mdV[VX], (F64)REGION_WIDTH_METERS );
     F32 region_local_y = (F32)fmod( pos.mdV[VY], (F64)REGION_WIDTH_METERS );
-    F32 region_local_z = (F32)llclamp( pos.mdV[VZ], 0.0, (F64)REGION_HEIGHT_METERS );
+    const bool opensim = LLGridManager::getInstance()->isInOpenSim();
+    LLViewerRegion* regionp = LLWorld::getInstance()->getRegionFromPosGlobal(pos);
+    const F32 min_sim_height = regionp ? regionp->getMinSimHeight() : 0.f;
+    mTeleportCoordSpinZ->setMinValue(
+        LLTasiaRegion::safeMinSimHeight(opensim, min_sim_height));
+    F32 region_local_z = LLTasiaRegion::clampWorldMapTeleportZ(
+        opensim, min_sim_height, static_cast<F32>(pos.mdV[VZ]));
 
     // write in the values
     mTeleportCoordSpinX->setValue(region_local_x);
@@ -1009,7 +1050,10 @@ void LLFloaterWorldMap::updateLocation()
 void LLFloaterWorldMap::trackURL(const std::string& region_name, S32 x_coord, S32 y_coord, S32 z_coord)
 {
     LLSimInfo* sim_info = LLWorldMap::getInstance()->simInfoFromName(region_name);
-    z_coord = llclamp(z_coord, 0, 4096);
+    z_coord = static_cast<S32>(LLTasiaRegion::clampWorldMapTeleportZ(
+        LLGridManager::getInstance()->isInOpenSim(),
+        gAgent.getRegion() ? gAgent.getRegion()->getMinSimHeight() : 0.f,
+        static_cast<F32>(z_coord)));
     if (sim_info)
     {
         LLVector3 local_pos;

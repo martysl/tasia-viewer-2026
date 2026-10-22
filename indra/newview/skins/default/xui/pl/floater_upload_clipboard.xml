@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="upload_clipboard" title="Tasia — obraz ze schowka">
+ <text name="instructions">Wklej skopiowany obraz lub zrzut ekranu, a następnie sprawdź i potwierdź wysłanie w podglądzie.</text>
+ <text name="drop_hint">Naciśnij Ctrl+V tutaj lub kliknij Wklej. Natywny schowek Windows, bez dodatkowych programów.</text>
+ <button name="paste_btn" label="Wklej" />
+ <button name="close_btn" label="Zamknij" />
+ <text name="status_text">Gotowe.</text>
+</floater>

@@ -86,6 +86,7 @@ public:
     std::shared_ptr<LLQuicConfiguration> configuration() const noexcept { return mHandle.get_deleter().config; }
 
 private:
+    void enqueueFrame(std::vector<uint8_t> frame);
     // The deleter pins the parent configuration (which transitively pins the
     // registration and api). Because the lifetime pin lives inside the
     // unique_ptr's deleter, ConnectionClose is guaranteed safe regardless of
@@ -103,6 +104,8 @@ private:
     std::atomic<uint64_t>                                             mLastAppErrorCode      { 0 };
     std::atomic<bool>                                                 mClosedByPeer          { false };
     std::atomic<bool>                                                 mReachedConnected      { false };
+    std::atomic<bool>                                                 mClosing               { false };
+    size_t                                                           mRxBytes = 0;
     std::string                                                       mHost;
     std::mutex                                                        mRxMutex;
     std::deque<std::vector<uint8_t>>                                  mRxQueue;

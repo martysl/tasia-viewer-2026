@@ -27,6 +27,8 @@
 #ifndef LL_LLPANELLOGIN_H
 #define LL_LLPANELLOGIN_H
 
+#include <vector>
+
 #include "llpanel.h"
 #include "llpointer.h"          // LLPointer<>
 #include "llmediactrl.h"    // LLMediaCtrlObserver
@@ -80,6 +82,7 @@ public:
     /*virtual*/ void handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event);
     static void updateServer();  // update the combo box, change the login page to the new server, clear the combo
     static void refreshGridList(); // refresh entries without changing credentials or the selected grid
+    static void saveLoginAccount(LLPointer<LLCredential> credential, bool remember_user, bool remember_password);
 
     /// to be called from LLStartUp::setStartSLURL
     static void onUpdateStartSLURL(const LLSLURL& new_start_slurl);
@@ -109,6 +112,9 @@ private:
     static void onRememberUserCheck(void*);
     static void onRememberPasswordCheck(void*);
     static void onPassKey(LLLineEditor* caller, void* user_data);
+    static void onTogglePasswordVisibility(void*);
+    static void onImportLoginAccounts(const std::vector<std::string>& filenames);
+    void hidePassword();
 
     bool onUpdateNotification(const LLSD& notify);
 
@@ -124,6 +130,8 @@ private:
 
     bool            mPasswordModified;
     bool            mShowFavorites;
+    bool            mPasswordVisible;
+    LLTimer         mPasswordRevealTimer;
 
     static LLPanelLogin* sInstance;
     static bool     sCapslockDidNotification;

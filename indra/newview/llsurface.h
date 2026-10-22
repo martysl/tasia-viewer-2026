@@ -34,6 +34,7 @@
 #include "llvowater.h"
 #include "llpatchvertexarray.h"
 #include "llviewertexture.h"
+#include <vector>
 
 class LLTimer;
 class LLUUID;
@@ -74,6 +75,10 @@ public:
     void setOriginGlobal(const LLVector3d &origin_global);
 
     void connectNeighbor(LLSurface *neighborp, U32 direction);
+    void connectNeighborEdge(LLSurface *neighborp, U32 direction,
+                             U32 this_first_patch, U32 neighbor_first_patch,
+                             U32 patch_count);
+    void connectNeighborCorner(LLSurface *neighborp, U32 direction);
     void disconnectNeighbor(LLSurface *neighborp);
     void disconnectAllNeighbors();
 
@@ -149,7 +154,7 @@ public:
     S32 mNumberOfPatches;           // Total number of patches
 
 
-    // Each surface points at 8 neighbors (or NULL)
+    // Legacy directional representative used by pathfinding (one per side).
     // +---+---+---+
     // |NW | N | NE|
     // +---+---+---+
@@ -157,13 +162,20 @@ public:
     // +---+---+---+
     // |SW | S | SE|
     // +---+---+---+
-    LLSurface *mNeighbors[8]; // Adjacent patches
+    LLSurface *mNeighbors[8];
 
     U32 mType;              // Useful for identifying derived classes
 
     F32 mDetailTextureScale;    //  Number of times to repeat detail texture across this surface
 
 private:
+    struct NeighborConnection
+    {
+        LLSurface* mSurface;
+        U32 mDirection;
+    };
+
+    void trackNeighbor(LLSurface* neighborp, U32 direction);
     void createSTexture();
     void initTextures();
 
@@ -172,6 +184,7 @@ private:
 
     LLVector3d  mOriginGlobal;      // In absolute frame
     LLSurfacePatch *mPatchList;     // Array of all patches
+    std::vector<NeighborConnection> mNeighborConnections;
 
     // Array of grid data, mGridsPerEdge * mGridsPerEdge
     F32 *mSurfaceZ;

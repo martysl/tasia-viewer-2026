@@ -47,6 +47,7 @@
 #include "llslurl.h"
 #include "lltexturectrl.h"
 #include "llviewerregion.h"
+#include "llworld.h"
 #include "llhttpconstants.h"
 
 LLPanelPlaceInfo::LLPanelPlaceInfo()
@@ -148,11 +149,43 @@ void LLPanelPlaceInfo::displayParcelInfo(const LLUUID& region_id,
     if (!region)
         return;
 
-    mPosRegion.setVec((F32)fmod(pos_global.mdV[VX], (F64)REGION_WIDTH_METERS),
-                      (F32)fmod(pos_global.mdV[VY], (F64)REGION_WIDTH_METERS),
-                      (F32)pos_global.mdV[VZ]);
+    if (LLViewerRegion* target_region = LLWorld::getInstance()->getRegionFromPosGlobal(pos_global))
+    {
+        mPosRegion = target_region->getPosRegionFromGlobal(pos_global);
+    }
+    else
+    {
+        mPosRegion.setVec((F32)fmod(pos_global.mdV[VX], (F64)REGION_WIDTH_METERS),
+                          (F32)fmod(pos_global.mdV[VY], (F64)REGION_WIDTH_METERS),
+                          (F32)pos_global.mdV[VZ]);
+    }
 
     LLSD body;
+    std::string url = region->getCapability("RemoteParcelRequest");
+    if (!url.empty())
+    {
+        LLRemoteParcelInfoProcessor::getInstance()->requestRegionParcelInfo(url,
+            region_id, mPosRegion, pos_global, getObserverHandle());
+    }
+    else
+    {
+        mDescEditor->setText(getString("server_update_text"));
+    }
+}
+
+void LLPanelPlaceInfo::displayParcelInfo(const LLUUID& region_id,
+                                         const U64 region_handle,
+                                         const LLVector3d& pos_global)
+{
+    LLViewerRegion* region = gAgent.getRegion();
+    if (!region)
+        return;
+
+    // A SLURL's region origin is authoritative for variable-sized regions;
+    // modulo 256 wraps local positions once X or Y passes the first 256m.
+    const LLVector3d region_origin = from_region_handle(region_handle);
+    mPosRegion.setVec(LLVector3(pos_global - region_origin));
+
     std::string url = region->getCapability("RemoteParcelRequest");
     if (!url.empty())
     {

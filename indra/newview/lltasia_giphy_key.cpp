@@ -50,7 +50,9 @@ std::string getConfiguredAPIKey()
         return key;
     }
 
-    return getEmbeddedAPIKey();
+    // No build-time credential in distributable binaries.
+    auto env = LLStringUtil::getoptenv("TASIA_GIPHY_KEY");
+    return env ? *env : std::string();
 }
 
 bool hasConfiguredAPIKey()

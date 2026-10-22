@@ -60,11 +60,12 @@
           top="0"
           height="105">
           <icon
-            height="94"
-            image_name="login_sl_logo"
-            left="0"
+            height="90"
+            width="160"
+            image_name="login_tasia_logo"
+            left="32"
             name="sl_logo"
-            top="0" />
+            top="7" />
         </layout_panel>
         <layout_panel
           height="100"

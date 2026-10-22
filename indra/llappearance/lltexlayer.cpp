@@ -42,6 +42,7 @@
 #include "llvertexbuffer.h"
 #include "llviewervisualparam.h"
 #include "llfasttimer.h"
+#include "llbakereadback.h"
 
 //#include "../tools/imdebug/imdebug.h"
 
@@ -1412,6 +1413,16 @@ void LLTexLayer::renderMorphMasks(S32 x, S32 y, S32 width, S32 height, const LLC
 
             if (!skip_readback)
             {
+#ifdef DX_RENDER
+                std::vector<std::uint8_t> rgba;
+                if (!LLBake::readColor(bound_target, x, y, width, height, rgba) ||
+                    !LLBake::copyAlpha(rgba.data(), rgba.size(), alpha_data, mem_size, width, height))
+                {
+                    ll_aligned_free_32(alpha_data);
+                    LL_WARNS_ONCE("LocalBake") << "DX11 morph-mask readback failed; mask not cached" << LL_ENDL;
+                    return;
+                }
+#else
                 if (gGLManager.mIsIntel)
                 { // work-around for broken intel drivers which cannot do glReadPixels on an RGBA FBO
                   // returning only the alpha portion without locking up downstream
@@ -1472,6 +1483,7 @@ void LLTexLayer::renderMorphMasks(S32 x, S32 y, S32 width, S32 height, const LLC
                     }
                     ll_aligned_free_32(temp_data);
                 }
+#endif
             }
             else
             {
@@ -1920,4 +1932,3 @@ bool LLTexLayerStaticImageList::loadImageRaw(const std::string& file_name, LLIma
 
     return success;
 }
-

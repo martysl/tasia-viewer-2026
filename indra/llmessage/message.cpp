@@ -25,6 +25,8 @@
  */
 
 #include "linden_common.h"
+#include "llquicconnection.h"
+#include "llquicglobal.h"
 
 #include "message.h"
 
@@ -487,6 +489,7 @@ LLCircuitData* LLMessageSystem::findCircuit(const LLHost& host,
 // mMessageReader has been set to mTemplateMessageReader.
 bool LLMessageSystem::checkMessages(LockMessageChecker&, S64 frame_count)
 {
+	mCircuitInfo.serviceQuic();
 	// Pump
 	bool    valid_packet = false;
 
@@ -514,13 +517,27 @@ bool LLMessageSystem::checkMessages(LockMessageChecker&, S64 frame_count)
 
 		U8* buffer = mTrueReceiveBuffer;
 
-		mTrueReceiveSize = mPacketRing.receivePacket(mSocket, (char*)mTrueReceiveBuffer);
+		// Alternate preferred transports, and circuits within QUIC, so a busy
+		// neighbor cannot starve UDP ACKs or the current region's stream.
+		LLHost quic_sender;
+		S32 quic_size = 0;
+		mReceivedViaQuic = mPreferQuicReceive &&
+			mCircuitInfo.drainQuicPacket(mTrueReceiveBuffer, MAX_BUFFER_SIZE, quic_size, quic_sender);
+		mTrueReceiveSize = mReceivedViaQuic ? quic_size :
+			mPacketRing.receivePacket(mSocket, (char*)mTrueReceiveBuffer);
+		if (!mReceivedViaQuic && mTrueReceiveSize == 0)
+		{
+			mReceivedViaQuic = mCircuitInfo.drainQuicPacket(mTrueReceiveBuffer,
+				MAX_BUFFER_SIZE, quic_size, quic_sender);
+			if (mReceivedViaQuic) mTrueReceiveSize = quic_size;
+		}
+		mPreferQuicReceive = !mReceivedViaQuic;
 		// If you want to dump all received packets into SecondLife.log, uncomment this
 		//dumpPacketToLog();
 
 		receive_size = mTrueReceiveSize;
-		mLastSender = mPacketRing.getLastSender();
-		mLastReceivingIF = mPacketRing.getLastReceivingInterface();
+		mLastSender = mReceivedViaQuic ? quic_sender : mPacketRing.getLastSender();
+		mLastReceivingIF = mReceivedViaQuic ? LLHost() : mPacketRing.getLastReceivingInterface();
 
 		if (receive_size < (S32)LL_MINIMUM_VALID_PACKET_SIZE)
 		{
@@ -1314,7 +1331,15 @@ S32 LLMessageSystem::sendMessage(const LLHost& host)
 	}
 
 	bool success;
-	success = mPacketRing.sendPacket(mSocket, (char*)buf_ptr, buffer_length, host);
+	if (cdp->isQuic())
+	{
+		success = cdp->sendQuicPacket(buf_ptr, static_cast<S32>(buffer_length), mSendReliable,
+			mMessageBuilder->getMessageName() == _PREHASH_UseCircuitCode);
+	}
+	else
+	{
+		success = mPacketRing.sendPacket(mSocket, (char*)buf_ptr, buffer_length, host);
+	}
 
 	if (!success)
 	{
@@ -1556,6 +1581,73 @@ bool    LLMessageSystem::getCircuitTrust(const LLHost& host)
 
 // Activate a circuit, and set its trust level (true if trusted,
 // false if not).
+const LLSD* LLMessageSystem::getCurrentLLSDMessageBody() const
+{
+    return mMessageReader == mLLSDMessageReader ? &mLLSDMessageReader->getMessage() : nullptr;
+}
+
+bool LLMessageSystem::enableQuicCircuit(const LLHost& host, const std::string& endpoint,
+    U16 port, bool trusted, S32 retries)
+{
+    // Never initialize implicitly: startup owns the opt-in and certificate policy.
+    if (!host.isOk() || endpoint.empty() || endpoint.size() > 253 || port == 0 ||
+        endpoint.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-:") != std::string::npos ||
+        !LLQuicGlobal::instance().isInitialized()) return false;
+    auto* circuit = mCircuitInfo.findCircuit(host);
+    if (circuit && circuit->isQuic()) return true;
+    // Never switch an established UDP session mid-flight merely because a later
+    // event advertises QUIC. Negotiation is only at a fresh circuit bootstrap.
+    if (circuit && circuit->getPacketsOut() > 0) return false;
+    auto config = LLQuicGlobal::instance().getClientConfiguration();
+    if (!config) return false;
+    // Preserve the legacy retry preference for synchronous connection-start
+    // failures. The TLS/QUIC handshake itself remains asynchronous and is
+    // handled by the existing readiness timeout/fallback state machine.
+    const S32 attempts = retries < 1 ? 1 : (retries > 10 ? 10 : retries);
+    std::shared_ptr<LLQuicConnection> connection;
+    for (S32 attempt = 1; attempt <= attempts; ++attempt)
+    {
+        auto candidate = std::make_shared<LLQuicConnection>(config);
+        if (candidate->connect(endpoint, port))
+        {
+            connection = std::move(candidate);
+            break;
+        }
+        LL_WARNS("Quic") << "QUIC connection start attempt " << attempt << "/"
+                         << attempts << " to " << endpoint << ":" << port
+                         << " failed: " << candidate->describeFailure() << LL_ENDL;
+    }
+    if (!connection) return false;
+    enableCircuit(host, trusted);
+    circuit = mCircuitInfo.findCircuit(host);
+    circuit->startQuic(std::move(connection));
+    LL_INFOS("Quic") << "Negotiating simulator QUIC for " << host << LL_ENDL;
+    return true;
+}
+
+bool LLMessageSystem::isCircuitQuicReady(const LLHost& host) const
+{
+    auto* circuit = mCircuitInfo.findCircuit(host);
+    return circuit && circuit->isQuicReady();
+}
+
+void LLMessageSystem::fallbackQuicCircuits()
+{
+    LLCircuit::circuit_data_map::iterator first, end;
+    mCircuitInfo.getCircuitRange(LLHost(), first, end);
+    for (; first != end; ++first) first->second->fallbackQuic();
+}
+
+bool LLMessageSystem::markQuicReady(const LLHost& host)
+{
+    // A UDP GenericMessage must never promote a TLS session to active.
+    if (!mReceivedViaQuic || host != mLastSender) return false;
+    auto* circuit = mCircuitInfo.findCircuit(host);
+    if (!circuit || !circuit->isQuic()) return false;
+    circuit->markQuicReady();
+    return circuit->isQuicReady();
+}
+
 void LLMessageSystem::enableCircuit(const LLHost& host, bool trusted)
 {
 	LLCircuitData* cdp = mCircuitInfo.findCircuit(host);
@@ -3905,4 +3997,3 @@ void LLMessageSystem::sendUntrustedSimulatorMessageCoro(std::string url, std::st
 		callback((status) ? LL_ERR_NOERR : LL_ERR_TCP_TIMEOUT);
 	}
 }
-

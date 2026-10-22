@@ -248,8 +248,8 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL&
         return;
     }
 
-    LLVector3d global_pos = from_region_handle(region_handle);
-    global_pos += LLVector3d(slurl.getPosition());
+    const LLVector3d region_origin = from_region_handle(region_handle);
+    LLVector3d global_pos = region_origin + LLVector3d(slurl.getPosition());
 
     if (teleport)
     {
@@ -267,6 +267,8 @@ void LLURLDispatcherImpl::regionHandleCallback(U64 region_handle, const LLSLURL&
         key["x"] = global_pos.mdV[VX];
         key["y"] = global_pos.mdV[VY];
         key["z"] = global_pos.mdV[VZ];
+        key["ox"] = region_origin.mdV[VX];
+        key["oy"] = region_origin.mdV[VY];
 
         LLFloaterSidePanelContainer::showPanel("places", key);
     }
@@ -421,5 +423,4 @@ bool LLURLDispatcher::dispatchFromTextEditor(const std::string& slurl, bool trus
     LLMediaCtrl* web = NULL;
     return LLURLDispatcherImpl::dispatch(LLSLURL(slurl), LLCommandHandler::NAV_TYPE_CLICKED, web, trusted_content);
 }
-
 

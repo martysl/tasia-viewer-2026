@@ -25,6 +25,8 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "llviewernetwork.h"
+#include "lltasia_asset_caps.h"
 
 #include "llapr.h"
 #include "apr_portable.h"
@@ -1415,9 +1417,10 @@ U8* LLMeshRepoThread::getDiskCacheBuffer(S32 size)
 }
 
 // Mutex:  must be holding mMutex when called
-void LLMeshRepoThread::setGetMeshCap(const std::string & mesh_cap)
+void LLMeshRepoThread::setGetMeshCap(const std::string & mesh_cap, bool opensim)
 {
-    mGetMeshCapability = mesh_cap;
+    if (mGetMeshCapability != mesh_cap) mGetMeshCapability = mesh_cap;
+    mMeshCapabilityIsOpenSim = opensim;
 }
 
 
@@ -1428,18 +1431,19 @@ void LLMeshRepoThread::setGetMeshCap(const std::string & mesh_cap)
 void LLMeshRepoThread::constructUrl(LLUUID mesh_id, std::string * url)
 {
     std::string res_url;
+    bool opensim = false;
 
     if (gAgent.getRegion())
     {
         {
             LLMutexLock lock(mMutex);
             res_url = mGetMeshCapability;
+            opensim = mMeshCapabilityIsOpenSim;
         }
 
         if (!res_url.empty())
         {
-            res_url += "/?mesh_id=";
-            res_url += mesh_id.asString().c_str();
+            res_url = TasiaAssetCaps::assetURL(res_url, "mesh", mesh_id.asString(), opensim);
         }
         else
         {
@@ -4601,21 +4605,14 @@ void LLMeshRepository::notifyLoadedMeshes()
         }
         hold_offs = 0;
 
-        if (gAgent.getRegion())
-        {
-            // Update capability urls
-            static std::string region_name("never name a region this");
-
-            if (gAgent.getRegion()->getName() != region_name && gAgent.getRegion()->capabilitiesReceived())
-            {
-                region_name = gAgent.getRegion()->getName();
-                const std::string mesh_cap(gAgent.getRegion()->getViewerAssetUrl());
-                mThread->setGetMeshCap(mesh_cap);
-                LL_DEBUGS(LOG_MESH) << "Retrieving caps for region '" << region_name
-                                    << "', ViewerAsset cap:  " << mesh_cap
-                                    << LL_ENDL;
-            }
-        }
+        // Region names are not identities: two grids/regions can share one,
+        // and a relog or seed renewal replaces capabilities without renaming it.
+        std::string mesh_cap;
+        const bool opensim = LLGridManager::getInstance()->isInOpenSim();
+        if (auto* region = gAgent.getRegion(); region && region->capabilitiesReceived())
+            mesh_cap = TasiaAssetCaps::mesh(region->getViewerAssetUrl(),
+                region->getCapability("GetMesh2"), region->getCapability("GetMesh"), opensim);
+        mThread->setGetMeshCap(mesh_cap, opensim);
 
         //popup queued error messages from background threads
         while (!mUploadErrorQ.empty())

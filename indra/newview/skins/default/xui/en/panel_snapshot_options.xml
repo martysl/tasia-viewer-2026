@@ -73,6 +73,57 @@
     <button.commit_callback
      function="Snapshot.SaveToEmail" />
   </button>
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Snapshot_Upload"
+   image_overlay_alignment="left"
+   image_top_pad="0"
+   imgoverlay_label_space="10"
+   label="Upload to TasiaFeed"
+   layout="topleft"
+   left_delta="0"
+   name="upload_to_tasiafeed_btn"
+   top_pad="5">
+    <button.commit_callback
+     function="Snapshot.UploadToTasiaFeed" />
+  </button>
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Snapshot_Upload"
+   image_overlay_alignment="left"
+   image_top_pad="0"
+   imgoverlay_label_space="10"
+   label="Upload to PrimFeed"
+   layout="topleft"
+   left_delta="0"
+   name="upload_to_primfeed_btn"
+   top_pad="5">
+    <button.commit_callback
+     function="Snapshot.UploadToPrimFeed" />
+  </button>
+  <button
+   follows="left|top"
+   font="SansSerif"
+   halign="left"
+   height="22"
+   image_overlay="Snapshot_Upload"
+   image_overlay_alignment="left"
+   image_top_pad="0"
+   imgoverlay_label_space="10"
+   label="Upload to Flickr"
+   layout="topleft"
+   left_delta="0"
+   name="upload_to_flickr_btn"
+   top_pad="5">
+    <button.commit_callback
+     function="Snapshot.UploadToFlickr" />
+  </button>
   <text
    follows="top|left"
    font="SansSerif"

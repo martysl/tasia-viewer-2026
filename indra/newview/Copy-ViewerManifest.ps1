@@ -79,6 +79,9 @@ if (Test-Path $appSettingsSource) {
     # Copy critical XML/INI files
     $criticalFiles = @(
         "settings.xml",
+        "commands.xml",
+        "toolbars.xml",
+        "tasia_default_grids.xml",
         "settings_files.xml", 
         "settings_per_account.xml",
         "cmd_line.xml",
@@ -97,6 +100,16 @@ if (Test-Path $appSettingsSource) {
 }
 
 #endregion
+
+# Web applications and upload floaters must be present in direct build runs too.
+$skinsSource = Join-Path $SourceDir 'skins'
+if (!(Test-Path $skinsSource -PathType Container)) { throw 'Viewer skins directory missing.' }
+$skinsDestination = Join-Path $destDir 'skins'
+if (!(Test-Path $skinsDestination)) {
+    Copy-Item $skinsSource $destDir -Recurse
+} else {
+    Get-ChildItem $skinsSource | Copy-Item -Destination $skinsDestination -Recurse -Force
+}
 
 # Touch completion file
 if ($Touch) {

@@ -1,5 +1,18 @@
 
-# Kirstens Viewer — README
+# Tasia Viewer DX — README
+
+**Advanced Multiverse Viewer by Tasia and Marty**
+
+Current feature preparation and verification: [plan.md](plan.md).
+This fork preserves upstream legal attribution and historical build notes below.
+The Windows product executable is `TasiaViewer.exe`; the legacy CMake target
+remains `Kirstens-S24` for build automation compatibility. Existing Tasia account
+and settings directories are not renamed.
+
+For the prepared Windows package workflow, stage the pinned converter with
+`scripts/Stage-TasiaFFmpeg.ps1`, configure `TASIA_FFMPEG_DIR` if needed, then use
+`scripts/Package-TasiaViewer.ps1` after compilation. The scripts do not constitute
+evidence of a successful Windows build or runtime test.
 
 ---
 
@@ -16,7 +29,7 @@
 
 ## 🖥️ About This Viewer
 
-Kirstens Viewer is a maintained fork of the official Second Life Viewer. It prioritizes fidelity, performance, and compatibility with modern Windows systems.
+Tasia Viewer DX is a Second Life and OpenSim viewer based on Kirstens Viewer and the official Second Life Viewer. It preserves the native DX11 renderer while adding Tasia integrations.
 
 - **Optimized** for modern multi-core CPUs (AVX2); target audience: high-end PCs & technical users
 - **Modern C++**: replacing legacy code
@@ -32,14 +45,14 @@ Kirstens Viewer is a maintained fork of the official Second Life Viewer. It prio
 
 > **Not affiliated with Linden Lab.** Users must adhere to the [Second Life Terms of Service](http://secondlife.com/corporate/tos.php).
 
-> *This software is provided "as is" with no warranty. You assume all risk of use and agree that the Kirstens Viewer team is not liable for any loss or disruption caused by use of this software.*
+> *This software is provided "as is" with no warranty. You assume all risk of use. See LICENSE and the retained upstream copyright notices.*
 
 ---
 
 
 ## 🔒 Privacy Features
 
-Kirstens Viewer respects user privacy and disables or limits the following components by default:
+Tasia Viewer respects user privacy and retains the upstream defaults limiting the following components:
 
 - 🚫 Background Updater
 - 🚫 Excessive Metrics Collection

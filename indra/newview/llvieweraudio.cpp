@@ -90,6 +90,9 @@ void LLViewerAudio::registerIdleListener()
 
 void LLViewerAudio::startInternetStreamWithAutoFade(const std::string &streamURI)
 {
+    // Stops, crossings and delayed permission replies must not undo a user's
+    // explicit Stop. Empty URI still allows ordinary cleanup/teleport fades.
+    if (mParcelAudioStoppedByUser && !streamURI.empty()) return;
     LL_DEBUGS("AudioEngine") << "Start with outo fade: " << streamURI << LL_ENDL;
 
 	// S24: LLFloaterMusicPlayer owns the stream slot right now - every

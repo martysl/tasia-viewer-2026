@@ -42,6 +42,7 @@
 #include "llui.h"               // LLUI::getLanguage()
 #include "message.h"
 #include "llappviewer.h"
+#include "llviewernetwork.h"
 
 LLAvatarPropertiesProcessor::LLAvatarPropertiesProcessor()
 {
@@ -121,10 +122,19 @@ void LLAvatarPropertiesProcessor::sendRequest(const LLUUID& avatar_id, EAvatarPr
         std::string cap_url = gAgent.getRegionCapability("AgentProfile");
         if (!cap_url.empty())
         {
+            LL_INFOS("AvatarProperties") << "Profile request route=AgentProfile-HTTP target="
+                << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
             initAgentProfileCapRequest(avatar_id, cap_url, type);
         }
         else
         {
+            if (LLGridManager::getInstance()->isInOpenSim())
+            {
+                LL_INFOS("AvatarProperties") << "Profile request route=legacy-UDP reason=AgentProfile-cap-absent target="
+                    << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
+                sendAvatarLegacyPropertiesRequest(avatar_id);
+                return;
+            }
             // Don't sent UDP request for APT_PROPERTIES
             LL_WARNS() << "No cap_url for APT_PROPERTIES, request for " << avatar_id << " is not sent" << LL_ENDL;
         }
@@ -144,8 +154,26 @@ void LLAvatarPropertiesProcessor::sendRequest(const LLUUID& avatar_id, EAvatarPr
 
 void LLAvatarPropertiesProcessor::sendGenericRequest(const LLUUID& avatar_id, EAvatarProcessorType type, const std::string &method)
 {
+    if (LLStartUp::getStartupState() <= STATE_AGENT_SEND || avatar_id.isNull())
+    {
+        return;
+    }
+
+    // Some legacy request helpers call this directly rather than sendRequest;
+    // keep duplicate suppression at the shared transport boundary.
+    if (isPendingRequest(avatar_id, type))
+    {
+        return;
+    }
+
     // indicate we're going to make a request
     addPendingRequest(avatar_id, type);
+
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        LL_INFOS("AvatarProperties") << "Profile request route=legacy-generic method=" << method
+            << " target=" << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
+    }
 
     std::vector<std::string> strings{ avatar_id.asString() };
     send_generic_message(method, strings);
@@ -192,6 +220,33 @@ void LLAvatarPropertiesProcessor::sendAvatarTexturesRequest(const LLUUID& avatar
 void LLAvatarPropertiesProcessor::sendAvatarClassifiedsRequest(const LLUUID& avatar_id)
 {
     sendGenericRequest(avatar_id, APT_CLASSIFIEDS, "avatarclassifiedsrequest");
+}
+
+void LLAvatarPropertiesProcessor::sendAvatarPicksRequest(const LLUUID& avatar_id)
+{
+    sendGenericRequest(avatar_id, APT_PICKS, "avatarpicksrequest");
+}
+
+void LLAvatarPropertiesProcessor::sendAvatarNotesRequest(const LLUUID& avatar_id)
+{
+    sendGenericRequest(avatar_id, APT_NOTES, "avatarnotesrequest");
+}
+
+void LLAvatarPropertiesProcessor::sendNotes(const LLUUID& avatar_id, const std::string& notes)
+{
+    if (avatar_id.isNull()) return;
+
+    LL_INFOS("AvatarProperties") << "Profile update route=AvatarNotesUpdate-UDP target="
+        << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
+    LLMessageSystem* msg = gMessageSystem;
+    msg->newMessageFast(_PREHASH_AvatarNotesUpdate);
+    msg->nextBlockFast(_PREHASH_AgentData);
+    msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+    msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+    msg->nextBlockFast(_PREHASH_Data);
+    msg->addUUIDFast(_PREHASH_TargetID, avatar_id);
+    msg->addStringFast(_PREHASH_Notes, notes);
+    gAgent.sendReliableMessage();
 }
 
 //static
@@ -265,6 +320,8 @@ bool LLAvatarPropertiesProcessor::hasPaymentInfoOnFile(const LLAvatarData* avata
 // static
 void LLAvatarPropertiesProcessor::requestAvatarPropertiesCoro(std::string cap_url, LLUUID avatar_id, EAvatarProcessorType type)
 {
+    const auto session = gAgent.getSessionID();
+    const auto grid = LLGridManager::getInstance()->getGrid();
     LLAvatarPropertiesProcessor& inst = instance();
 
     LLCore::HttpRequest::policy_t httpPolicy(LLCore::HttpRequest::DEFAULT_POLICY_ID);
@@ -279,21 +336,34 @@ void LLAvatarPropertiesProcessor::requestAvatarPropertiesCoro(std::string cap_ur
     std::string finalUrl = cap_url + "/" + avatar_id.asString();
 
     LLSD result = httpAdapter->getAndSuspend(httpRequest, finalUrl, httpOpts, httpHeaders);
+    if (gAgent.getSessionID() != session || LLGridManager::getInstance()->getGrid() != grid)
+    {
+        LL_INFOS("AvatarProperties") << "Profile AgentProfile-HTTP result discarded=stale-session-or-grid target="
+            << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
+        return;
+    }
 
     // Response is being processed, no longer pending is required
     inst.removePendingRequest(avatar_id, type);
 
     LLSD httpResults = result[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS];
     LLCore::HttpStatus status = LLCoreHttpUtil::HttpCoroutineAdapter::getStatusFromLLSD(httpResults);
+    const bool has_id = result.has("id");
+    const bool id_matches = has_id && avatar_id == result["id"].asUUID();
+    LL_INFOS("AvatarProperties") << "Profile AgentProfile-HTTP result status=" << status.toString()
+        << " id=" << (has_id ? (id_matches ? "match" : "mismatch") : "missing")
+        << " target=" << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
 
     if (!status
         || !result.has("id")
-        || avatar_id != result["id"].asUUID())
+        || !id_matches)
     {
         LL_WARNS("AvatarProperties") << "Failed to get agent information for id " << avatar_id
             << (!status ? " (no HTTP status)" : !result.has("id") ? " (no result.id)" :
                 std::string(" (result.id=") + result["id"].asUUID().asString() + ")")
             << LL_ENDL;
+        if (type == APT_PROPERTIES && LLGridManager::getInstance()->isInOpenSim())
+            inst.sendAvatarLegacyPropertiesRequest(avatar_id);
         return;
     }
 
@@ -368,6 +438,10 @@ void LLAvatarPropertiesProcessor::requestAvatarPropertiesCoro(std::string cap_ur
         avatar_data.picks_list.emplace_back(pick_data["id"].asUUID(), pick_data["name"].asString());
     }
 
+    LL_INFOS("AvatarProperties") << "Profile AgentProfile-HTTP parsed groups=" << avatar_data.group_list.size()
+        << " picks=" << avatar_data.picks_list.size() << " notes=" << (result.has("notes") ? "present" : "absent")
+        << " target=" << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
+
     LLAppViewer::instance()->postToMainCoro(
         [avatar_id, avatar_data, type]()
         {
@@ -407,6 +481,8 @@ void LLAvatarPropertiesProcessor::processAvatarLegacyPropertiesReply(LLMessageSy
     LLAvatarPropertiesProcessor* self = getInstance();
     // Request processed, no longer pending
     self->removePendingRequest(avatar_data.avatar_id, APT_PROPERTIES_LEGACY);
+    LL_INFOS("AvatarProperties") << "Profile legacy-UDP reply=AvatarPropertiesReply target="
+        << (avatar_data.avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
     self->notifyObservers(avatar_data.avatar_id, &avatar_data, APT_PROPERTIES_LEGACY);
 }
 
@@ -420,6 +496,7 @@ void LLAvatarPropertiesProcessor::processAvatarInterestsReply(LLMessageSystem* m
     That will suppress the warnings and be compatible with old server versions.
     WARNING: LLTemplateMessageReader::decodeData: Message from 216.82.37.237:13000 with no handler function received: AvatarInterestsReply
 */
+    LL_INFOS("AvatarProperties") << "Profile legacy-UDP reply=AvatarInterestsReply" << LL_ENDL;
 }
 
 void LLAvatarPropertiesProcessor::processAvatarClassifiedsReply(LLMessageSystem* msg, void**)
@@ -478,17 +555,40 @@ void LLAvatarPropertiesProcessor::processClassifiedInfoReply(LLMessageSystem* ms
 
 void LLAvatarPropertiesProcessor::processAvatarNotesReply(LLMessageSystem* msg, void**)
 {
-    // Deprecated, new "AgentProfile" allows larger notes
+    LLAvatarNotes avatar_notes;
+    msg->getUUID(_PREHASH_AgentData, _PREHASH_AgentID, avatar_notes.agent_id);
+    msg->getUUID(_PREHASH_Data, _PREHASH_TargetID, avatar_notes.target_id);
+    msg->getString(_PREHASH_Data, _PREHASH_Notes, avatar_notes.notes);
+
+    LLAvatarPropertiesProcessor* self = getInstance();
+    self->removePendingRequest(avatar_notes.target_id, APT_NOTES);
+    LL_INFOS("AvatarProperties") << "Profile legacy reply=AvatarNotesReply target="
+        << (avatar_notes.target_id == gAgentID ? "self" : "other") << LL_ENDL;
+    self->notifyObservers(avatar_notes.target_id, &avatar_notes, APT_NOTES);
 }
 
 void LLAvatarPropertiesProcessor::processAvatarPicksReply(LLMessageSystem* msg, void**)
 {
-    LLUUID agent_id;
-    LLUUID target_id;
-    msg->getUUID(_PREHASH_AgentData, _PREHASH_AgentID, agent_id);
-    msg->getUUID(_PREHASH_AgentData, _PREHASH_TargetID, target_id);
+    LLAvatarPicks avatar_picks;
+    msg->getUUID(_PREHASH_AgentData, _PREHASH_AgentID, avatar_picks.agent_id);
+    msg->getUUID(_PREHASH_AgentData, _PREHASH_TargetID, avatar_picks.target_id);
 
-    LL_DEBUGS("AvatarProperties") << "Received AvatarPicksReply for " << target_id << LL_ENDL;
+    const S32 block_count = msg->getNumberOfBlocks(_PREHASH_Data);
+    for (S32 block = 0; block < block_count; ++block)
+    {
+        LLUUID pick_id;
+        std::string pick_name;
+        msg->getUUID(_PREHASH_Data, _PREHASH_PickID, pick_id, block);
+        msg->getString(_PREHASH_Data, _PREHASH_PickName, pick_name, block);
+        avatar_picks.picks_list.emplace_back(pick_id, pick_name);
+    }
+
+    LLAvatarPropertiesProcessor* self = getInstance();
+    self->removePendingRequest(avatar_picks.target_id, APT_PICKS);
+    LL_INFOS("AvatarProperties") << "Profile legacy reply=AvatarPicksReply count="
+        << avatar_picks.picks_list.size() << " target="
+        << (avatar_picks.target_id == gAgentID ? "self" : "other") << LL_ENDL;
+    self->notifyObservers(avatar_picks.target_id, &avatar_picks, APT_PICKS);
 }
 
 void LLAvatarPropertiesProcessor::processPickInfoReply(LLMessageSystem* msg, void**)
@@ -527,12 +627,28 @@ void LLAvatarPropertiesProcessor::processAvatarGroupsReply(LLMessageSystem* msg,
     AvatarGroupsReply is automatically sent by the server in response to the
     AvatarPropertiesRequest in addition to the AvatarPropertiesReply message.
     */
-    LLUUID agent_id;
-    LLUUID avatar_id;
-    msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AgentID, agent_id);
-    msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AvatarID, avatar_id);
+    LLAvatarGroups avatar_groups;
+    msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AgentID, avatar_groups.agent_id);
+    msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AvatarID, avatar_groups.avatar_id);
 
-    LL_DEBUGS("AvatarProperties") << "Received AvatarGroupsReply for " << avatar_id << LL_ENDL;
+    const S32 group_count = msg->getNumberOfBlocksFast(_PREHASH_GroupData);
+    for (S32 block = 0; block < group_count; ++block)
+    {
+        LLAvatarGroups::group_data_t group_data{};
+        msg->getU64(_PREHASH_GroupData, _PREHASH_GroupPowers, group_data.group_powers, block);
+        msg->getStringFast(_PREHASH_GroupData, _PREHASH_GroupTitle, group_data.group_title, block);
+        msg->getUUIDFast(_PREHASH_GroupData, _PREHASH_GroupID, group_data.group_id, block);
+        msg->getStringFast(_PREHASH_GroupData, _PREHASH_GroupName, group_data.group_name, block);
+        msg->getUUIDFast(_PREHASH_GroupData, _PREHASH_GroupInsigniaID, group_data.group_insignia_id, block);
+        avatar_groups.group_list.push_back(std::move(group_data));
+    }
+
+    LLAvatarPropertiesProcessor* self = getInstance();
+    self->removePendingRequest(avatar_groups.avatar_id, APT_GROUPS);
+    LL_INFOS("AvatarProperties") << "Profile legacy reply=AvatarGroupsReply count="
+        << avatar_groups.group_list.size() << " target="
+        << (avatar_groups.avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
+    self->notifyObservers(avatar_groups.avatar_id, &avatar_groups, APT_GROUPS);
 }
 
 void LLAvatarPropertiesProcessor::notifyObservers(const LLUUID& id, void* data, EAvatarProcessorType type)

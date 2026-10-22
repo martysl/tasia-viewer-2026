@@ -558,7 +558,10 @@ void LLWearable::revertValues()
         if(param)
         {
             F32 value = vp_pair.second;
-            param->setWeight(value);
+            // <FS:Ansariel> [Legacy Bake]
+            //param->setWeight(value);
+            setVisualParamWeight(id, value, true);
+            // </FS:Ansariel> [Legacy Bake]
             mSavedVisualParamMap[id] = param->getWeight();
         }
     }
@@ -651,13 +654,19 @@ void LLWearable::addVisualParam(LLVisualParam *param)
 }
 
 
-void LLWearable::setVisualParamWeight(S32 param_index, F32 value)
+// <FS:Ansariel> [Legacy Bake]
+//void LLWearable::setVisualParamWeight(S32 param_index, F32 value)
+void LLWearable::setVisualParamWeight(S32 param_index, F32 value, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     visual_param_index_map_t::iterator found = mVisualParamIndexMap.find(param_index);
     if(found != mVisualParamIndexMap.end())
     {
         LLVisualParam *wearable_param = found->second;
-        wearable_param->setWeight(value);
+        // <FS:Ansariel> [Legacy Bake]
+        //wearable_param->setWeight(value);
+        wearable_param->setWeight(value, upload_bake);
+        // </FS:Ansariel> [Legacy Bake]
     }
     else
     {
@@ -695,12 +704,18 @@ void LLWearable::getVisualParams(visual_param_vec_t &list)
     }
 }
 
-void LLWearable::animateParams(F32 delta)
+// <FS:Ansariel> [Legacy Bake]
+//void LLWearable::animateParams(F32 delta)
+void LLWearable::animateParams(F32 delta, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     for(visual_param_index_map_t::value_type& vp_pair : mVisualParamIndexMap)
     {
         LLVisualParam *param = (LLVisualParam*)vp_pair.second;
-        param->animate(delta);
+        // <FS:Ansariel> [Legacy Bake]
+        //param->animate(delta);
+        param->animate(delta, upload_bake);
+        // </FS:Ansariel> [Legacy Bake]
     }
 }
 
@@ -718,14 +733,17 @@ LLColor4 LLWearable::getClothesColor(S32 te) const
     return color;
 }
 
-void LLWearable::setClothesColor( S32 te, const LLColor4& new_color)
+// <FS:Ansariel> [Legacy Bake]
+//void LLWearable::setClothesColor( S32 te, const LLColor4& new_color)
+void LLWearable::setClothesColor( S32 te, const LLColor4& new_color, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     U32 param_name[3];
     if( LLAvatarAppearance::teToColorParams( (LLAvatarAppearanceDefines::ETextureIndex)te, param_name ) )
     {
         for( U8 index = 0; index < 3; index++ )
         {
-            setVisualParamWeight(param_name[index], new_color.mV[index]);
+            setVisualParamWeight(param_name[index], new_color.mV[index], upload_bake);
         }
     }
 }

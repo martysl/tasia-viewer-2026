@@ -207,7 +207,7 @@ If you feel this is an error, please contact support@secondlife.com</string>
 	<string name="AgentLostConnection">This region may be experiencing trouble.  Please check your connection to the Internet.</string>
 	<string name="SavingSettings">Saving your settings...</string>
 	<string name="LoggingOut">Logging out...</string>
-	<string name="ShuttingDown">Kirstens S24... Bye!</string>
+	<string name="ShuttingDown">Tasia Viewer... Bye!</string>
 	<string name="YouHaveBeenDisconnected">You have been disconnected from the region you were in.</string>
 	<string name="SentToInvalidRegion">You were sent to an invalid region.</string>
 	<string name="TestingDisconnect">Testing viewer disconnect</string>
@@ -3042,7 +3042,7 @@ Do you wish to continue?
 	</string>
 	<string name="MBWarning">Warning</string>
 	<string name="MBNoAutoUpdate">
-		Automatic updating is not implemented for Kirstens.
+		Automatic updating is not implemented for Tasia Viewer.
 Please download the latest version from www.secondlife.com.
 	</string>
 	<string name="MBRegClassFailed">RegisterClass failed</string>
@@ -3059,7 +3059,7 @@ Running in window.
 	<string name="MBPixelFmtSetErr">Can't set pixel format</string>
 	<string name="MBGLContextErr">Can't create GL rendering context</string>
 	<string name="MBGLContextActErr">Can't activate GL rendering context</string>
-	<string name="MBDeviceLost">The graphics device was lost (a driver crash/recovery, a GPU driver update, or a GPU was unplugged). Kirstens S24 DX needs to close - please restart the viewer.</string>
+	<string name="MBDeviceLost">The graphics device was lost (a driver crash/recovery, a GPU driver update, or a GPU was unplugged). Tasia Viewer DX needs to close - please restart the viewer.</string>
 	<string name="MBVideoDrvErr">
 		[APP_NAME] is unable to run because your video card drivers did not install properly, are out of date, or are for unsupported hardware. Please make sure you have the latest video card drivers and even if you do have the latest, try reinstalling them.
 
@@ -4222,6 +4222,15 @@ name="Command_360_Capture_Label">360 snapshot</string>
   <string name="Command_Avatar_Label">Avatar Welcome Pack</string>
   <string name="Command_Build_Label">Build</string>
   <string name="Command_Chat_Label">Chat</string>
+  <string name="Command_TasiaChat_Label">Tasia Chat</string>
+  <string name="Command_TasiaFeed_Label">Tasia Feed</string>
+  <string name="MP3BatchConverting">Converting MP3 into sound parts…</string>
+  <string name="MP3BatchUploading">Uploading sound parts…</string>
+  <string name="ClipboardPreviewOpened">Image captured. Review and confirm in the upload preview.</string>
+  <string name="ClipboardImageMissing">No supported image found, clipboard busy, or image too large. Copy an image or screenshot and retry.</string>
+  <string name="ClipboardPlatformUnsupported">Native clipboard image upload currently requires Windows.</string>
+  <string name="Command_TasiaFeed_Tooltip">Open Tasia Feed inside the viewer</string>
+  <string name="Command_TasiaChat_Tooltip">Open the Tasia Chat website inside the viewer</string>
   <string name="Command_Conversations_Label">Conversations</string>
   <string name="Command_Compass_Label">Compass</string>
   <string name="Command_Destinations_Label">Destinations</string>

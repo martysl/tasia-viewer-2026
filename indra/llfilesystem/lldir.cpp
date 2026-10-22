@@ -382,6 +382,7 @@ const std::string  LLDir::getCacheDir(bool get_default) const
 // Return the default cache directory
 std::string LLDir::buildSLOSCacheDir() const
 {
+	if (isPortable()) return add(mPortableDataDir, "cache");
 	std::string res;
 	if (getOSCacheDir().empty())
 	{
@@ -629,38 +630,6 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 	// loose in the system that uses std::string::operator+().
 	expanded_filename += mDirDelimiter;
 	expanded_filename += in_filename;
-
-	// Portable mode: if portable-data exists next to the executable,
-	// redirect user-writable directories there instead of %APPDATA%/
-	// %LOCALAPPDATA%.
-	if (location == LL_PATH_USER_SETTINGS || location == LL_PATH_LOGS ||
-		location == LL_PATH_CACHE)
-	{
-		std::string portable_dir = add(getExecutableDir(), "portable-data");
-		if (LLFile::isdir(portable_dir))
-		{
-			std::string subdir;
-			if (location == LL_PATH_USER_SETTINGS)
-			{
-				subdir = "user_settings";
-			}
-			else if (location == LL_PATH_LOGS)
-			{
-				subdir = "logs";
-			}
-			else if (location == LL_PATH_CACHE)
-			{
-				subdir = "cache";
-			}
-			std::string portable_path = add(portable_dir, subdir);
-			// Ensure the portable subdirectory exists.
-			LLFile::mkdir(portable_path);
-			std::string portable_filename = portable_path + mDirDelimiter + in_filename;
-			LL_DEBUGS("LLDir") << "Portable mode: " << ELLPathToString(location)
-							   << " => '" << portable_filename << "'" << LL_ENDL;
-			return portable_filename;
-		}
-	}
 
 	LL_DEBUGS("LLDir") << ELLPathToString(location)
 					   << ", '" << subdir1 << "', '" << subdir2 << "', '" << in_filename
@@ -975,6 +944,11 @@ void LLDir::setLindenUserDir(const std::string &username)
 
 void LLDir::setChatLogsDir(const std::string &path)
 {
+	if (isPortable())
+	{
+		mChatLogsDir = add(mPortableDataDir, "chat_logs");
+		return;
+	}
 	if (!path.empty() )
 	{
 		mChatLogsDir = path;
@@ -1067,6 +1041,12 @@ std::string LLDir::getLanguage() const
 
 bool LLDir::setCacheDir(const std::string &path)
 {
+	if (isPortable())
+	{
+		// Never adopt a saved absolute location from another portable copy.
+		mCacheDir.clear();
+		return path.empty() || path == mDefaultCacheDir;
+	}
 	if (path.empty() )
 	{
 		// reset to default

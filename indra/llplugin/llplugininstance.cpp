@@ -141,12 +141,12 @@ void LLPluginInstance::sendMessage(const std::string &message)
 {
 	if(mPluginSendMessageFunction)
 	{
-		LL_DEBUGS("Plugin") << "sending message to plugin: \"" << message << "\"" << LL_ENDL;
+		LL_DEBUGS("Plugin") << "sending message to plugin (payload omitted for privacy)" << LL_ENDL;
 		mPluginSendMessageFunction(message.c_str(), &mPluginUserData);
 	}
 	else
 	{
-		LL_WARNS("Plugin") << "dropping message: \"" << message << "\"" << LL_ENDL;
+		LL_WARNS("Plugin") << "dropping message (payload omitted for privacy)" << LL_ENDL;
 	}
 }
 
@@ -176,11 +176,11 @@ void LLPluginInstance::receiveMessage(const char *message_string)
 {
 	if(mOwner)
 	{
-		LL_DEBUGS("Plugin") << "processing incoming message: \"" << message_string << "\"" << LL_ENDL;		
+		LL_DEBUGS("Plugin") << "processing incoming message (payload omitted for privacy)" << LL_ENDL;
 		mOwner->receivePluginMessage(message_string);
 	}
 	else
 	{
-		LL_WARNS("Plugin") << "dropping incoming message: \"" << message_string << "\"" << LL_ENDL;		
+		LL_WARNS("Plugin") << "dropping incoming message (payload omitted for privacy)" << LL_ENDL;
 	}	
 }

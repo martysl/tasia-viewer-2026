@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
  legacy_header_height="18"
- height="470"
+ height="655"
  layout="topleft"
  name="floater_translation_settings"
  help_topic="translation_settings"
@@ -390,6 +390,11 @@
         [https://www.deepl.com/pro/select-country?cta=header-prices Pricing]
     </text>
 
+ <check_box name="use_tasia_ai" label="Use AI instead (OpenAI-compatible service)" left="20" top="438" width="445" height="20" layout="topleft" />
+ <line_editor name="ai_endpoint" default_text="Full HTTPS chat/completions endpoint" left="20" top="466" width="445" height="23" max_length_chars="512" layout="topleft" />
+ <line_editor name="ai_model" default_text="Model identifier" left="20" top="495" width="445" height="23" max_length_chars="128" layout="topleft" />
+ <line_editor name="ai_key" default_text="API key (this session only)" is_password="true" left="20" top="524" width="445" height="23" max_length_chars="1024" layout="topleft" />
+ <text name="ai_privacy" left="20" top="555" width="445" height="55" word_wrap="true" layout="topleft">Opt-in: ordinary incoming avatar text is sent to your configured AI provider. Own messages, emotes and known gestures are skipped. Unknown remote gestures cannot always be distinguished from text. Provider fees may apply.</text>
  <button
   follows="left|top"
   height="23"

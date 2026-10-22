@@ -57,6 +57,9 @@ public:
 
 	void startInternetStreamWithAutoFade(const std::string &streamURI);
 	void stopInternetStreamWithAutoFade();
+    // Session-only user intent, independent of auto-stop during parcel changes.
+    void setParcelAudioStoppedByUser(bool stopped) { mParcelAudioStoppedByUser = stopped; }
+    bool isParcelAudioStoppedByUser() const { return mParcelAudioStoppedByUser; }
 
 	// S24: set by LLFloaterMusicPlayer for as long as it owns audio
 	// playback - startInternetStreamWithAutoFade() no-ops while this is
@@ -84,6 +87,7 @@ private:
 
 	bool mDone;
 	bool mExternalPlayerActive = false;
+    bool mParcelAudioStoppedByUser = false;
 	F32 mFadeTime;
 	std::string mNextStreamURI;
 	EFadeState mFadeState;

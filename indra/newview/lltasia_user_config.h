@@ -38,8 +38,10 @@ public:
     struct User
     {
         std::string custom_title;
+        // Empty means preserve the grid's actual name. page_name is never used.
         std::string cosmetic_display_name;
         std::string cosmetic_username;
+        // Retained for source compatibility, but never populated or rendered.
         std::string cosmetic_account_type;
         std::string badge_name;
         std::string badge_icon;
@@ -54,7 +56,7 @@ public:
 
     static void requestOnce();
     static bool getUser(const LLUUID& agent_id, User& user);
-    // UI-only formatters. They never alter canonical name cache data or UUID identity.
+    // Only explicit nonempty name fields override UI text; account type stays canonical.
     static bool hasCosmeticAlias(const LLUUID& agent_id);
     static std::string renderDisplayName(const LLUUID& agent_id, const LLAvatarName& real_name);
     static std::string renderUsername(const LLUUID& agent_id, const LLAvatarName& real_name);
@@ -63,8 +65,6 @@ public:
     static bool isRequested();
     static bool isLoaded();
 
-private:
-    static void fetchCoro(std::string url, U32 timeout_seconds, U32 max_bytes);
 };
 
 #endif // LL_TASIA_USER_CONFIG_H

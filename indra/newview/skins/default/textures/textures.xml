@@ -139,6 +139,8 @@ with the same filename but different name
   <texture name="Command_Avatar_Icon"       file_name="toolbar_icons/avatars.png"      preload="true" />
   <texture name="Command_Build_Icon"        file_name="toolbar_icons/build.png"        preload="true" />
   <texture name="Command_Chat_Icon"         file_name="toolbar_icons/chat.png"         preload="true" />
+  <texture name="Command_TasiaChat_Icon"    file_name="toolbar_icons/tasia_chat.png"   preload="true" />
+  <texture name="Command_TasiaFeed_Icon"    file_name="icons/tasiafeed.png"           preload="true" />
   <texture name="Command_Compass_Icon"      file_name="toolbar_icons/land.png"         preload="true" />
   <texture name="Command_Destinations_Icon" file_name="toolbar_icons/destinations.png" preload="true" />
   <texture name="Command_Gestures_Icon"     file_name="toolbar_icons/gestures.png"     preload="true" />
@@ -648,7 +650,10 @@ with the same filename but different name
   <texture name="SliderThumb_Disabled" file_name="widgets/SliderThumb_Disabled.png" />
   <texture name="SliderThumb_Press" file_name="widgets/SliderThumb_Press.png" />
 
-  <texture name="SL_Logo" file_name="icons/SL_Logo.png" preload="true" />
+  <texture name="SL_Logo" file_name="icons/tasia_app.png" preload="true" />
+  <texture name="Tasia_QUIC_Off" file_name="icons/quic_off.png" preload="true" />
+  <texture name="Tasia_QUIC_On" file_name="icons/quic_on.png" preload="true" />
+  <texture name="Tasia_QUIC_Unavailable" file_name="icons/quic_unavailable.png" preload="true" />
   <texture name="OBJECT_Icon" file_name="icons/object_icon.png" preload="true" />
   <texture name="Unknown_Icon" file_name="icons/unknown_icon.png" preload="true" />
 
@@ -661,9 +666,9 @@ with the same filename but different name
   <texture name="Snapshot_Profile" file_name="toolbar_icons/profile.png" preload="false" />
   <texture name="startup_logo"  file_name="windows/startup_logo.png" preload="true" />
 
-  <texture name="login_sl_logo"  file_name="windows/login_sl_logo.png" preload="true" />
-  <texture name="login_sl_logo_horizontal"  file_name="windows/login_sl_logo_horizontal.png" preload="true" />
-  <texture name="login_sl_logo_small"  file_name="windows/login_sl_logo_small.png" preload="true" />
+  <texture name="login_sl_logo"  file_name="windows/login_tasia_logo.png" preload="true" />
+  <texture name="login_sl_logo_horizontal"  file_name="windows/login_tasia_logo_horizontal.png" preload="true" />
+  <texture name="login_sl_logo_small"  file_name="windows/login_tasia_logo_small.png" preload="true" />
   <texture name="login_tasia_logo"  file_name="windows/login_tasia_logo.png" preload="true" />
   <texture name="login_tasia_logo_horizontal"  file_name="windows/login_tasia_logo_horizontal.png" preload="true" />
   <texture name="login_tasia_logo_small"  file_name="windows/login_tasia_logo_small.png" preload="true" />
@@ -927,7 +932,7 @@ with the same filename but different name
   <texture name="Default_Outfit_Photo" file_name="icons/Default_Outfit_Photo.png" preload="true"/>
   <texture name="Notification_Condense" file_name="icons/Icon_Notification_Condense.png" preload="true"/>
   <texture name="Notification_Expand" file_name="icons/Icon_Notification_Expand.png" preload="true"/>
-  <texture name="System_Notification" file_name="icons/SL_Logo.png" preload="true"/>
+  <texture name="System_Notification" file_name="icons/tasia_app.png" preload="true"/>
   <texture name="Icon_Attachment_Small" file_name="icons/Icon_Attachment_Small.png"	preload="true"/>
   <texture name="Icon_Attachment_Large" file_name="icons/Icon_Attachment_Large.png"	preload="true"/>
 

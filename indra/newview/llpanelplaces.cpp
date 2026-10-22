@@ -34,6 +34,7 @@
 #include "llinventory.h"
 #include "lllandmark.h"
 #include "llparcel.h"
+#include "llregionhandle.h"
 
 #include "llcombobox.h"
 #include "llfiltereditor.h"
@@ -506,7 +507,16 @@ void LLPanelPlaces::onOpen(const LLSD& key)
                     mPosGlobal = LLVector3d(key["x"].asReal(),
                                             key["y"].asReal(),
                                             key["z"].asReal());
-                    mPlaceProfile->displayParcelInfo(LLUUID(), mPosGlobal);
+                    if (key.has("ox") && key.has("oy"))
+                    {
+                        const U64 region_handle = to_region_handle(
+                            key["ox"].asInteger(), key["oy"].asInteger());
+                        mPlaceProfile->displayParcelInfo(LLUUID(), region_handle, mPosGlobal);
+                    }
+                    else
+                    {
+                        mPlaceProfile->displayParcelInfo(LLUUID(), mPosGlobal);
+                    }
                 }
 
                 mPlaceProfile->setInfoType(LLPanelPlaceInfo::PLACE);

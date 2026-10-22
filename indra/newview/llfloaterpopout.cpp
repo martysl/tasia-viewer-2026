@@ -1423,7 +1423,7 @@ namespace
         HWND hwnd = CreateWindowExW(
             WS_EX_NOREDIRECTIONBITMAP,
             HOST_WINDOW_CLASS,
-            L"S24 Floater Popout",
+            L"Tasia Viewer Window",
             WS_POPUP,
             100, 100, (int)width, (int)height,
             NULL, NULL, hinst, NULL);

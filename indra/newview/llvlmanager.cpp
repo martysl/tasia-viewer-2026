@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "llviewernetwork.h"
 
 #include "llvlmanager.h"
 
@@ -37,6 +38,7 @@
 #include "llbitpack.h"
 
 const   char    LAND_LAYER_CODE                 = 'L';
+const   char    OPENSIM_LAND_LAYER_CODE         = 'M';
 const   char    WIND_LAYER_CODE                 = '7';
 const   char    CLOUD_LAYER_CODE                = '8';
 
@@ -54,7 +56,8 @@ LLVLManager::~LLVLManager()
 
 void LLVLManager::addLayerData(LLVLData *vl_datap, const S32Bytes mesg_size)
 {
-    if (LAND_LAYER_CODE == vl_datap->mType)
+    if (LAND_LAYER_CODE == vl_datap->mType ||
+        (LLGridManager::getInstance()->isInOpenSim() && OPENSIM_LAND_LAYER_CODE == vl_datap->mType))
     {
         mLandBits += mesg_size;
     }
@@ -94,6 +97,11 @@ void LLVLManager::unpackData(const S32 num_packets)
         if (LAND_LAYER_CODE == datap->mType)
         {
             datap->mRegionp->getLand().decompressDCTPatch(bit_pack, &goph, false);
+        }
+        else if (OPENSIM_LAND_LAYER_CODE == datap->mType && LLGridManager::getInstance()->isInOpenSim())
+        {
+            LL_INFOS_ONCE("OpenSimRegion") << "Decoding extended OpenSim terrain patch IDs" << LL_ENDL;
+            datap->mRegionp->getLand().decompressDCTPatch(bit_pack, &goph, true);
         }
         else if (WIND_LAYER_CODE == datap->mType)
         {

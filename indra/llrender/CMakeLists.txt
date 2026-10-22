@@ -63,6 +63,7 @@ set(llrender_SOURCE_FILES
 set(llrender_HEADER_FILES
     CMakeLists.txt
 
+    llbakereadback.h
     llfontdx.h
     llfontvertexbuffer.h
     llfontfreetype.h

@@ -20,6 +20,11 @@ private:
     void onRemoveGrid();
     void onClose();
     void onListSelection();
+    void discoverGrid();
+    void saveMetadata();
+    LLSD metadata() const;
+    void showMetadata(const LLSD& data);
+    U32 mDiscoveryGeneration = 0;
 };
 
 #endif

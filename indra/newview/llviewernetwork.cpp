@@ -34,6 +34,9 @@
 #include "lltrans.h"
 #include "llweb.h"
 #include "lluri.h"
+#include "lltasia_config_fetch.h"
+#include "llpanellogin.h"
+#include <sstream>
 #include <algorithm>
 
 
@@ -80,6 +83,44 @@ const char* SYSTEM_GRID_SLURL_BASE = "secondlife://%s/secondlife/";
 const char* DEFAULT_SLURL_BASE = "https://%s/region/";
 const char* DEFAULT_APP_SLURL_BASE = "x-grid-location-info://%s/app";
 
+namespace
+{
+bool gridURL(const std::string& value, bool login = false)
+{
+    if (value.empty()) return !login;
+    const LLURI uri(value);
+    if (value.size() > 2048 || (uri.scheme() != "http" && uri.scheme() != "https") ||
+        uri.hostName().empty() || uri.authority().find('@') != std::string::npos ||
+        value.find_first_of("\\\r\n\t ") != std::string::npos || value.find('#') != std::string::npos)
+        return false;
+    if (login && value.find('?') != std::string::npos) return false;
+    const auto authority = uri.authority();
+    const auto colon = authority.find(':');
+    if (colon != std::string::npos)
+    {
+        const auto port = authority.substr(colon + 1);
+        if (port.empty() || port.size() > 5 || port.find_first_not_of("0123456789") != std::string::npos ||
+            std::stoul(port) == 0 || std::stoul(port) > 65535) return false;
+    }
+    return true;
+}
+
+bool gridMetadata(LLSD& target, const LLSD& source)
+{
+    for (const auto* key : {"login_page", "helper_uri", "web_profile_url", "register",
+        "password", "help", "about", "search", "gatekeeper", "currency_uri", "marketplace"})
+    {
+        if (!source.has(key)) continue;
+        if (!source[key].isString()) return false;
+        if (std::string(key) == "login_page" && source[key].asString() == "about:blank")
+        { target[key] = source[key]; continue; }
+        if (!gridURL(source[key].asString())) return false;
+        target[key] = source[key];
+    }
+    return true;
+}
+}
+
 LLGridManager::LLGridManager()
 :	mIsInProductionGrid(false)
 {
@@ -115,6 +156,9 @@ void LLGridManager::initialize(const std::string& grid_file)
 
 	// set to undefined
 	mGridList = LLSD();
+    ++mCatalogGeneration;
+    mCatalogPending = false;
+    mRemovedGrids = LLSD::emptyMap();
 	mGridFile = grid_file;
 	// as we don't want an attacker to override our grid list
 	// to point the default grid to an invalid grid
@@ -150,11 +194,14 @@ void LLGridManager::initialize(const std::string& grid_file)
 				LLSDSerialize::fromXMLDocument( other_grids, llsd_xml );
 				if(other_grids.isMap())
 				{
+                    if (other_grids["tasia_removed_grids"].isMap())
+                        mRemovedGrids = other_grids["tasia_removed_grids"];
 					for(LLSD::map_iterator grid_itr = other_grids.beginMap();
 						grid_itr != other_grids.endMap();
 						++grid_itr)
 					{
 						LLSD::String key_name = grid_itr->first;
+                        if (key_name == "tasia_removed_grids") continue;
 						LLSD grid = grid_itr->second;
 
 						std::string existingGrid = getGrid(grid);
@@ -188,6 +235,20 @@ void LLGridManager::initialize(const std::string& grid_file)
 	{
 		LL_DEBUGS("GridManager")<<"no grid file specified"<<LL_ENDL;
 	}
+
+    // Bundled defaults use the same non-overwriting, tombstone-aware importer.
+    const auto defaults = gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS, "tasia_default_grids.xml");
+    llifstream defaults_file(defaults.c_str(), std::ios::binary);
+    if (defaults_file.is_open())
+    {
+        std::string xml((std::istreambuf_iterator<char>(defaults_file)), std::istreambuf_iterator<char>());
+        defaults_file.close();
+        std::string error;
+        if (!importGridCatalog(xml, error, false))
+        {
+            LL_WARNS("GridManager") << "Bundled grid defaults rejected: " << error << LL_ENDL;
+        }
+    }
 
 	// load a grid from the command line.
 	// if the actual grid name is specified from the command line,
@@ -247,7 +308,8 @@ LLGridManager::~LLGridManager()
 {
 }
 
-bool LLGridManager::addCustomGrid(const std::string& login_uri, const std::string& label, std::string& error)
+bool LLGridManager::addCustomGrid(const std::string& login_uri, const std::string& label, std::string& error,
+    const LLSD& metadata)
 {
     error.clear();
     std::string endpoint = login_uri;
@@ -309,6 +371,7 @@ bool LLGridManager::addCustomGrid(const std::string& login_uri, const std::strin
     data[GRID_WEB_PROFILE_VALUE] = "";
     data[GRID_LOGIN_IDENTIFIER_TYPES] = LLSD::emptyArray();
     data[GRID_LOGIN_IDENTIFIER_TYPES].append(CRED_IDENTIFIER_TYPE_AGENT);
+    if (!gridMetadata(data, metadata)) { error = "Invalid grid metadata URL."; return false; }
     if (!addGrid(data))
     {
         error = "The grid conflicts with an existing entry.";
@@ -332,10 +395,13 @@ bool LLGridManager::removeCustomGrid(const std::string& grid, std::string& error
         return false;
     }
     const LLSD previous = mGridList[key];
+    const LLSD removed_before = mRemovedGrids;
+    mRemovedGrids[key] = true;
     mGridList.erase(key);
     if (!saveCustomGrids(error))
     {
         mGridList[key] = previous;
+        mRemovedGrids = removed_before;
         return false;
     }
     return true;
@@ -349,6 +415,7 @@ bool LLGridManager::saveCustomGrids(std::string& error)
         return false;
     }
     LLSD custom_grids = LLSD::emptyMap();
+    custom_grids["tasia_removed_grids"] = mRemovedGrids;
     for (LLSD::map_const_iterator it = mGridList.beginMap(); it != mGridList.endMap(); ++it)
     {
         if (!isSystemGrid(it->first))
@@ -375,6 +442,190 @@ bool LLGridManager::saveCustomGrids(std::string& error)
     LLFile::remove(temporary);
     error = "Could not save the user grid configuration.";
     return false;
+}
+
+LLSD LLGridManager::getGridInfo(const std::string& grid) const
+{
+    return mGridList[grid];
+}
+
+std::string LLGridManager::resolveGridKey(const std::string& grid)
+{
+    std::string value = grid;
+    LLStringUtil::trim(value);
+    if (value.empty() || value.size() > 255) return {};
+
+    // A full URL is reduced to its authority, so "https://i.let-us.cyou:8002/"
+    // and "i.let-us.cyou:8002" resolve identically.
+    std::string host = value;
+    if (value.find("://") != std::string::npos)
+    {
+        const LLURI uri(value);
+        if (uri.scheme() != "http" && uri.scheme() != "https") return {};
+        if (uri.authority().find('@') != std::string::npos) return {};
+        host = uri.authority();
+    }
+    host = utf8str_tolower(host);
+    if (host.empty() || host.find_first_of("?#\\\r\n\t ") != std::string::npos) return {};
+
+    // Exact internal key, or the grid id/label shown in the login list.
+    const std::string exact = getGrid(host);
+    if (!exact.empty()) return exact;
+
+    // Friendly public names for the built-in Second Life grids.
+    if (host == "secondlife.com" || host == "lindenlab.com" || host == "secondlife" ||
+        host == "sl" || host == "agni" || host == "util.agni.lindenlab.com")
+    {
+        return MAINGRID;
+    }
+    if (host == "aditi" || host == "secondlife beta" || host == "beta.secondlife.com" ||
+        host == "util.aditi.lindenlab.com")
+    {
+        return BETAGRID;
+    }
+
+    // Match a known grid by host alone, so a missing or extra port still
+    // resolves (e.g. "i.let-us.cyou" matches "i.let-us.cyou:8002").
+    const std::string bare_host = host.substr(0, host.find(':'));
+    for (LLSD::map_const_iterator it = mGridList.beginMap(); it != mGridList.endMap(); ++it)
+    {
+        const std::string key = utf8str_tolower(it->first);
+        if (key == bare_host || key.substr(0, key.find(':')) == bare_host) return it->first;
+    }
+    return {};
+}
+
+std::string LLGridManager::getCurrencyHelperURI()
+{
+    std::string uri = mGridList[mGrid]["currency_uri"].asString();
+    if (!uri.empty()) return gridURL(uri) ? uri : std::string();
+    uri = getHelperURI();
+    if (uri.empty() || !gridURL(uri) || uri.find('?') != std::string::npos) return {};
+    // Some OpenSim grids advertise the complete XML-RPC endpoint, others a base.
+    if (uri.size() >= 4 && uri.substr(uri.size()-4) == ".php") return uri;
+    if (uri.back() != '/') uri += '/';
+    return uri + "currency.php";
+}
+
+std::string LLGridManager::getMarketplaceURL()
+{
+    if (isInSecondLife()) return gSavedSettings.getString("MarketplaceURL");
+    const std::string custom = mGridList[mGrid]["marketplace"].asString();
+    if (!custom.empty() && gridURL(custom)) return custom;
+    if (mGrid == "i.let-us.cyou:8002" || mGrid == "not.let-us.cyou:8002")
+        return "https://marketplace.i.let-us.cyou";
+    if (mGrid == "os.tasia.work.gd:22000")
+        return "https://marketplace.i.let-us.cyou";
+    return {};
+}
+
+bool LLGridManager::setGridMetadata(const std::string& grid, const LLSD& metadata, std::string& error)
+{
+    if (!mGridList.has(grid) || isSystemGrid(grid))
+    { error = "Select a custom grid; built-in Second Life URLs cannot be changed."; return false; }
+    LLSD data = mGridList[grid];
+    if (!gridMetadata(data, metadata)) { error = "Invalid grid metadata URL."; return false; }
+    if (metadata.has("label") && metadata["label"].isString() &&
+        !metadata["label"].asString().empty() && metadata["label"].asString().size() <= 128)
+        data["label"] = metadata["label"];
+    const LLSD previous = mGridList[grid];
+    mGridList[grid] = data;
+    if (saveCustomGrids(error)) return true;
+    mGridList[grid] = previous;
+    return false;
+}
+
+bool LLGridManager::importGridCatalog(const std::string& xml, std::string& error, bool persist)
+{
+    error.clear();
+    const auto lower = utf8str_tolower(xml);
+    if (xml.size() > 262144 || xml.find('\0') != std::string::npos || lower.find("<!doctype") != std::string::npos ||
+        lower.find("<!entity") != std::string::npos)
+    { error = "Invalid or oversized grid catalog."; return false; }
+    LLSD catalog;
+    std::istringstream input(xml);
+    LLSDSerialize::fromXMLDocument(catalog, input);
+    if ((!catalog.isMap() && !catalog.isArray()) || catalog.size() > 256)
+    { error = "Grid catalog must be an LLSD map or array of at most 256 grids."; return false; }
+    const LLSD previous = mGridList;
+    bool changed = false;
+    auto append = [&](LLSD record)
+    {
+        // Accept the existing viewer and Firestorm field spellings, but never
+        // trust catalog keys/system_grid flags or infer Second Life CGI paths.
+        const LLSD login = record.has("login_uri") ? record["login_uri"] : record["loginuri"];
+        const LLSD first = login.isArray() && login.size() ? login[0] : login;
+        if (!first.isString() || !gridURL(first.asString(), true)) return false;
+        const LLURI uri(first.asString());
+        const auto key = utf8str_tolower(uri.authority());
+        if (!getGrid(key).empty() || mRemovedGrids.has(key)) return true;
+        LLSD data = LLSD::emptyMap();
+        data["keyname"] = key;
+        data["grid_login_id"] = key;
+        data["label"] = record.has("label") ? record["label"] : record["gridname"];
+        if (!data["label"].isString() || data["label"].asString().empty() || data["label"].asString().size() > 128)
+            data["label"] = key;
+        data["login_uri"] = LLSD::emptyArray();
+        if (login.isArray())
+        {
+            if (login.size() > 8) return false;
+            for (auto it = login.beginArray(); it != login.endArray(); ++it)
+            {
+                if (!it->isString() || !gridURL(it->asString(), true)) return false;
+                data["login_uri"].append(*it);
+            }
+        }
+        else data["login_uri"].append(first);
+        data["login_page"] = DEFAULT_LOGIN_PAGE;
+        data["helper_uri"] = "";
+        data["web_profile_url"] = "";
+        data["login_identifier_types"] = LLSD::emptyArray();
+        data["login_identifier_types"].append(CRED_IDENTIFIER_TYPE_AGENT);
+        if (!record.has("login_page") && record["loginpage"].isString()) record["login_page"] = record["loginpage"];
+        if (!record.has("helper_uri") && record["helperuri"].isString()) record["helper_uri"] = record["helperuri"];
+        if (!gridMetadata(data, record)) return false;
+        if (!addGrid(data)) return false;
+        changed = true;
+        return true;
+    };
+    bool valid = true;
+    if (catalog.isMap())
+    {
+        for (auto it = catalog.beginMap(); it != catalog.endMap(); ++it)
+            if (it->first != "tasia_removed_grids" && !append(it->second)) { valid = false; break; }
+    }
+    else for (auto it = catalog.beginArray(); it != catalog.endArray(); ++it)
+        if (!append(*it)) { valid = false; break; }
+    if (!valid || (changed && persist && !saveCustomGrids(error)))
+    {
+        mGridList = previous;
+        if (error.empty()) error = "Grid catalog contains an invalid entry; no changes applied.";
+        return false;
+    }
+    return true;
+}
+
+void LLGridManager::requestGridCatalog(std::function<void(bool)> callback)
+{
+    if (mCatalogPending || !gSavedSettings.getBOOL("TasiaGridCatalogEnabled"))
+    { if (callback) callback(false); return; }
+    mCatalogPending = true;
+    const auto generation = ++mCatalogGeneration;
+    tasiaFetchConfig("https://api.tasiaviewer.work/viewer/config/grid.xml", 262144,
+        [callback, generation](bool ok, const std::string& text)
+        {
+            if (!LLGridManager::instanceExists()) return;
+            auto* manager = LLGridManager::getInstance();
+            if (generation != manager->mCatalogGeneration) return;
+            manager->mCatalogPending = false;
+            if (!ok || !gSavedSettings.getBOOL("TasiaGridCatalogEnabled"))
+            { if (callback) callback(false); return; }
+            std::string error;
+            const bool imported = manager->importGridCatalog(text, error);
+            if (imported) LLPanelLogin::refreshGridList();
+            else LL_WARNS("GridManager") << "Grid catalog rejected; existing grids unchanged." << LL_ENDL;
+            if (callback) callback(imported);
+        });
 }
 
 //

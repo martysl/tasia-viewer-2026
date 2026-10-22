@@ -462,7 +462,7 @@ void LLViewerParcelMgr::renderHighlightSegments(const U8* segments, LLViewerRegi
 
     gDX.color4f(1.f, 1.f, 0.f, 0.2f);
 
-    const S32 STRIDE = (mParcelsPerEdge+1);
+    const S32 STRIDE = (mHighlightGridsPerEdge+1);
 
     // Cheat and give this the same pick-name as land
 
@@ -525,7 +525,7 @@ void LLViewerParcelMgr::renderCollisionSegments(U8* segments, bool use_pass, LLV
     F32 dx, dy;
     F32 collision_height;
 
-    const S32 STRIDE = (mParcelsPerEdge+1);
+    const S32 STRIDE = (mCollisionGridsPerEdge+1);
 
     LLVector3 pos = gAgent.getPositionAgent();
 

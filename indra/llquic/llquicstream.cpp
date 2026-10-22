@@ -136,11 +136,20 @@ LLQuicStream::LLQuicStream(std::shared_ptr<LLQuicConfiguration> config, FrameCal
 {
 }
 
-LLQuicStream::~LLQuicStream() = default;
+LLQuicStream::~LLQuicStream()
+{
+    if (mHandle)
+    {
+        const auto& config = mHandle.get_deleter().config;
+        config->apiTable()->StreamShutdown(mHandle.get(),
+            QUIC_STREAM_SHUTDOWN_FLAG_ABORT | QUIC_STREAM_SHUTDOWN_FLAG_IMMEDIATE, 0);
+        mHandle.reset(); // stop callbacks before destroying the framing state
+    }
+}
 
 bool LLQuicStream::send(const U8* data, S32 size)
 {
-    if (!mHandle || size < 0)
+    if (!mHandle || !data || size < 6 || size > 65535)
     {
         return false;
     }
@@ -183,6 +192,7 @@ bool LLQuicStream::send(const U8* data, S32 size)
 
 void LLQuicStream::feedRx(const uint8_t* data, uint32_t size)
 {
+    if (mRxInvalid) return;
     uint32_t offset = 0;
     while (offset < size)
     {
@@ -201,6 +211,20 @@ void LLQuicStream::feedRx(const uint8_t* data, uint32_t size)
                     (static_cast<uint32_t>(mRxLengthBytes[1]) << 16) |
                     (static_cast<uint32_t>(mRxLengthBytes[2]) <<  8) |
                      static_cast<uint32_t>(mRxLengthBytes[3]);
+                // OpenSim sends an all-zero, zero-payload frame as an
+                // application keepalive. Consume it without exposing an empty
+                // LL packet to the message layer or poisoning this stream.
+                if (mRxExpectedLength == 0)
+                {
+                    mRxLengthBytesRead = 0;
+                    continue;
+                }
+                if (mRxExpectedLength < 6 || mRxExpectedLength > 65535)
+                {
+                    mRxInvalid = true;
+                    if (mOnFrame) mOnFrame({}); // fail connection on main-thread pump
+                    return;
+                }
                 mRxPayload.clear();
                 mRxPayload.reserve(mRxExpectedLength);
                 mRxPhase = RxPhase::PAYLOAD;
@@ -262,6 +286,10 @@ void LLQuicStream::onStreamEvent(QUIC_STREAM_EVENT* event)
         case QUIC_STREAM_EVENT_PEER_SEND_ABORTED:
         case QUIC_STREAM_EVENT_PEER_RECEIVE_ABORTED:
             LL_WARNS("Quic") << "Stream aborted by peer" << LL_ENDL;
+            break;
+
+        case QUIC_STREAM_EVENT_SHUTDOWN_COMPLETE:
+            mShutdown.store(true, std::memory_order_release);
             break;
 
         default:

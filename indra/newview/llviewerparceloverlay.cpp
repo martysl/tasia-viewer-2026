@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_region_compat.h"
 
 #include "llviewerparceloverlay.h"
 
@@ -160,10 +161,11 @@ bool LLViewerParcelOverlay::encroachesOwned(const std::vector<LLBBox>& boxes) co
         LLVector3 min = boxes[i].getMinAgent();
         LLVector3 max = boxes[i].getMaxAgent();
 
-        S32 left   = S32(llclamp((min.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 right  = S32(llclamp((max.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 top    = S32(llclamp((min.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 bottom = S32(llclamp((max.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
+        const F32 last_cell = F32(mParcelGridsPerEdge - 1);
+        S32 left   = S32(llclamp((min.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 right  = S32(llclamp((max.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 top    = S32(llclamp((min.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 bottom = S32(llclamp((max.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
 
         for (S32 row = top; row <= bottom; row++)
         {
@@ -188,10 +190,11 @@ bool LLViewerParcelOverlay::encroachesOnUnowned(const std::vector<LLBBox>& boxes
         LLVector3 min = boxes[i].getMinAgent();
         LLVector3 max = boxes[i].getMaxAgent();
 
-        S32 left   = S32(llclamp((min.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 right  = S32(llclamp((max.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 top    = S32(llclamp((min.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 bottom = S32(llclamp((max.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
+        const F32 last_cell = F32(mParcelGridsPerEdge - 1);
+        S32 left   = S32(llclamp((min.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 right  = S32(llclamp((max.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 top    = S32(llclamp((min.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 bottom = S32(llclamp((max.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
 
         for (S32 row = top; row <= bottom; row++)
         {
@@ -219,16 +222,17 @@ bool LLViewerParcelOverlay::encroachesOnNearbyParcel(const std::vector<LLBBox>& 
         // If an object crosses region borders it crosses a parcel
         if (   min.mV[VX] < 0
             || min.mV[VY] < 0
-            || max.mV[VX] > REGION_WIDTH_METERS
-            || max.mV[VY] > REGION_WIDTH_METERS)
+            || max.mV[VX] > mParcelGridsPerEdge * PARCEL_GRID_STEP_METERS
+            || max.mV[VY] > mParcelGridsPerEdge * PARCEL_GRID_STEP_METERS)
         {
             return true;
         }
 
-        S32 left   = S32(llclamp((min.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 right  = S32(llclamp((max.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 bottom = S32(llclamp((min.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
-        S32 top    = S32(llclamp((max.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, REGION_WIDTH_METERS - 1.f));
+        const F32 last_cell = F32(mParcelGridsPerEdge - 1);
+        S32 left   = S32(llclamp((min.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 right  = S32(llclamp((max.mV[VX] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 bottom = S32(llclamp((min.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
+        S32 top    = S32(llclamp((max.mV[VY] / PARCEL_GRID_STEP_METERS), 0.f, last_cell));
 
         const S32 GRIDS_PER_EDGE = mParcelGridsPerEdge;
 
@@ -438,9 +442,25 @@ void LLViewerParcelOverlay::uncompressLandOverlay(S32 chunk, U8 *packed_overlay)
 {
     // Unpack the message data into the ownership array
     S32 size    = mParcelGridsPerEdge * mParcelGridsPerEdge;
-    S32 chunk_size = size / PARCEL_OVERLAY_CHUNKS;
+    const S32 chunk_size = LLTasiaRegion::OVERLAY_CHUNK_BYTES;
+
+    // The ASAN-proven bounds check stays, but the permitted chunk count follows
+    // the real allocation, not a hardcoded four. Never infer size from chunk IDs.
+    if (!packed_overlay || !LLTasiaRegion::overlayChunkFits(size, chunk, chunk_size))
+    {
+        LL_WARNS("ParcelMgr") << "Ignoring parcel overlay chunk " << chunk
+            << " (valid range 0.." << (size / chunk_size - 1)
+            << ", grids per edge " << mParcelGridsPerEdge
+            << ", chunk size " << chunk_size << ")" << LL_ENDL;
+        return;
+    }
 
     memcpy(mOwnership + chunk*chunk_size, packed_overlay, chunk_size);      /*Flawfinder: ignore*/
+    if (chunk >= PARCEL_OVERLAY_CHUNKS)
+    {
+        LL_INFOS_ONCE("OpenSimRegion") << "Accepted extended parcel overlay chunk within "
+            << size << "-byte ownership allocation" << LL_ENDL;
+    }
 
     // Force property lines and overlay texture to update
     setDirty();

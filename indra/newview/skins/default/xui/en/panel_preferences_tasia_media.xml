@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<panel name="tasia_media" label="Tasia - Media" layout="topleft" follows="all" width="510" height="420">
+    <text name="heading" left="15" top="15" width="475" height="22" layout="topleft" font="SansSerifBold">Chat previews and media</text>
+    <check_box name="TasiaYouTubeChatPreview" control_name="TasiaYouTubeChatPreview" label="Enable YouTube chat previews" left="15" top="55" width="475" height="20" layout="topleft" />
+    <check_box name="TasiaImageChatPreview" control_name="TasiaImageChatPreview" label="Enable image chat previews" left="15" top="95" width="475" height="20" layout="topleft" />
+    <check_box name="TasiaAnimatedGifChatPreview" control_name="TasiaAnimatedGifChatPreview" label="Enable animated GIF chat previews" left="15" top="135" width="475" height="20" layout="topleft" />
+    <check_box name="TasiaKlipyEnabled" control_name="TasiaKlipyEnabled" label="Enable KLIPY GIF and clip picker" left="15" top="175" width="475" height="20" layout="topleft" />
+</panel>

@@ -25,6 +25,9 @@
 */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_user_config.h"
+#include "lltasia_profile_compat.h"
+#include "llviewernetwork.h"
 #include "llpanelprofile.h"
 
 // Common
@@ -41,6 +44,8 @@
 #include "lllineeditor.h"
 #include "llloadingindicator.h"
 #include "llmenubutton.h"
+#include "llthumbnailctrl.h"
+#include "lliconctrl.h"
 #include "lltabcontainer.h"
 #include "lltextbox.h"
 #include "lltexteditor.h"
@@ -56,6 +61,7 @@
 // Newview
 #include "llagent.h" //gAgent
 #include "llagentpicksinfo.h"
+#include "llcorehttputil.h"
 #include "llavataractions.h"
 #include "llavatarpropertiesprocessor.h"
 #include "llcallingcard.h"
@@ -75,8 +81,11 @@
 #include "kvpanelprofilemetadata.h"
 #include "lltrans.h"
 #include "llviewercontrol.h"
+#include "llviewertexture.h"
 #include "llviewermenu.h" //is_agent_mappable
 #include "llviewermenufile.h"
+#include "llhttpconstants.h"
+#include "llcoros.h"
 #include "llviewertexturelist.h"
 #include "llvoiceclient.h"
 #include "llweb.h"
@@ -101,6 +110,97 @@ static const std::string PANEL_PROFILE_VIEW = "panel_profile_view";
 
 static const std::string PROFILE_PROPERTIES_CAP = "AgentProfile";
 static const std::string PROFILE_IMAGE_UPLOAD_CAP = "UploadAgentProfileImage";
+static const U32 TASIA_PROFILE_BADGE_MAX_BYTES = 10 * 1024 * 1024;
+
+static bool tasiaIsBuiltinProfileBadge(const std::string& name)
+{
+    return name == "Profile_Badge_Beta" ||
+           name == "Profile_Badge_Beta_Lifetime" ||
+           name == "Profile_Badge_Lifetime" ||
+           name == "Profile_Badge_Linden" ||
+           name == "Profile_Badge_Pplus_Lifetime" ||
+           name == "Profile_Badge_Premium_Lifetime" ||
+           name == "Profile_Badge_Team";
+}
+
+static std::string tasiaBadgeMime(const std::string& content_type, const std::string& url)
+{
+    std::string mime = content_type;
+    const auto semicolon = mime.find(';');
+    if (semicolon != std::string::npos) mime.erase(semicolon);
+    LLStringUtil::trim(mime);
+    LLStringUtil::toLower(mime);
+    if (mime == "image/png" || mime == "image/jpeg" || mime == "image/gif" ||
+        mime == "image/bmp" || mime == "image/tga")
+    {
+        return mime;
+    }
+
+    std::string path = url.substr(0, url.find_first_of("?#"));
+    LLStringUtil::toLower(path);
+    if (LLStringUtil::endsWith(path, ".png")) return "image/png";
+    if (LLStringUtil::endsWith(path, ".jpg") || LLStringUtil::endsWith(path, ".jpeg")) return "image/jpeg";
+    if (LLStringUtil::endsWith(path, ".gif")) return "image/gif";
+    if (LLStringUtil::endsWith(path, ".bmp")) return "image/bmp";
+    if (LLStringUtil::endsWith(path, ".tga")) return "image/tga";
+    return std::string();
+}
+
+static void tasiaFetchProfileBadge(std::string url, LLHandle<LLPanel> handle)
+{
+    LLCore::HttpRequest::ptr_t request(new LLCore::HttpRequest);
+    LLCoreHttpUtil::HttpCoroutineAdapter::ptr_t adapter(
+        new LLCoreHttpUtil::HttpCoroutineAdapter("TasiaProfileBadgeFetch", LLCore::HttpRequest::DEFAULT_POLICY_ID));
+    LLCore::HttpHeaders::ptr_t headers(new LLCore::HttpHeaders);
+    LLCore::HttpOptions::ptr_t options(new LLCore::HttpOptions);
+    options->setTimeout(10);
+    options->setTransferTimeout(10);
+    options->setRetries(0);
+    options->setFollowRedirects(false);
+    options->setWantHeaders(true);
+    options->setBodyLimit(TASIA_PROFILE_BADGE_MAX_BYTES);
+    headers->append(std::string(HTTP_OUT_HEADER_ACCEPT), "image/png, image/jpeg, image/gif, image/bmp, image/tga");
+
+    LLSD result = adapter->getRawAndSuspend(request, url, options, headers);
+    const LLSD http_results = result[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS];
+    const LLCore::HttpStatus status = LLCoreHttpUtil::HttpCoroutineAdapter::getStatusFromLLSD(http_results);
+    if (handle.isDead()) return;
+
+    LLPanelProfileSecondLife* panel = dynamic_cast<LLPanelProfileSecondLife*>(handle.get());
+    if (!panel) return;
+
+    if (status != LLCore::HttpStatus(HTTP_OK) ||
+        !result.has(LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS_RAW))
+    {
+        LL_WARNS("TasiaProfile") << "Profile badge image request failed; HTTP status="
+            << status.toString() << LL_ENDL;
+        panel->onTasiaRemoteBadgeDownloaded(url, std::string(), LLSD::Binary());
+        return;
+    }
+
+    if (!result[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS_RAW].isBinary())
+    {
+        panel->onTasiaRemoteBadgeDownloaded(url, std::string(), LLSD::Binary());
+        return;
+    }
+    const LLSD::Binary& body = result[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS_RAW].asBinary();
+    if (body.empty() || body.size() > TASIA_PROFILE_BADGE_MAX_BYTES)
+    {
+        LL_WARNS("TasiaProfile") << "Profile badge image response rejected; bytes=" << body.size() << LL_ENDL;
+        panel->onTasiaRemoteBadgeDownloaded(url, std::string(), LLSD::Binary());
+        return;
+    }
+
+    const LLSD response_headers = http_results[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS_HEADERS];
+    const std::string mime = tasiaBadgeMime(response_headers[HTTP_IN_HEADER_CONTENT_TYPE].asString(), url);
+    if (mime.empty())
+    {
+        LL_WARNS("TasiaProfile") << "Profile badge image response has unsupported media type" << LL_ENDL;
+        panel->onTasiaRemoteBadgeDownloaded(url, std::string(), LLSD::Binary());
+        return;
+    }
+    panel->onTasiaRemoteBadgeDownloaded(url, mime, body);
+}
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -725,6 +825,7 @@ void LLFloaterProfilePermissions::onCancel()
 LLPanelProfileSecondLife::LLPanelProfileSecondLife()
     : LLPanelProfilePropertiesProcessorTab()
     , mAvatarNameCacheConnection()
+    , mPartnerNameCacheConnection()
     , mHasUnsavedDescriptionChanges(false)
     , mWaitingForImageUpload(false)
     , mAllowPublish(false)
@@ -746,6 +847,10 @@ LLPanelProfileSecondLife::~LLPanelProfileSecondLife()
     {
         mAvatarNameCacheConnection.disconnect();
     }
+    if (mPartnerNameCacheConnection.connected())
+    {
+        mPartnerNameCacheConnection.disconnect();
+    }
     if (mMenuNameCacheConnection.connected())
     {
         mMenuNameCacheConnection.disconnect();
@@ -754,6 +859,9 @@ LLPanelProfileSecondLife::~LLPanelProfileSecondLife()
 
 bool LLPanelProfileSecondLife::postBuild()
 {
+    mDisplayNameDefaultColor = getChild<LLLineEditor>("display_name")->getReadOnlyFgColor();
+    mUserNameDefaultColor = getChild<LLLineEditor>("user_name")->getReadOnlyFgColor();
+    mAccountInfoDefaultRect = getChild<LLUICtrl>("account_info")->getRect();
     mGroupList              = getChild<LLGroupList>("group_list");
     mShowInSearchCombo      = getChild<LLComboBox>("show_in_search");
     mHideAgeCombo           = getChild<LLComboBox>("hide_age");
@@ -894,11 +1002,20 @@ void LLPanelProfileSecondLife::refreshName()
     {
         mAvatarNameCacheConnection = LLAvatarNameCache::get(getAvatarId(), boost::bind(&LLPanelProfileSecondLife::onAvatarNameCache, this, _1, _2));
     }
+    refreshTasiaProfileData();
 }
 
 void LLPanelProfileSecondLife::resetData()
 {
     resetLoading();
+    mPartnerNameCacheConnection.disconnect();
+    mPartnerAvatarId.setNull();
+    mAccountInfoText.clear();
+    mTasiaBadgeIconUrl.clear();
+    mTasiaBadgeFallbackName.clear();
+    mTasiaBadgeFallbackTooltip.clear();
+    childSetVisible("tasia_profile_badge_layout", false);
+    getChild<LLThumbnailCtrl>("tasia_profile_badge_icon")->clearTexture();
 
     // Set default image and 1:1 dimensions for it
     mSecondLifePic->setValue(LLUUID());
@@ -932,6 +1049,31 @@ void LLPanelProfileSecondLife::resetData()
 
 void LLPanelProfileSecondLife::processProperties(void* data, EAvatarProcessorType type)
 {
+    if (APT_GROUPS == type && data && LLGridManager::getInstance()->isInOpenSim() &&
+        gAgent.getRegionCapability(PROFILE_PROPERTIES_CAP).empty())
+    {
+        const auto& groups = *static_cast<const LLAvatarGroups*>(data);
+        if (getAvatarId() != groups.avatar_id) return;
+
+        mGroups.clear();
+        for (const auto& group : groups.group_list)
+        {
+            mGroups[group.group_name] = group.group_id;
+        }
+        mGroupList->setGroups(mGroups);
+        return;
+    }
+    if (type == APT_PROPERTIES_LEGACY && data && LLGridManager::getInstance()->isInOpenSim())
+    {
+        const auto& legacy = *static_cast<const LLAvatarLegacyData*>(data);
+        if (getAvatarId() != legacy.avatar_id) return;
+        const auto fields = tasiaLegacyProfileFields(legacy);
+        fillCommonData(&fields);
+        fillPartnerData(&fields);
+        fillAccountStatus(&fields);
+        setLoaded();
+        return; // do not overwrite absent legacy groups/picks/notes with empties
+    }
     if (APT_PROPERTIES == type)
     {
         LLAvatarData* avatar_data = static_cast<LLAvatarData*>(data);
@@ -984,8 +1126,25 @@ void LLPanelProfileSecondLife::openGroupProfile()
 void LLPanelProfileSecondLife::onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name)
 {
     mAvatarNameCacheConnection.disconnect();
-    getChild<LLUICtrl>("display_name")->setValue(av_name.getDisplayName());
-    getChild<LLUICtrl>("user_name")->setValue(av_name.getAccountName());
+    auto* display_name = getChild<LLLineEditor>("display_name");
+    auto* user_name = getChild<LLLineEditor>("user_name");
+    display_name->setValue(av_name.getDisplayName());
+    user_name->setValue(av_name.getAccountName());
+    display_name->setReadOnlyFgColor(LLUIColor(mDisplayNameDefaultColor));
+    user_name->setReadOnlyFgColor(LLUIColor(mUserNameDefaultColor));
+    LLTasiaUserConfig::User presentation;
+    if (LLTasiaUserConfig::getUser(agent_id, presentation))
+    {
+        if (!presentation.cosmetic_display_name.empty())
+            display_name->setValue(presentation.cosmetic_display_name);
+        if (!presentation.cosmetic_username.empty())
+            user_name->setValue(presentation.cosmetic_username);
+        if (presentation.has_tag_color)
+        {
+            display_name->setReadOnlyFgColor(LLUIColor(presentation.tag_color));
+            user_name->setReadOnlyFgColor(LLUIColor(presentation.tag_color));
+        }
+    }
 }
 
 void LLPanelProfileSecondLife::setProfileImageUploading(bool loading)
@@ -1070,29 +1229,58 @@ void LLPanelProfileSecondLife::fillCommonData(const LLAvatarData* avatar_data)
 
 void LLPanelProfileSecondLife::fillPartnerData(const LLAvatarData* avatar_data)
 {
-    LLTextBox* partner_text_ctrl = getChild<LLTextBox>("partner_link");
+    mPartnerNameCacheConnection.disconnect();
+    mPartnerAvatarId = avatar_data->partner_id;
     if (avatar_data->partner_id.notNull())
     {
         childSetVisible("partner_layout", true);
-        LLStringUtil::format_map_t args;
-        args["[LINK]"] = LLSLURL("agent", avatar_data->partner_id, "inspect").getSLURLString();
-        std::string partner_text = getString("partner_text", args);
-        partner_text_ctrl->setText(partner_text);
+        setPartnerLinkText(getString("partner_name_loading"));
+        mPartnerNameCacheConnection = LLAvatarNameCache::get(avatar_data->partner_id,
+            boost::bind(&LLPanelProfileSecondLife::onPartnerAvatarNameCache, this, _1, _2));
     }
     else
     {
+        mPartnerAvatarId.setNull();
         childSetVisible("partner_layout", false);
     }
+}
+
+void LLPanelProfileSecondLife::onPartnerAvatarNameCache(const LLUUID& agent_id,
+                                                         const LLAvatarName& av_name)
+{
+    if (agent_id != mPartnerAvatarId || agent_id.isNull()) return;
+
+    mPartnerNameCacheConnection.disconnect();
+    std::string partner_name = av_name.getDisplayName();
+    if (partner_name.empty()) partner_name = av_name.getCompleteName();
+    if (partner_name.empty()) partner_name = agent_id.asString();
+    setPartnerLinkText(partner_name);
+}
+
+void LLPanelProfileSecondLife::setPartnerLinkText(const std::string& partner_name)
+{
+    LLTextBox* partner_text_ctrl = getChild<LLTextBox>("partner_link");
+    LLStringUtil::format_map_t args;
+    args["[LINK]"] = partner_name;
+
+    LLStyle::Params link_style;
+    LLUIColor link_color = LLUIColorTable::instance().getColor("HTMLLinkColor");
+    link_style.color = link_color;
+    link_style.readonly_color = link_color;
+    link_style.is_link = true;
+    link_style.link_href = LLSLURL("agent", mPartnerAvatarId, "inspect").getSLURLString();
+    partner_text_ctrl->setText(getString("partner_text", args), link_style);
 }
 
 void LLPanelProfileSecondLife::fillAccountStatus(const LLAvatarData* avatar_data)
 {
     LLStringUtil::format_map_t args;
-    args["[ACCTTYPE]"] = LLAvatarPropertiesProcessor::accountType(avatar_data);
+    args["[ACCTTYPE]"] = LLTasiaUserConfig::renderAccountType(avatar_data->avatar_id,
+        LLAvatarPropertiesProcessor::accountType(avatar_data));
     args["[PAYMENTINFO]"] = LLAvatarPropertiesProcessor::paymentInfo(avatar_data);
 
     std::string caption_text = getString("CaptionTextAcctInfo", args);
-    getChild<LLUICtrl>("account_info")->setValue(caption_text);
+    fillTasiaUserData(avatar_data->avatar_id, caption_text);
 
     constexpr S32 LINDEN_EMPLOYEE_INDEX = 3;
     LLDate sl_release;
@@ -1145,6 +1333,145 @@ void LLPanelProfileSecondLife::fillAccountStatus(const LLAvatarData* avatar_data
     {
         childSetVisible("badge_layout", false);
         childSetVisible("partner_spacer_layout", true);
+    }
+}
+
+void LLPanelProfileSecondLife::fillTasiaUserData(const LLUUID& avatar_id, const std::string& account_text)
+{
+    mAccountInfoText = account_text;
+    LLUICtrl* account_info = getChild<LLUICtrl>("account_info");
+    account_info->setToolTip(std::string());
+
+    LLTasiaUserConfig::User user;
+    if (!LLTasiaUserConfig::getUser(avatar_id, user) || !user.hasProfileBadge())
+    {
+        account_info->setRect(mAccountInfoDefaultRect);
+        mTasiaBadgeIconUrl.clear();
+        childSetVisible("tasia_profile_badge_layout", false);
+        getChild<LLThumbnailCtrl>("tasia_profile_badge_icon")->clearTexture();
+        account_info->setValue(account_text);
+        return;
+    }
+
+    LLRect badge_text_rect = mAccountInfoDefaultRect;
+    badge_text_rect.mLeft += 37;
+    account_info->setRect(badge_text_rect);
+
+    const bool builtin_badge = tasiaIsBuiltinProfileBadge(user.badge_name);
+    std::string profile_line;
+    if (!user.badge_name.empty() && !builtin_badge)
+    {
+        profile_line = user.badge_name;
+    }
+    else if (!user.getNametagTitle().empty())
+    {
+        profile_line = user.getNametagTitle();
+    }
+    if (!user.profile_text.empty())
+    {
+        if (!profile_line.empty()) profile_line += ": ";
+        profile_line += user.profile_text;
+    }
+
+    std::string tooltip = user.tooltip;
+    if (tooltip.empty())
+    {
+        tooltip = user.profile_text.empty() ? user.badge_name : user.profile_text;
+    }
+    if (!tooltip.empty()) account_info->setToolTip(tooltip);
+
+    std::string displayed_text = account_text;
+    if (!profile_line.empty()) displayed_text += "\n" + profile_line;
+    account_info->setValue(displayed_text);
+
+    if (user.badge_icon.empty())
+    {
+        mTasiaBadgeIconUrl.clear();
+        mTasiaBadgeFallbackName = user.badge_name;
+        mTasiaBadgeFallbackTooltip = tooltip.empty() ? profile_line : tooltip;
+        showTasiaBadgeFallback();
+        return;
+    }
+
+    if (user.badge_icon == mTasiaBadgeIconUrl) return;
+    if (!setTasiaRemoteBadgeIcon(user.badge_icon,
+            tooltip.empty() ? profile_line : tooltip, user.badge_name))
+    {
+        mTasiaBadgeIconUrl.clear();
+        mTasiaBadgeFallbackName = user.badge_name;
+        mTasiaBadgeFallbackTooltip = tooltip.empty() ? profile_line : tooltip;
+        showTasiaBadgeFallback();
+    }
+}
+
+bool LLPanelProfileSecondLife::setTasiaRemoteBadgeIcon(const std::string& icon_url,
+                                                       const std::string& tooltip,
+                                                       const std::string& fallback_badge_name)
+{
+    if (icon_url.empty() || !LLStringUtil::startsWith(icon_url, "https://")) return false;
+
+    mTasiaBadgeIconUrl = icon_url;
+    mTasiaBadgeFallbackName = fallback_badge_name;
+    mTasiaBadgeFallbackTooltip = tooltip;
+    LLThumbnailCtrl* icon = getChild<LLThumbnailCtrl>("tasia_profile_badge_icon");
+    icon->clearTexture();
+    icon->setToolTip(tooltip);
+    showTasiaBadgeFallback();
+    LLCoros::instance().launch("TasiaProfileBadgeFetch",
+        boost::bind(tasiaFetchProfileBadge, icon_url, getHandle()));
+    return true;
+}
+
+void LLPanelProfileSecondLife::showTasiaBadgeFallback()
+{
+    LLThumbnailCtrl* thumbnail = getChild<LLThumbnailCtrl>("tasia_profile_badge_icon");
+    thumbnail->clearTexture();
+    thumbnail->setVisible(false);
+
+    LLIconCtrl* fallback = getChild<LLIconCtrl>("tasia_profile_badge_fallback");
+    const std::string icon_name = tasiaIsBuiltinProfileBadge(mTasiaBadgeFallbackName)
+        ? mTasiaBadgeFallbackName : "Profile_Badge_Team";
+    fallback->setValue(icon_name);
+    fallback->setToolTip(mTasiaBadgeFallbackTooltip.empty()
+        ? mTasiaBadgeFallbackName : mTasiaBadgeFallbackTooltip);
+    fallback->setVisible(true);
+    childSetVisible("tasia_profile_badge_layout", true);
+}
+
+void LLPanelProfileSecondLife::onTasiaRemoteBadgeDownloaded(const std::string& icon_url,
+                                                            const std::string& mime_type,
+                                                            const LLSD::Binary& body)
+{
+    if (icon_url != mTasiaBadgeIconUrl) return;
+    if (body.empty() || body.size() > TASIA_PROFILE_BADGE_MAX_BYTES || mime_type.empty())
+    {
+        showTasiaBadgeFallback();
+        mTasiaBadgeIconUrl.clear();
+        return;
+    }
+
+    LLViewerFetchedTexture* image = LLViewerTextureManager::getFetchedTextureFromMemory(
+        body.data(), static_cast<U32>(body.size()), mime_type);
+    if (!image)
+    {
+        showTasiaBadgeFallback();
+        mTasiaBadgeIconUrl.clear();
+        return;
+    }
+
+    LLThumbnailCtrl* thumbnail = getChild<LLThumbnailCtrl>("tasia_profile_badge_icon");
+    thumbnail->setTexture(image, true);
+    thumbnail->setToolTip(mTasiaBadgeFallbackTooltip);
+    thumbnail->setVisible(true);
+    getChild<LLIconCtrl>("tasia_profile_badge_fallback")->setVisible(false);
+    childSetVisible("tasia_profile_badge_layout", true);
+}
+
+void LLPanelProfileSecondLife::refreshTasiaProfileData()
+{
+    if (!mAccountInfoText.empty())
+    {
+        fillTasiaUserData(getAvatarId(), mAccountInfoText);
     }
 }
 
@@ -2231,6 +2558,15 @@ void LLPanelProfileFirstLife::onDiscardDescriptionChanges()
 
 void LLPanelProfileFirstLife::processProperties(void* data, EAvatarProcessorType type)
 {
+    if (type == APT_PROPERTIES_LEGACY && data && LLGridManager::getInstance()->isInOpenSim())
+    {
+        const auto& legacy = *static_cast<const LLAvatarLegacyData*>(data);
+        if (getAvatarId() != legacy.avatar_id) return;
+        setDescriptionText(legacy.fl_about_text);
+        mPicture->setValue(legacy.fl_image_id);
+        setLoaded();
+        return;
+    }
     if (APT_PROPERTIES == type)
     {
         LLAvatarData* avatar_data = static_cast<LLAvatarData*>(data);
@@ -2289,6 +2625,22 @@ LLPanelProfileNotes::~LLPanelProfileNotes()
 {
 }
 
+void LLPanelProfileNotes::updateData()
+{
+    if (LLGridManager::getInstance()->isInOpenSim() &&
+        gAgent.getRegionCapability(PROFILE_PROPERTIES_CAP).empty())
+    {
+        const LLUUID avatar_id = getAvatarId();
+        if (!getStarted() && avatar_id.notNull())
+        {
+            setIsLoading();
+            LLAvatarPropertiesProcessor::getInstance()->sendAvatarNotesRequest(avatar_id);
+        }
+        return;
+    }
+    LLPanelProfilePropertiesProcessorTab::updateData();
+}
+
 void LLPanelProfileNotes::commitUnsavedChanges()
 {
     if (mHasUnsavedChanges)
@@ -2337,7 +2689,14 @@ void LLPanelProfileNotes::onSetNotesDirty()
 void LLPanelProfileNotes::onSaveNotesChanges()
 {
     mCurrentNotes = mNotesEditor->getValue().asString();
-    saveAgentUserInfoCoro("notes", mCurrentNotes);
+    if (!gAgent.getRegionCapability(PROFILE_PROPERTIES_CAP).empty())
+    {
+        saveAgentUserInfoCoro("notes", mCurrentNotes);
+    }
+    else if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        LLAvatarPropertiesProcessor::getInstance()->sendNotes(getAvatarId(), mCurrentNotes);
+    }
 
     mSaveChanges->setEnabled(false);
     mDiscardChanges->setEnabled(false);
@@ -2351,6 +2710,16 @@ void LLPanelProfileNotes::onDiscardNotesChanges()
 
 void LLPanelProfileNotes::processProperties(void* data, EAvatarProcessorType type)
 {
+    if (APT_NOTES == type && data && LLGridManager::getInstance()->isInOpenSim() &&
+        gAgent.getRegionCapability(PROFILE_PROPERTIES_CAP).empty())
+    {
+        const auto& notes = *static_cast<const LLAvatarNotes*>(data);
+        if (getAvatarId() != notes.target_id) return;
+        LLAvatarData profile_data;
+        profile_data.notes = notes.notes;
+        processProperties(&profile_data);
+        return;
+    }
     if (APT_PROPERTIES == type)
     {
         LLAvatarData* avatar_data = static_cast<LLAvatarData*>(data);
@@ -2448,12 +2817,12 @@ void LLPanelProfile::updateData()
     // include 'inited' or 'data_provided' state to not rerequest
     if (!getStarted() && avatar_id.notNull())
     {
+        LL_INFOS("AvatarProperties") << "Profile floater loading started target="
+            << (avatar_id == gAgentID ? "self" : "other") << LL_ENDL;
         setIsLoading();
 
         mPanelSecondlife->setIsLoading();
-        mPanelPicks->setIsLoading();
         mPanelFirstlife->setIsLoading();
-        mPanelNotes->setIsLoading();
 
         LLAvatarPropertiesProcessor::getInstance()->sendAvatarPropertiesRequest(getAvatarId());
     }
@@ -2526,4 +2895,3 @@ void LLPanelProfile::createClassified()
     mPanelClassifieds->createClassified();
     mTabContainer->selectTabPanel(mPanelClassifieds);
 }
-

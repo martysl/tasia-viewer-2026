@@ -345,6 +345,8 @@ public:
 
     void getSimulatorFeatures(LLSD& info) const;
     void setSimulatorFeatures(const LLSD& info);
+    F32 getMinSimHeight() const { return mMinSimHeight; }
+    F32 getSayRange() const { return mSayRange; }
 
 
     bool dynamicPathfindingEnabled() const;
@@ -407,6 +409,7 @@ public:
 
     void getNeighboringRegions( std::vector<LLViewerRegion*>& uniqueRegions );
     void getNeighboringRegionsStatus( std::vector<S32>& regions );
+    void getAdjacentRegions(std::vector<LLViewerRegion*>& adjacent_regions) const;
     const LLViewerRegionImpl * getRegionImpl() const { return mImpl; }
     LLViewerRegionImpl * getRegionImplNC() { return mImpl; }
 
@@ -569,6 +572,8 @@ public:
     bool                                    mCacheDirty;
     bool    mAlive;                 // can become false if circuit disconnects
     bool    mSimulatorFeaturesReceived;
+    F32     mMinSimHeight;
+    F32     mSayRange;
     bool    mReleaseNotesRequested;
     bool    mDead;  //if true, this region is in the process of deleting.
     bool    mPaused; //pause processing the objects in the region

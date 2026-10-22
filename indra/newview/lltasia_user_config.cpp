@@ -24,6 +24,15 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "lltasia_user_config.h"
+#include "lltasia_config_fetch.h"
+#include "llfloaterprofile.h"
+#include "llfloaterreg.h"
+#include "llviewernetwork.h"
+#include "llagent.h"
+#include "llframetimer.h"
+#include "lluri.h"
+#include "llsdjson.h"
+#include <boost/json.hpp>
 
 #include "llcorehttputil.h"
 #include "llcoros.h"
@@ -43,8 +52,6 @@
 
 namespace
 {
-const U32 MIN_CONFIG_BYTES = 1024;
-const U32 MAX_CONFIG_BYTES = 1024 * 1024;
 const S32 MAX_USERS = 1024;
 const std::size_t MAX_SHORT_TEXT = 128;
 const std::size_t MAX_LONG_TEXT = 1024;
@@ -54,7 +61,49 @@ typedef std::map<std::string, LLTasiaUserConfig::User> user_map_t;
 
 bool sRequested = false;
 bool sLoaded = false;
+bool sPending = false;
+F64 sNextRequest = 0;
+U64 sGeneration = 0;
+std::string sGrid;
 user_map_t sUsers;
+
+std::string gridKey(std::string grid)
+{
+    LLStringUtil::trim(grid);
+    if (grid.empty() || grid.size() > 255 || grid.find_first_of("@?#\\\r\n\t ") != std::string::npos)
+        return {};
+    const LLURI uri(grid.find("://") == std::string::npos ? "https://" + grid : grid);
+    if (uri.scheme() != "https" && uri.scheme() != "http") return {};
+    return utf8str_tolower(uri.authority());
+}
+
+// Resolve an entry's grid to the viewer's internal grid key. Accepts the key
+// itself, a bare host with or without a port, the login-list label, and the
+// friendly name "secondlife.com" for the built-in Second Life grid.
+std::string resolveEntryGrid(const std::string& value)
+{
+    const std::string resolved = LLGridManager::getInstance()->resolveGridKey(value);
+    if (!resolved.empty()) return resolved;
+    return gridKey(value);
+}
+
+// The catalog is served by one grid's own host. An entry without an explicit
+// grid belongs to THAT grid only, so a shared file can never leak a cosmetic
+// identity onto a different grid's residents.
+std::string sourceGridForUrl(const std::string& url)
+{
+    const LLURI uri(url);
+    const std::string host = utf8str_tolower(uri.hostName());
+    if (host.empty()) return {};
+    const auto grids = LLGridManager::getInstance()->getKnownGrids();
+    for (const auto& grid : grids)
+    {
+        const std::string key = grid.first;
+        const std::string key_host = key.substr(0, key.find(':'));
+        if (key_host == host) return key;
+    }
+    return resolveEntryGrid(host);
+}
 
 std::string cleanText(std::string value, std::size_t max_len)
 {
@@ -125,6 +174,7 @@ bool parseHexByte(const std::string& value, std::size_t offset, F32& out)
     }
 
     const std::string byte_str = value.substr(offset, 2);
+    if (byte_str.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) return false;
     char* end = NULL;
     const unsigned long parsed = std::strtoul(byte_str.c_str(), &end, 16);
     if (!end || *end != '\0' || parsed > 255)
@@ -188,11 +238,10 @@ LLTasiaUserConfig::User parseUser(const LLSD& item)
 {
     LLTasiaUserConfig::User user;
     user.custom_title = getFirstString(item, "custom_title", "title", "rank_title");
-    // These aliases are local presentation only: they never alter account,
-    // profile, IM, chat, or simulator identity.
-    user.cosmetic_display_name = getFirstString(item, "display_name", "display_name_override", "nametag_display_name");
-    user.cosmetic_username = getFirstString(item, "username", "username_override", "nametag_username");
-    user.cosmetic_account_type = getFirstString(item, "account_type", "account_type_override", "profile_account_type");
+    // Only explicitly populated name fields are UI overrides. page_name belongs
+    // to the website and MUST NOT be used as a display-name fallback.
+    user.cosmetic_display_name = getCleanString(item, "display_name", MAX_SHORT_TEXT);
+    user.cosmetic_username = getCleanString(item, "username", MAX_SHORT_TEXT);
     user.badge_name = getCleanString(item, "badge_name", MAX_SHORT_TEXT);
     user.badge_icon = getCleanURL(item, "badge_icon");
     user.profile_text = getCleanString(item, "profile_text", MAX_LONG_TEXT);
@@ -201,18 +250,17 @@ LLTasiaUserConfig::User parseUser(const LLSD& item)
     return user;
 }
 
-void applyConfig(const LLSD& response)
+void applyConfig(const LLSD& response, const std::string& source_grid)
 {
     user_map_t parsed_users;
     if (!response.has("users") || !response["users"].isArray())
     {
         LL_WARNS("TasiaConfig") << "Remote user config has no users array" << LL_ENDL;
-        sUsers.clear();
-        sLoaded = true;
         return;
     }
 
     const LLSD& users = response["users"];
+    if (users.size() > MAX_USERS) return; // reject whole oversized catalog, not a partial identity set
     S32 count = 0;
     for (LLSD::array_const_iterator it = users.beginArray(); it != users.endArray() && count < MAX_USERS; ++it)
     {
@@ -223,22 +271,26 @@ void applyConfig(const LLSD& response)
         }
 
         const std::string uuid_string = getCleanString(item, "uuid", MAX_SHORT_TEXT);
+        // An explicit grid wins; otherwise the entry belongs to the grid that
+        // publishes this catalog. Entries for an unknown grid are ignored.
+        std::string grid = resolveEntryGrid(getCleanString(item, "grid", 255));
+        if (grid.empty()) grid = source_grid;
         LLUUID agent_id(uuid_string);
-        if (agent_id.isNull())
+        if (grid.empty() || agent_id.isNull())
         {
             continue;
         }
 
         LLTasiaUserConfig::User user = parseUser(item);
-        if (!user.hasProfileBadge() && user.getNametagTitle().empty()
-            && user.cosmetic_display_name.empty() && user.cosmetic_username.empty()
-            && user.cosmetic_account_type.empty()
-            && !user.has_tag_color)
+        if (!user.hasProfileBadge() && user.getNametagTitle().empty() &&
+            user.cosmetic_display_name.empty() && user.cosmetic_username.empty() && !user.has_tag_color)
         {
             continue;
         }
 
-        parsed_users[agent_id.asString()] = user;
+        const std::string key = grid + "\n" + agent_id.asString();
+        if (parsed_users.count(key)) return; // ambiguous duplicate identity: retain last good catalog
+        parsed_users[key] = user;
         ++count;
     }
 
@@ -266,55 +318,74 @@ bool LLTasiaUserConfig::User::hasProfileBadge() const
 // static
 void LLTasiaUserConfig::requestOnce()
 {
-    if (sRequested)
+    const std::string grid = gridKey(LLGridManager::getInstance()->getGrid());    if (sGrid != grid || (!gSavedSettings.getBOOL("TasiaRemoteUserConfigEnabled") && !sUsers.empty()))
     {
-        return;
+        sGrid = grid;
+        ++sGeneration;
+        sPending = false;
+        sNextRequest = 0;
+        sUsers.clear();
+        sLoaded = false;
+        LLVOAvatar::invalidateNameTags();
     }
-
-    if (!gSecAPIHandler)
+    if (!gSecAPIHandler || gAgent.getSessionID().isNull() || grid.empty() ||
+        !gSavedSettings.getBOOL("TasiaRemoteUserConfigEnabled") || sPending ||
+        LLFrameTimer::getTotalSeconds() < sNextRequest)
     {
-        LL_DEBUGS("TasiaConfig") << "Remote user config fetch deferred until security handler is initialized" << LL_ENDL;
         return;
     }
 
     sRequested = true;
-
-    if (!gSavedSettings.getBOOL("TasiaRemoteUserConfigEnabled"))
-    {
-        sLoaded = true;
-        return;
-    }
-
+    sPending = true;
+    sNextRequest = LLFrameTimer::getTotalSeconds() + 300.0;
     std::string url = gSavedSettings.getString("TasiaRemoteUserConfigURL");
-    LLStringUtil::trim(url);
-    if (url.empty())
+    const auto generation = ++sGeneration;
+    const auto session = gAgent.getSessionID();
+    // A catalog hosted by the grid we are on applies to that grid. A catalog
+    // hosted elsewhere only applies when it names the grid explicitly.
+    const std::string source_grid = sourceGridForUrl(url);
+    tasiaFetchConfig(url, 262144, [grid, generation, session, source_grid](bool ok, const std::string& text)
     {
+        if (generation != sGeneration) return;
+        sPending = false;
+        if (gAgent.getSessionID() != session || gridKey(LLGridManager::getInstance()->getGrid()) != grid ||
+            !gSavedSettings.getBOOL("TasiaRemoteUserConfigEnabled")) return;
         sLoaded = true;
-        return;
-    }
+        if (!ok) return; // fail softly; never alter simulator/account identity
+        boost::system::error_code error;
+        const auto json = boost::json::parse(text, error);
+        if (!error)
+        {
+            applyConfig(LlsdFromJson(json), source_grid);
 
-    const F32 timeout_setting = gSavedSettings.getF32("TasiaRemoteUserConfigTimeout");
-    const U32 timeout_seconds = static_cast<U32>(llclamp(static_cast<S32>(timeout_setting + 0.999f), 1, 30));
-    const U32 max_bytes = llclamp(gSavedSettings.getU32("TasiaRemoteUserConfigMaxBytes"), MIN_CONFIG_BYTES, MAX_CONFIG_BYTES);
-
-    LLCoros::instance().launch("LLTasiaUserConfig::fetchCoro",
-        boost::bind(&LLTasiaUserConfig::fetchCoro, url, timeout_seconds, max_bytes));
+            // The catalog can finish after the user's profile has already
+            // resolved its avatar-name callback. Refresh that open profile so
+            // explicit display_name/username overrides appear immediately.
+            LLFloaterProfile* self_profile = LLFloaterReg::findTypedInstance<LLFloaterProfile>(
+                "profile", LLSD().with("id", gAgent.getID()));
+            if (self_profile)
+            {
+                self_profile->refreshName();
+            }
+        }
+    });
 }
 
 // static
 bool LLTasiaUserConfig::getUser(const LLUUID& agent_id, User& user)
 {
-    if (agent_id.isNull())
+    if (agent_id.isNull() || gAgent.getSessionID().isNull() ||
+        !gSavedSettings.getBOOL("TasiaRemoteUserConfigEnabled"))
     {
         return false;
     }
 
-    user_map_t::const_iterator it = sUsers.find(agent_id.asString());
+    user_map_t::const_iterator it = sUsers.find(
+        gridKey(LLGridManager::getInstance()->getGrid()) + "\n" + agent_id.asString());
     if (it == sUsers.end())
     {
         return false;
     }
-
     user = it->second;
     return true;
 }
@@ -345,21 +416,16 @@ std::string LLTasiaUserConfig::renderUsername(const LLUUID& agent_id, const LLAv
 // static
 std::string LLTasiaUserConfig::renderCompleteName(const LLUUID& agent_id, const LLAvatarName& real_name)
 {
-    if (!hasCosmeticAlias(agent_id))
-    {
-        return real_name.getCompleteName();
-    }
+    if (!hasCosmeticAlias(agent_id)) return real_name.getCompleteName();
     const std::string display_name = renderDisplayName(agent_id, real_name);
     const std::string username = renderUsername(agent_id, real_name);
-    return (display_name == username) ? display_name : display_name + " (" + username + ")";
+    return display_name == username ? display_name : display_name + " (" + username + ")";
 }
 
 // static
-std::string LLTasiaUserConfig::renderAccountType(const LLUUID& agent_id, const std::string& canonical_account_type)
+std::string LLTasiaUserConfig::renderAccountType(const LLUUID&, const std::string& canonical_account_type)
 {
-    User user;
-    return (getUser(agent_id, user) && !user.cosmetic_account_type.empty())
-        ? user.cosmetic_account_type : canonical_account_type;
+    return canonical_account_type;
 }
 
 // static
@@ -372,35 +438,4 @@ bool LLTasiaUserConfig::isRequested()
 bool LLTasiaUserConfig::isLoaded()
 {
     return sLoaded;
-}
-
-// static
-void LLTasiaUserConfig::fetchCoro(std::string url, U32 timeout_seconds, U32 max_bytes)
-{
-    LLCore::HttpRequest::ptr_t http_request(new LLCore::HttpRequest);
-    LLCoreHttpUtil::HttpCoroutineAdapter::ptr_t http_adapter(
-        new LLCoreHttpUtil::HttpCoroutineAdapter("TasiaUserConfigFetch", LLCore::HttpRequest::DEFAULT_POLICY_ID));
-    LLCore::HttpHeaders::ptr_t http_headers(new LLCore::HttpHeaders);
-    LLCore::HttpOptions::ptr_t http_options(new LLCore::HttpOptions);
-
-    http_options->setTimeout(timeout_seconds);
-    http_options->setTransferTimeout(timeout_seconds);
-    http_options->setRetries(0);
-
-    std::ostringstream range;
-    range << "bytes=0-" << (max_bytes - 1);
-    http_headers->append(std::string(HTTP_OUT_HEADER_ACCEPT), "application/json, */*;q=0.1");
-    http_headers->append(std::string(HTTP_OUT_HEADER_RANGE), range.str());
-
-    LLSD response = http_adapter->getJsonAndSuspend(http_request, url, http_options, http_headers);
-    LLSD http_results = response[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS];
-    LLCore::HttpStatus status = LLCoreHttpUtil::HttpCoroutineAdapter::getStatusFromLLSD(http_results);
-    if (!status)
-    {
-        LL_WARNS("TasiaConfig") << "Remote user config fetch failed: " << status.toString() << LL_ENDL;
-        sLoaded = true;
-        return;
-    }
-
-    applyConfig(response);
 }

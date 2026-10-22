@@ -96,6 +96,18 @@
      tab_padding_right="0"
      top="40"
      width="658">
+        <!-- The Tasia network panel carries the QUIC/TLS, grid and identity
+             settings. It must be registered at all, otherwise none of it is
+             reachable, and it is listed first so it is never below the fold. -->
+        <panel
+         class="panel_preference"
+          filename="panel_preferences_tasia_network.xml"
+         label="Tasia - Network"
+         layout="topleft"
+         help_topic="preferences_viewer_tab"
+          name="tasia_network" />
+        <panel class="panel_preference" filename="panel_preferences_tasia_media.xml"
+               label="Tasia - Media" layout="topleft" name="tasia_media" />
         <panel
 	 class="panel_preference"
          filename="panel_preferences_general.xml"
@@ -190,19 +202,20 @@
         <panel
         class="panel_preference"
         filename="panel_preferences_kirstens.xml"
-        label="S24 - Core"
+        label="Tasia - Core"
         layout="topleft"
         help_topic="preferences_viewer_tab"
         name="skins" />
       
+
        <panel
         class="panel_preference"
         filename="panel_preferences_kirstens_post.xml"
-        label="S24 - VFX"
+        label="Tasia - VFX"
         layout="topleft"
         help_topic="preferences_viewer_tab"
         name="post" />
-      
+
     </tab_container>
 
 </floater>

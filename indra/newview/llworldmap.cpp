@@ -27,6 +27,7 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llworldmap.h"
+#include "lltasia_region_compat.h"
 
 #include "llworldmapmessage.h"
 #include "message.h"
@@ -65,6 +66,8 @@ LLItemInfo::LLItemInfo(F32 global_x, F32 global_y,
 LLSimInfo::LLSimInfo(U64 handle)
 :	mHandle(handle),
 	mName(),
+	mSizeX(LLTasiaRegion::DEFAULT_WIDTH),
+	mSizeY(LLTasiaRegion::DEFAULT_WIDTH),
 	mAgentsUpdateTime(0),
 	mAccess(0x0),
 	mRegionFlags(0x0),
@@ -394,11 +397,23 @@ void LLWorldMap::reloadItems(bool force)
 // returns true if region inserted, false otherwise
 bool LLWorldMap::insertRegion(U32 x_world, U32 y_world, std::string& name, LLUUID& image_id, U32 accesscode, U32 region_flags)
 {
+	return insertRegion(x_world, y_world, LLTasiaRegion::DEFAULT_WIDTH,
+		LLTasiaRegion::DEFAULT_WIDTH, name, image_id, accesscode, region_flags);
+}
+
+bool LLWorldMap::insertRegion(U32 x_world, U32 y_world, U16 size_x, U16 size_y,
+	std::string& name, LLUUID& image_id, U32 accesscode, U32 region_flags)
+{
+	if (!LLTasiaRegion::validMapDimensions(size_x, size_y))
+	{
+		size_x = size_y = LLTasiaRegion::DEFAULT_WIDTH;
+	}
 	// This region doesn't exist
 	if (accesscode == 255)
 	{
 		// Checks if the track point is in it and invalidates it if it is
-		if (LLWorldMap::getInstance()->isTrackingInRectangle( x_world, y_world, x_world + REGION_WIDTH_UNITS, y_world + REGION_WIDTH_UNITS))
+		if (LLWorldMap::getInstance()->isTrackingInRectangle(x_world, y_world,
+			x_world + size_x, y_world + size_y))
 		{
 			LLWorldMap::getInstance()->setTrackingInvalid();
 		}
@@ -416,13 +431,15 @@ bool LLWorldMap::insertRegion(U32 x_world, U32 y_world, std::string& name, LLUUI
 			siminfo = LLWorldMap::getInstance()->createSimInfoFromHandle(handle);
 		}
 		siminfo->setName(name);
+		siminfo->setSize(size_x, size_y);
 		siminfo->setAccess(accesscode);
 		siminfo->setRegionFlags(region_flags);
 	//	siminfo->setWaterHeight((F32) water_height);
 		siminfo->setLandForSaleImage(image_id);
 
 		// Handle the location tracking (for teleport, UI feedback and info display)
-		if (LLWorldMap::getInstance()->isTrackingInRectangle( x_world, y_world, x_world + REGION_WIDTH_UNITS, y_world + REGION_WIDTH_UNITS))
+		if (LLWorldMap::getInstance()->isTrackingInRectangle(x_world, y_world,
+			x_world + size_x, y_world + size_y))
 		{
 			if (siminfo->isDown())
 			{
@@ -712,4 +729,3 @@ void LLWorldMap::dump()
 		}
 	}
 }
-

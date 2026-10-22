@@ -972,7 +972,7 @@ void LLPanelEditWearable::onCommitSexChange()
         }
         param->setWeight( is_new_sex_male);
 
-        gAgentAvatarp->updateSexDependentLayerSets();
+        gAgentAvatarp->updateSexDependentLayerSets(false);
 
         gAgentAvatarp->updateVisualParams();
         showWearable(mWearablePtr, true, true);
@@ -1038,7 +1038,7 @@ void LLPanelEditWearable::onColorSwatchCommit(const LLUICtrl* ctrl)
                         const LLColor4& new_color = LLColor4(ctrl->getValue());
                         if (old_color != new_color)
                         {
-                                getWearable()->setClothesColor(entry->mTextureIndex, new_color);
+                                getWearable()->setClothesColor(entry->mTextureIndex, new_color, true);
                                 LLVisualParamHint::requestHintUpdates();
                                 gAgentAvatarp->wearableUpdated(getWearable()->getType());
                         }

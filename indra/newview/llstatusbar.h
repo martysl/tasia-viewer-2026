@@ -98,6 +98,7 @@ public:
     LLPanelNearByMedia* getNearbyMediaPanel() { return mPanelNearByMedia; }
 
 private:
+    void reshapeToFitContent();
 
     void onClickBuyCurrency();
     void onClickShop();

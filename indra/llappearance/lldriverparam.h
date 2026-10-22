@@ -101,9 +101,14 @@ public:
 
     // LLVisualParam Virtual functions
     /*virtual*/ void                apply(ESex sex) {} // apply is called separately for each driven param.
-    /*virtual*/ void                setWeight(F32 weight);
-    /*virtual*/ void                setAnimationTarget(F32 target_value);
-    /*virtual*/ void                stopAnimating();
+    // <FS:Ansariel> [Legacy Bake]
+    ///*virtual*/ void              setWeight(F32 weight);
+    ///*virtual*/ void              setAnimationTarget(F32 target_value);
+    ///*virtual*/ void              stopAnimating();
+    /*virtual*/ void                setWeight(F32 weight, bool upload_bake = false) override;
+    /*virtual*/ void                setAnimationTarget(F32 target_value, bool upload_bake = false) override;
+    /*virtual*/ void                stopAnimating(bool upload_bake = false) override;
+    // </FS:Ansariel> [Legacy Bake]
     /*virtual*/ bool                linkDrivenParams(visual_param_mapper mapper, bool only_cross_params);
     /*virtual*/ void                resetDrivenParams();
 
@@ -125,7 +130,10 @@ public:
 protected:
     LLDriverParam(const LLDriverParam& pOther);
     F32 getDrivenWeight(const LLDrivenEntry* driven, F32 input_weight);
-    void setDrivenWeight(LLDrivenEntry* driven, F32 driven_weight);
+    // <FS:Ansariel> [Legacy Bake]
+    //void setDrivenWeight(LLDrivenEntry* driven, F32 driven_weight);
+    void setDrivenWeight(LLDrivenEntry* driven, F32 driven_weight, bool upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
 
 
     LL_ALIGN_16(LLVector4a  mDefaultVec); // temp holder

@@ -50,6 +50,9 @@ private:
     void onSaveToEmail();
     void onSaveToInventory();
     void onSaveToComputer();
+    void onUploadToTasiaFeed();
+    void onUploadToPrimFeed();
+    void onUploadToFlickr();
 
     LLFloaterSnapshotBase* mSnapshotFloater;
 };
@@ -62,6 +65,9 @@ LLPanelSnapshotOptions::LLPanelSnapshotOptions()
     mCommitCallbackRegistrar.add("Snapshot.SaveToEmail",        boost::bind(&LLPanelSnapshotOptions::onSaveToEmail,     this));
     mCommitCallbackRegistrar.add("Snapshot.SaveToInventory",    boost::bind(&LLPanelSnapshotOptions::onSaveToInventory, this));
     mCommitCallbackRegistrar.add("Snapshot.SaveToComputer",     boost::bind(&LLPanelSnapshotOptions::onSaveToComputer,  this));
+    mCommitCallbackRegistrar.add("Snapshot.UploadToTasiaFeed",  boost::bind(&LLPanelSnapshotOptions::onUploadToTasiaFeed,  this));
+    mCommitCallbackRegistrar.add("Snapshot.UploadToPrimFeed",   boost::bind(&LLPanelSnapshotOptions::onUploadToPrimFeed,   this));
+    mCommitCallbackRegistrar.add("Snapshot.UploadToFlickr",     boost::bind(&LLPanelSnapshotOptions::onUploadToFlickr,     this));
 }
 
 // virtual
@@ -103,5 +109,20 @@ void LLPanelSnapshotOptions::onSaveToInventory()
 void LLPanelSnapshotOptions::onSaveToComputer()
 {
     openPanel("panel_snapshot_local");
+}
+
+void LLPanelSnapshotOptions::onUploadToTasiaFeed()
+{
+    LLFloaterReg::showInstance("tasiafeed");
+}
+
+void LLPanelSnapshotOptions::onUploadToPrimFeed()
+{
+    LL_WARNS() << "Upload to PrimFeed not yet implemented" << LL_ENDL;
+}
+
+void LLPanelSnapshotOptions::onUploadToFlickr()
+{
+    LL_WARNS() << "Upload to Flickr not yet implemented" << LL_ENDL;
 }
 

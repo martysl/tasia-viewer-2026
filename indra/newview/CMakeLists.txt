@@ -167,10 +167,13 @@ set(viewer_SOURCE_FILES
     llchicletbar.cpp
     lltasia_chat_preview.cpp
     lltasia_giphy_key.cpp
+    llfloatertasiamediapicker.cpp
     lltasia_giphy_key.generated.cpp
     lltasia_klipy_key.cpp
     lltasia_klipy_key.generated.cpp
     lltasia_user_config.cpp
+    lltasia_config_fetch.cpp
+    lltasia_globe.cpp
     lltasia_welcome_client.cpp
     lltasiaguard.cpp
     llclassifiedinfo.cpp
@@ -457,6 +460,8 @@ set(viewer_SOURCE_FILES
     llmaterialeditor.cpp
     llmaterialmgr.cpp
     llmediactrl.cpp
+    llfloateruploadclipboard.cpp
+    llmp3batchupload.cpp
     llmediadataclient.cpp
     llmenuoptionpathfindingrebakenavmesh.cpp
     llmeshrepository.cpp
@@ -532,6 +537,7 @@ set(viewer_SOURCE_FILES
     llpanellandmarks.cpp
     llpanellandmedia.cpp
     llpanellogin.cpp
+    lltasia_login_store.cpp
     llpanelloginlistener.cpp
     llpanelmaininventory.cpp
     llpanelmarketplaceinbox.cpp
@@ -703,6 +709,7 @@ set(viewer_SOURCE_FILES
     lltransientdockablefloater.cpp
     lltransientfloatermgr.cpp
     lltranslate.cpp
+    lltasia_ai_translate.cpp
     lluiavatar.cpp
     lluihueshift.cpp
     lluilistener.cpp
@@ -880,9 +887,16 @@ set(viewer_HEADER_FILES
     llchiclet.h
     llchicletbar.h
     lltasia_chat_preview.h
+    lltasia_region_compat.h
     lltasia_giphy_key.h
+    llfloatertasiamediapicker.h
+    lltasia_transport_status.h
     lltasia_klipy_key.h
     lltasia_user_config.h
+    lltasia_config_fetch.h
+    lltasia_globe.h
+    lltasia_globe_math.h
+    lltasia_profile_compat.h
     lltasia_welcome_client.h
     lltasiaguard.h
     llclassifiedinfo.h
@@ -1169,6 +1183,8 @@ set(viewer_HEADER_FILES
     llmaterialeditor.h
     llmaterialmgr.h
     llmediactrl.h
+    llfloateruploadclipboard.h
+    llmp3batchupload.h
     llmediadataclient.h
     llmenuoptionpathfindingrebakenavmesh.h
     llmeshrepository.h
@@ -1236,6 +1252,7 @@ set(viewer_HEADER_FILES
     llpanellandmarks.h
     llpanellandmedia.h
     llpanellogin.h
+    lltasia_login_store.h
     llpanelloginlistener.h
     llpanelmaininventory.h
     llpanelmarketplaceinbox.h
@@ -1406,6 +1423,8 @@ set(viewer_HEADER_FILES
     lltransientdockablefloater.h
     lltransientfloatermgr.h
     lltranslate.h
+    lltasia_ai_translate.h
+    lltasia_translation_policy.h
     lluiconstants.h
     lluiavatar.h
     lluihueshift.h
@@ -1470,6 +1489,10 @@ set(viewer_HEADER_FILES
     llviewerstats.h
     llviewerstatsrecorder.h
     llviewertexlayer.h
+    lltasia_asset_caps.h
+    lltasia_bake_upload.h
+    lltasia_grid_filename.h
+    lltasia_legacy_wearables.h
     llviewertexteditor.h
     llviewertexture.h
     llviewertextureanim.h
@@ -1562,6 +1585,8 @@ list(APPEND viewer_HEADER_FILES
         COMPILE_FLAGS "/Yullviewerprecompiledheaders.h /Zm150"
       )        
     endforeach(src_file ${viewer_SOURCE_FILES})
+    # The SQLite/DPAPI store is also compiled by its standalone regression test.
+    set_source_files_properties(lltasia_login_store.cpp PROPERTIES COMPILE_FLAGS "/Y-")
     list(APPEND viewer_SOURCE_FILES llviewerprecompiledheaders.cpp)
 
     # Add resource files to the project.
@@ -1599,7 +1624,7 @@ list(APPEND viewer_HEADER_FILES
         res/lltoolzoomin.cur
         res/lltoolzoomout.cur
         res/ll_icon.BMP
-        res/kirstens-S24_icon.ico
+        res/tasia_icon.ico
         res/ll_icon_small.ico
         res/resource.h
         res/toolpickobject.cur
@@ -1817,6 +1842,13 @@ add_executable(${VIEWER_BINARY_NAME}
     ${viewer_SOURCE_FILES}
     )
 
+# Keep the legacy CMake target for existing build automation; brand the actual
+# executable and debug symbols without changing account/settings directories.
+set_target_properties(${VIEWER_BINARY_NAME} PROPERTIES
+    OUTPUT_NAME "TasiaViewer" PDB_NAME "TasiaViewer")
+include(TasiaFFmpeg)
+tasia_stage_ffmpeg(${VIEWER_BINARY_NAME})
+
 # add package files
 file(GLOB EVENT_HOST_SCRIPT_GLOB_LIST
      ${CMAKE_CURRENT_SOURCE_DIR}/../viewer_components/*.py)
@@ -1826,6 +1858,7 @@ set(PACKAGE ON CACHE BOOL
     "Add a package target that builds an installer package.")
 
 if(WINDOWS)
+    target_link_libraries(${VIEWER_BINARY_NAME} winsqlite3 crypt32)
   set_target_properties(${VIEWER_BINARY_NAME}
       PROPERTIES
       LINK_FLAGS "/debug /NODEFAULTLIB:LIBCMT /SUBSYSTEM:WINDOWS /LARGEADDRESSAWARE ws2_32.lib mswsock.lib advapi32.lib gdi32.lib shell32.lib crypt32.lib secur32.lib rpcrt4.lib winmm.lib dbghelp.lib netapi32.lib user32.lib ole32.lib wldap32.lib psapi.lib shlwapi.lib"
@@ -1846,7 +1879,14 @@ if(WINDOWS)
 	COMMENT "Copying message_template.msg to the runtime folder."
   )
 
-	# KV S24: PowerShell-only manifest copy (Python removed!)
+	# Track UI dependencies so changed menus/icons are not omitted on incremental builds.
+    file(GLOB_RECURSE TASIA_UI_COPY_INPUTS CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/skins/*")
+    # Any app_settings XML must re-trigger the runtime copy, otherwise a changed
+    # grids/settings file keeps the previous copy in the output directory.
+    file(GLOB TASIA_APP_SETTINGS_COPY_INPUTS CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/app_settings/*.xml")
+	# PowerShell runtime manifest copy.
 	add_custom_command(
 	  OUTPUT  ${CMAKE_CFG_INTDIR}/copy_touched.bat
 	  COMMAND ${PWSH_EXECUTABLE} -ExecutionPolicy Bypass -NoProfile
@@ -1858,6 +1898,10 @@ if(WINDOWS)
 	  DEPENDS
 		${CMAKE_CURRENT_SOURCE_DIR}/Copy-ViewerManifest.ps1
 		${COPY_INPUT_DEPENDENCIES}
+        ${TASIA_UI_COPY_INPUTS}
+        ${TASIA_APP_SETTINGS_COPY_INPUTS}
+        ${CMAKE_CURRENT_SOURCE_DIR}/app_settings/commands.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/app_settings/toolbars.xml
 	  COMMENT "Copying essential viewer files (PowerShell)"
 	  VERBATIM
 	  )

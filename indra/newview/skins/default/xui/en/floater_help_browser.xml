@@ -12,7 +12,7 @@
  help_topic="floater_help_browser"
  save_rect="true"
  single_instance="true"
- title="📘 S24 ENGINE GUIDE"
+ title="📘 TASIA ENGINE GUIDE"
  width="900">
 
   <!-- Main tab container -->
@@ -51,11 +51,11 @@
         width="820"
         font="SansSerifHuge"
         text_color="White">
-        S24 Engine - Advanced Tuning Guide
+        Tasia Engine - Advanced Tuning Guide
       </text>
 
       <text_editor follows="left|top|right|bottom" height="550" layout="topleft" left="20" top="55" width="820" font="SansSerif" word_wrap="true" text_color="LtGray" bg_readonly_color="0 0 0 0" read_only="true" hide_scrollbar="false" max_length="999999">
-Welcome to the S24 Engine Guide 🚀
+Welcome to the Tasia Engine Guide 🚀
 
 This guide provides quick reference for advanced settings, defaults, and tuning tips for experienced users.
 
@@ -64,9 +64,9 @@ This guide provides quick reference for advanced settings, defaults, and tuning 
 📖 GUIDE SECTIONS
 
 • Common Settings - Most frequently adjusted values and defaults
-• S24 Console - Command-line interface to the viewer
+• Tasia Console - Command-line interface to the viewer
 • Troubleshooting - Common issues and solutions
-• KVTweaks Tabs - Detailed breakdown of each tab
+• Tasia Engine Tabs - Detailed breakdown of each tab
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -74,7 +74,7 @@ This guide provides quick reference for advanced settings, defaults, and tuning 
 
 • Most settings take effect IMMEDIATELY - no restart needed
 • Shader changes require: RESETS → Purge Shader Cache → Restart
-• Hover over controls in KVTweaks for detailed tooltips
+• Hover over controls in Tasia Engine for detailed tooltips
 • Use RESETS tab to restore defaults or purge caches
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -148,7 +148,7 @@ Most frequently adjusted values and their defaults from settings.xml
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 CPU &amp; THREADING (KVTweaks → CPU &amp; Memory)
+📊 CPU &amp; THREADING (Tasia Engine → CPU &amp; Memory)
 
 EmulateCoreCount
   Default: 0 (auto-detect)
@@ -181,14 +181,14 @@ RunMultipleThreads
   Default: true
   Notes: Keep background threads active during render
 
-RenderCPUBasis (console/settings.xml only - not exposed as a KVTweaks slider)
+RenderCPUBasis (console/settings.xml only - not exposed as a Tasia Engine slider)
   Default: 3000 MHz
   Notes: Reference CPU frequency the GPU benchmark biases its classification against,
          so a high-end GPU isn't over-classified on a weak CPU
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💾 MEMORY MANAGEMENT (KVTweaks → CPU &amp; Memory)
+💾 MEMORY MANAGEMENT (Tasia Engine → CPU &amp; Memory)
 
 MaxHeapSize64
   Default: 16 GB
@@ -222,7 +222,7 @@ MainWorkTime
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎨 RENDERING CORE (KVTweaks → Rendering Core)
+🎨 RENDERING CORE (Tasia Engine → Rendering Core)
 
 RenderVolumeLODFactor
   Default: 4.125
@@ -255,7 +255,7 @@ RenderAutoMuteSurfaceAreaLimit
 
 AvatarFeathering
   Default: 16.0
-  Range: 0.0-8.0 (KVTweaks slider - note the shipped default exceeds the slider's own max)
+  Range: 0.0-8.0 (Tasia Engine slider - note the shipped default exceeds the slider's own max)
   Notes: Softens avatar LOD transitions - lower = softer
 
 RenderCompressTextures
@@ -264,7 +264,7 @@ RenderCompressTextures
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🖼️ TEXTURES (KVTweaks → Textures)
+🖼️ TEXTURES (Tasia Engine → Textures)
 
 TextureDiscardLevel
   Default: 0 (full quality)
@@ -279,7 +279,7 @@ RenderMaxTextureResolution
 TextureFetchConcurrency
   Default: 0 (auto - scales to 16)
   Range: 0-64
-  Notes: S24 raised the manual cap from 16→64 for modern connections
+  Notes: Tasia retains the raised manual cap of 64 for modern connections
 
 TextureNewByteRange
   Default: true
@@ -291,17 +291,17 @@ RenderHUDTexturesWarning / RenderHUDOversizedTexturesWarning / RenderHUDTextures
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🌊 WATER (KVTweaks → Water - S24 Exclusive System)
+🌊 WATER (Tasia Engine → Water)
 
 Water Preset System
-  Location: KVTweaks → Water tab
+  Location: Tasia Engine → Water tab
   Features: Save/Load/Delete custom water shader profiles
-  Notes: Complete S24 water control system with named presets
+  Notes: Complete Tasia water control system with named presets
 
 RenderWaterMetallic
   Default: 1.0 (fully metallic mirror)
   Range: 0.35-1.0 (below 0.35 causes whiteout)
-  Notes: S24 runtime control - LL hardcodes this at 1.0, now fully adjustable
+  Notes: Tasia runtime control - LL hardcodes this at 1.0, now fully adjustable
 
 RenderWaterRoughnessOverride
   Default: 0.0 (use environment blur)
@@ -361,11 +361,11 @@ RenderWaterWindMagnitudeCap
 RenderUIHueShiftFloaters / Menus / Controls / Text / Inventory / Map / Script / Misc
   Default: 0.0 (degrees) each
   Range: -180.0 to 180.0
-  Notes: Rotates each UI color category's hue independently (KVTweaks "UI Hue" tab). Floaters=window chrome/panels, Menus=menu bar/pie menu/toolbar, Controls=buttons/sliders/scrollbars, Text=chat/nametags/notifications/tooltips, Inventory=inventory/filters/outfits, Map=minimap/beacons/pathfinding, Script=script editor/syntax highlighting, Misc=everything else (login screen included). 0=skin default; pure white/gray/black elements are unaffected since hue has no meaning at zero saturation
+  Notes: Rotates each UI color category's hue independently (Tasia Engine "UI Hue" tab). Floaters=window chrome/panels, Menus=menu bar/pie menu/toolbar, Controls=buttons/sliders/scrollbars, Text=chat/nametags/notifications/tooltips, Inventory=inventory/filters/outfits, Map=minimap/beacons/pathfinding, Script=script editor/syntax highlighting, Misc=everything else (login screen included). 0=skin default; pure white/gray/black elements are unaffected since hue has no meaning at zero saturation
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🌌 NIGHT SKY (KVTweaks → Night Sky - S24 Exclusive System)
+🌌 NIGHT SKY (Tasia Engine → Night Sky)
 
 RenderSkyStyle
   Default: 0 (Default)
@@ -394,7 +394,7 @@ RenderShootingStars / RenderShootingStarFrequency
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-☁️ SKY / CLOUD LAYERS (KVTweaks → Sky - S24 2.5D Depth System)
+☁️ SKY / CLOUD LAYERS (Tasia Engine → Sky - 2.5D Depth System)
 
 RenderCloudLayers
   Default: true
@@ -420,7 +420,7 @@ RenderCloudCirrusScrollMult / RenderCloudCumulusScrollMult
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📦 RAM CACHE (KVTweaks → RAM Cache)
+📦 RAM CACHE (Tasia Engine → RAM Cache)
 
 KVRAMCacheEnabled
   Default: Disabled (false)
@@ -459,12 +459,12 @@ KVRAMCacheDebugLogging
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🌑 SHADOWS (KVTweaks → Shadows)
+🌑 SHADOWS (Tasia Engine → Shadows)
 
 RenderShadowResolutionScale
   Default: 3.0
   Range: 0.25-4.0
-  Notes: S24 uses an advanced cascade system - higher than standard LL values
+  Notes: Tasia uses an advanced cascade system - higher than standard LL values
 
 RenderShadowBias / RenderShadowOffset
   Default: -0.002 / 0.01
@@ -475,12 +475,12 @@ RenderShadowBias / RenderShadowOffset
 
 RenderShadowThrottleEnabled
   Default: true
-  Notes: S24 dynamic cascade throttling - distant cascades update less often while the
+  Notes: Tasia dynamic cascade throttling - distant cascades update less often while the
          camera is still, for free performance with no visible quality loss
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✨ REFLECTIONS (KVTweaks → Reflections)
+✨ REFLECTIONS (Tasia Engine → Reflections)
 
 Enable Reflection Probes (RenderReflectionProbesEnabled)
   Default: true
@@ -514,11 +514,11 @@ Equalize Faces / Opacity (RenderReflectionProbeEqualize / RenderReflectionProbeO
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎮 MOVEMENT (KVTweaks → Movement)
+🎮 MOVEMENT (Tasia Engine → Movement)
 
 SmoothKeyboardMovement (ground walking/running)
   Default: Disabled (false)
-  Notes: S24 feature - off by default, purely aesthetic enhancement
+  Notes: Tasia feature - off by default, purely aesthetic enhancement
 
 SmoothMovementAccelTime / SmoothMovementDecelTime
   Default: 0.20s / 0.15s
@@ -536,12 +536,12 @@ SmoothFlightAccelTime / SmoothFlightDecelTime
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🌐 NETWORK (KVTweaks → Network)
+🌐 NETWORK (Tasia Engine → Network)
 
 ThrottleBandwidthKBPS
   Default: 3000 kbps
   Range: 500-50000 kbps
-  Notes: S24 raised the cap from 10 Mbps to 50 Mbps for modern connections. Recommend 20000-40000 for fast fiber
+  Notes: Tasia retains the raised 50 Mbps cap. Recommend 20000-40000 for fast fiber
 
 AckCollectTime
   Default: 0.1 sec
@@ -559,7 +559,7 @@ PluginInstancesCPULimit
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔬 SELECTION BEAM (KVTweaks → Experimental)
+🔬 SELECTION BEAM (Tasia Engine → Experimental)
 
 SelectionBeamStyle
   Default: 2 (Hybrid - Line + Glow, "Lightsaber")
@@ -581,13 +581,13 @@ SelectionBeamParticleScale
 
 Beam Color
   Location: Preferences → Colors → My Effects
-  Notes: Not a KVTweaks control - separate color picker panel
+  Notes: Not a Tasia Engine control - separate color picker panel
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💡 PRO TIP
 
-These settings are from the actual KVTweaks tabs and settings.xml. Many are dynamically 
+These settings are from the actual Tasia Engine tabs and settings.xml. Many are dynamically
 managed by the viewer (VRAM, texture memory, thread counts). Start with defaults and 
 adjust incrementally while monitoring FPS and system resources.
       </text_editor>
@@ -598,7 +598,7 @@ adjust incrementally while monitoring FPS and system resources.
       border="true"
       follows="all"
       height="620"
-      label="💻 S24 Console"
+      label="💻 Tasia Console"
       layout="topleft"
       left="1"
       name="tab_console"
@@ -615,7 +615,7 @@ adjust incrementally while monitoring FPS and system resources.
         width="820"
         font="SansSerifHuge"
         text_color="White">
-        S24 Console Reference 💻
+        Tasia Console Reference 💻
       </text>
 
       <text_editor follows="left|top|right|bottom" height="560" layout="topleft" left="20" top="50" width="820" font="SansSerif" word_wrap="true" text_color="LtGray" bg_readonly_color="0 0 0 0" read_only="true" hide_scrollbar="false" max_length="999999">
@@ -680,7 +680,7 @@ web &lt;url&gt;
   Example: web https://secondlife.com
 
 ver
-  Show S24 version and build information
+  Show Tasia version and build information
 
 time
   Display current SL time and local time
@@ -766,7 +766,7 @@ clear (alias: cls)
   Clear the console output buffer
 
 quit (alias: exit)
-  Close the S24 Console window
+  Close the Tasia Console window
 
 shutdown now
   Quit the viewer immediately (clean shutdown - skips the confirmation
@@ -925,13 +925,13 @@ Solutions:
   • Reduce Acceleration Time from 0.2 to 0.1 seconds
   • Reduce Deceleration Time from 0.15 to 0.05 seconds
   • Disable feature if unnecessary - purely aesthetic
-  • Feature is in Movement tab of KVTweaks
+  • Feature is in Movement tab of Tasia Engine
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💾 SETTINGS DON'T PERSIST
 
-Symptom: KVTweaks settings reset after viewer restart
+Symptom: Tasia Engine settings reset after viewer restart
 
 Solutions:
   • Ensure settings.xml is not read-only
@@ -947,7 +947,7 @@ Symptom: Viewer crashes or becomes unstable
 
 Recovery Steps:
   1. Start viewer with -noprobe flag (disables reflection probes)
-  2. Open KVTweaks → RESETS tab
+  2. Open Tasia Engine → RESETS tab
   3. Click Factory Reset
   4. Click Purge All Caches
   5. Restart normally
@@ -959,7 +959,7 @@ Recovery Steps:
 
 When all else fails - return to absolute default state:
 
-  1. RESETS → Factory Reset (restores KVTweaks defaults)
+  1. RESETS → Factory Reset (restores Tasia Engine defaults)
   2. RESETS → Purge All Caches (clears shader, texture, etc.)
   3. Preferences → Graphics → Reset to Defaults
   4. Restart viewer
@@ -970,7 +970,7 @@ When all else fails - return to absolute default state:
 📝 STILL HAVING ISSUES?
 
 Document before seeking help:
-  • Screenshot each KVTweaks tab showing your settings
+  • Screenshot each Tasia Engine tab showing your settings
   • Note GPU model, RAM, driver version
   • Try updating GPU drivers first (most common fix)
   • Check viewer log for errors (Help → Report Bug → View Log)

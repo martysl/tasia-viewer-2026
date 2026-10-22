@@ -652,6 +652,13 @@ public:
     U32 getOurCircuitCode();
 
     void    enableCircuit(const LLHost &host, bool trusted);
+    bool enableQuicCircuit(const LLHost& host, const std::string& endpoint, U16 port,
+        bool trusted, S32 retries = 1);
+    bool isCircuitQuicReady(const LLHost& host) const;
+    void fallbackQuicCircuits();
+    bool markQuicReady(const LLHost& host);
+    bool wasReceivedViaQuic() const { return mReceivedViaQuic; }
+    const LLSD* getCurrentLLSDMessageBody() const;
     void    disableCircuit(const LLHost &host);
 
     // Use this to establish trust on startup and in response to
@@ -885,6 +892,8 @@ private:
 
     LLHost mLastSender;
     LLHost mLastReceivingIF;
+    bool mReceivedViaQuic = false;
+    bool mPreferQuicReceive = true;
     S32 mIncomingCompressedSize;        // original size of compressed msg (0 if uncomp.)
     TPACKETID mCurrentRecvPacketID;       // packet ID of current receive packet (for reporting)
 

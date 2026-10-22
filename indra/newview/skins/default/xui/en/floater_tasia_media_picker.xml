@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="tasia_media_picker" title="GIFs / Clips" width="760" height="600"
+ min_width="560" min_height="420" can_resize="true" layout="topleft">
+ <text name="key_label" left="10" top="28" width="160" height="20">API / Web SDK key (session):</text>
+ <line_editor name="session_key" left="174" top="25" width="350" height="24"
+  follows="left|right|top" is_password="true" max_length_chars="256" />
+ <button name="apply_key" left="534" top="25" width="216" height="24"
+  follows="right|top" label="Apply key / Reload" />
+ <web_browser name="media_picker" left="10" top="58" width="740" height="532"
+  follows="all" trusted_content="false" border_visible="false" />
+</floater>

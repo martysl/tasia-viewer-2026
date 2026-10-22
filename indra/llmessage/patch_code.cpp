@@ -111,7 +111,8 @@ void    code_patch_header(LLBitPack &bitpack, LLPatchHeader *ph, S32 *patch)
     bitpack.bitPack((U8 *)&ph->range, 16);
 #endif
 #ifdef LL_BIG_ENDIAN
-    U8 *ids = (U8 *)&ph->patchids;
+    U16 legacy_ids = static_cast<U16>(ph->patchids);
+    U8 *ids = (U8 *)&legacy_ids;
     bitpack.bitPack(&(ids[1]), 8);
     bitpack.bitPack(&(ids[0]), 2);
 #else
@@ -229,7 +230,7 @@ void    decode_patch_group_header(LLBitPack &bitpack, LLGroupHeader *gopp)
     gPatchSize = gopp->patch_size;
 }
 
-void    decode_patch_header(LLBitPack &bitpack, LLPatchHeader *ph)
+void    decode_patch_header(LLBitPack &bitpack, LLPatchHeader *ph, bool large_patch)
 {
     U8 retvalu8;
 
@@ -268,15 +269,32 @@ void    decode_patch_header(LLBitPack &bitpack, LLPatchHeader *ph)
 #endif
     ph->range = retvalu16;
 
-    retvalu16 = 0;
+    if (large_patch)
+    {
+        retvalu32 = 0;
 #ifdef LL_BIG_ENDIAN
-    ret = (U8 *)&retvalu16;
-    bitpack.bitUnpack(&(ret[1]), 8);
-    bitpack.bitUnpack(&(ret[0]), 2);
+        ret = (U8 *)&retvalu32;
+        bitpack.bitUnpack(&(ret[3]), 8);
+        bitpack.bitUnpack(&(ret[2]), 8);
+        bitpack.bitUnpack(&(ret[1]), 8);
+        bitpack.bitUnpack(&(ret[0]), 8);
 #else
-    bitpack.bitUnpack((U8 *)&retvalu16, 10);
+        bitpack.bitUnpack((U8 *)&retvalu32, 32);
 #endif
-    ph->patchids = retvalu16;
+        ph->patchids = retvalu32;
+    }
+    else
+    {
+        retvalu16 = 0;
+#ifdef LL_BIG_ENDIAN
+        ret = (U8 *)&retvalu16;
+        bitpack.bitUnpack(&(ret[1]), 8);
+        bitpack.bitUnpack(&(ret[0]), 2);
+#else
+        bitpack.bitUnpack((U8 *)&retvalu16, 10);
+#endif
+        ph->patchids = retvalu16;
+    }
 
     gWordBits = (ph->quant_wbits & 0xf) + 2;
 }
@@ -405,4 +423,3 @@ void    decode_patch(LLBitPack &bitpack, S32 *patches)
     }
 #endif
 }
-

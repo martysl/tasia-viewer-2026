@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <notifications>
+  <notification name="TasiaMediaLinkTooLong" type="alertmodal">
+Linki do wybranego medium nie mieszczą się w tej wiadomości. Skróć tekst i wybierz medium ponownie. Niczego nie wysłano ani nie wstawiono.
+  </notification>
+  <notification name="ConfirmMP3BatchUpload">Wysłać [COUNT] części dźwięku po [UNIT_COST], łącznie [TOTAL_COST] w walucie grida? Niczego jeszcze nie wysłano. Anulowanie zatrzymuje pozostałe części; ukończone wysłania nie podlegają zwrotowi.<usetemplate name="okcancelbuttons" yestext="Wyślij" notext="Anuluj" /></notification>
+  <notification name="MP3BatchUnavailable">Zaloguj się do regionu obsługującego wysyłanie do Szafy.</notification>
+  <notification name="MP3BatchNotMP3">Wybierz jeden plik MP3.</notification>
+  <notification name="MP3BatchBusy">Inna konwersja lub wysyłanie MP3 jest w toku.</notification>
+  <notification name="MP3BatchFfmpegMissing">Brakuje dołączonego konwertera tasia-ffmpeg. Napraw instalację viewera.</notification>
+  <notification name="MP3BatchConversionFailed">Konwersja MP3 nie powiodła się, przekroczyła czas lub limit 512 części. Niczego nie wysłano.</notification>
+  <notification name="MP3BatchCostUnavailable">Nie potwierdzono ceny lub salda, albo cena się zmieniła. Pozostałe części nie zostały wysłane.</notification>
+  <notification name="MP3BatchCannotAfford">Saldo nie wystarcza na wszystkie części MP3. Niczego nie wysłano.</notification>
+  <notification name="MP3BatchCancelled">Anulowano pozostałe części MP3. Ukończone wysłania pozostają w Szafie.</notification>
+  <notification name="MP3BatchUploadFailed">Wysłanie części nie powiodło się. Zatrzymano pozostałe części; ukończone pozostają w Szafie.</notification>
+  <notification name="MP3BatchFinished">Wysłano [COUNT] części dźwięku MP3 do Szafy.</notification>
 	<global name="skipnexttime">
 		Nie pokazuj tego ponownie
 	</global>
@@ -4413,4 +4427,8 @@ Riggowane mesze są przeznaczone do dodawania do samego awatara. Ani ty, ani nik
 Jeśli chcesz zobaczyć ten obiekt, to usuń go i ponownie dołącz do punktu doczepienia na awatarze.
 		<usetemplate ignoretext="Ostrzegaj, gdy dodatek z riggowanym meszem jest dołączany do punktu HUD" name="okignore" />
 	</notification>
+  <notification name="TasiaAppearanceUploadFailed" type="notifytip">
+    <unique/>
+    Nie udało się wysłać tekstur wyglądu mimo ponownych prób. Sprawdź połączenie z gridem przed kolejnym odświeżeniem wyglądu.
+  </notification>
 </notifications>

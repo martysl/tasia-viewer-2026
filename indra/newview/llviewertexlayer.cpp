@@ -27,6 +27,8 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llviewertexlayer.h"
+#include "llavatarappearancedefines.h"
+#include "indra_constants.h"
 
 #include "llagent.h"
 #include "llimagej2c.h"
@@ -36,6 +38,94 @@
 #include "llvoavatarself.h"
 #include "pipeline.h"
 #include "llviewercontrol.h"
+#include "llagentwearables.h"
+#include "llbakereadback.h"
+#include "llfilesystem.h"
+#include "llviewerassetstorage.h"
+#include "llviewerassetupload.h"
+#include "llviewernetwork.h"
+#include <array>
+#include <mutex>
+
+// Upload callbacks hold only this result mailbox, never a layerset/avatar
+// pointer. Destroying a composite or logging out cannot leave a dangling
+// callback. A revision ticket prevents an old outfit's response being applied.
+struct LLTasiaBakeCompletion
+{
+    explicit LLTasiaBakeCompletion(std::uint64_t value) : ticket(value) {}
+    void complete(bool ok, const LLUUID& id = LLUUID::null)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (ready) return;
+        success = ok && id.notNull();
+        asset = id;
+        ready = true;
+    }
+    bool poll(bool& ok, LLUUID& id)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!ready) return false;
+        ok = success;
+        id = asset;
+        return true;
+    }
+    const std::uint64_t ticket;
+private:
+    std::mutex mutex;
+    bool ready = false;
+    bool success = false;
+    LLUUID asset;
+};
+
+namespace
+{
+class LLTasiaBakeUpload final : public LLBufferedAssetUploadInfo
+{
+public:
+    LLTasiaBakeUpload(const LLUUID& id, const std::string& data,
+                     std::shared_ptr<LLTasiaBakeCompletion> completion)
+        : LLBufferedAssetUploadInfo(LLUUID::null, LLAssetType::AT_TEXTURE, data, nullptr, nullptr),
+          mCompletion(std::move(completion))
+    {
+        setAssetId(id);
+    }
+
+    ~LLTasiaBakeUpload() override
+    {
+        // Also covers queue cancellation/shutdown before either callback.
+        mCompletion->complete(false);
+        LLFileSystem::removeFile(getAssetId(), LLAssetType::AT_TEXTURE);
+    }
+
+    LLSD prepareUpload() override
+    {
+        LLFileSystem file(getAssetId(), LLAssetType::AT_TEXTURE, LLFileSystem::WRITE);
+        const std::string& data = getContents();
+        if (!file.write(reinterpret_cast<const U8*>(data.data()), static_cast<S32>(data.size())))
+        {
+            return LLSD().with("error", "Unable to stage local bake");
+        }
+        return LLSD().with("success", true);
+    }
+
+    void logPreparedUpload() override {} // No capability URLs or asset IDs.
+
+    LLUUID finishUpload(LLSD& result) override
+    {
+        const LLUUID id = result["new_asset"].asUUID();
+        mCompletion->complete(result["state"].asString() == "complete", id);
+        return id;
+    }
+
+    bool failedUpload(LLSD&, std::string&) override
+    {
+        mCompletion->complete(false);
+        return true;
+    }
+private:
+    std::shared_ptr<LLTasiaBakeCompletion> mCompletion;
+};
+}
 
 // runway consolidate
 extern std::string self_av_string();
@@ -101,6 +191,7 @@ void LLViewerTexLayerSetBuffer::requestUpdate()
     restartUpdateTimer();
     mNeedsUpdate = true;
     mNumLowresUpdates = 0;
+    if (usesLegacyUpload()) requestUpload();
 }
 
 void LLViewerTexLayerSetBuffer::restartUpdateTimer()
@@ -115,10 +206,14 @@ bool LLViewerTexLayerSetBuffer::needsRender()
     llassert(mTexLayerSet->getAvatarAppearance() == gAgentAvatarp);
     if (!isAgentAvatarValid()) return false;
 
+    processUploadCompletion();
+    if (!usesLegacyUpload() && uploadPending()) cancelUpload();
+
     const bool update_now = mNeedsUpdate && isReadyToUpdate();
+    const bool upload_now = mUploadPolicy.needed() && isReadyToUpload();
 
     // Don't render if we don't want to (or aren't ready to) update.
-    if (!update_now)
+    if (!(update_now || upload_now))
     {
         return false;
     }
@@ -133,6 +228,7 @@ bool LLViewerTexLayerSetBuffer::needsRender()
     if (gAgentAvatarp->getBakedTE(getViewerTexLayerSet()) == LLAvatarAppearanceDefines::TEX_SKIRT_BAKED &&
         !gAgentAvatarp->isWearingWearableType(LLWearableType::WT_SKIRT))
     {
+        cancelUpload();
         return false;
     }
 
@@ -160,6 +256,8 @@ void LLViewerTexLayerSetBuffer::postRenderTexLayerSet(bool success)
 // virtual
 void LLViewerTexLayerSetBuffer::midRenderTexLayerSet(bool success)
 {
+    if (!success && usesLegacyUpload()) return;
+    if (success && mUploadPolicy.needed() && isReadyToUpload()) doUpload();
     const bool update_now = mNeedsUpdate && isReadyToUpdate();
     if (update_now)
     {
@@ -169,6 +267,203 @@ void LLViewerTexLayerSetBuffer::midRenderTexLayerSet(bool success)
     // *TODO: Old logic does not check success before setGLTextureCreated
     // we have valid texture data now
     mGLTexturep->setGLTextureCreated(true);
+}
+
+bool LLViewerTexLayerSetBuffer::usesLegacyUpload() const
+{
+    const LLVOAvatarSelf* avatar = getViewerTexLayerSet()->getAvatar();
+    return LLGridManager::getInstance()->isInOpenSim() && avatar &&
+           avatar->getRegion() && avatar->getRegion()->getCentralBakeVersion() == 0 &&
+           getViewerTexLayerSet()->getBakedTexIndex() < avatar->getNumBakes();
+}
+
+void LLViewerTexLayerSetBuffer::requestUpload()
+{
+    if (usesLegacyUpload()) mUploadPolicy.request();
+}
+
+void LLViewerTexLayerSetBuffer::cancelUpload()
+{
+    mUploadPolicy.cancel();
+    mUploadCompletion.reset();
+}
+
+bool LLViewerTexLayerSetBuffer::isReadyToUpload() const
+{
+    return usesLegacyUpload() && !mUploadPolicy.inFlight() &&
+           gAgentWearables.areWearablesLoaded() && !getViewerTexLayerSet()->getAvatar()->isEditingAppearance() &&
+           getViewerTexLayerSet()->isLocalTextureDataFinal() &&
+           (mUploadPolicy.failures() == 0 ||
+            mUploadRetryTimer.getElapsedTimeF32() >= mUploadPolicy.retryDelay());
+}
+
+void LLViewerTexLayerSetBuffer::doUpload()
+{
+    const std::uint64_t ticket = mUploadPolicy.begin();
+    if (!ticket) return;
+    mUploadCompletion = std::make_shared<LLTasiaBakeCompletion>(ticket);
+    auto completion = mUploadCompletion;
+    LLViewerTexLayerSet* layer = getViewerTexLayerSet();
+    // A fully invisible alpha mask is a semantic texture, not an empty J2C.
+    // Match the reference's IMG_INVISIBLE path before reading/encoding pixels.
+    if (completeInvisibleBake()) return;
+    std::vector<std::uint8_t> rgba;
+    if (!LLBake::readColor(mBoundTarget, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, rgba))
+    {
+        LL_WARNS_ONCE("LocalBake") << "Local bake color readback failed" << LL_ENDL;
+        completion->complete(false);
+        return;
+    }
+    const S32 bake_slot = static_cast<S32>(layer->getBakedTexIndex());
+    static std::array<U32, LLAvatarAppearanceDefines::BAKED_NUM_INDICES> pixel_summary_samples{};
+    const bool head_bake = bake_slot == LLAvatarAppearanceDefines::BAKED_HEAD;
+    const bool log_pixel_sample = bake_slot >= 0 &&
+        bake_slot < LLAvatarAppearanceDefines::BAKED_NUM_INDICES &&
+        pixel_summary_samples[bake_slot] < 2;
+    LLBake::PixelSummary summary;
+    const bool have_pixel_summary = (head_bake || log_pixel_sample) &&
+        LLBake::summarizeRGBA(rgba.data(), rgba.size(), mFullWidth, mFullHeight, summary);
+    if (have_pixel_summary && log_pixel_sample)
+    {
+        ++pixel_summary_samples[bake_slot];
+        // LL_INFOS is compiled out in this Release build (LL_DISABLE_INFOS).
+        LL_VLOGS(LLError::LEVEL_INFO, "LocalBake")
+            << "Local bake pixels; sample=" << pixel_summary_samples[bake_slot]
+            << "; slot=" << bake_slot
+            << "; region=" << layer->getBodyRegionName()
+            << "; pixels=" << summary.pixels
+            << "; non_black=" << summary.non_black
+            << "; nontransparent_black=" << summary.nontransparent_black
+            << "; transparent=" << summary.transparent << LL_ENDL;
+    }
+    if (head_bake && have_pixel_summary && LLBake::isAllBlackNonTransparent(summary))
+    {
+        // Never replace the current head bake with the empty compositor clear.
+        LL_WARNS("LocalBake") << "Rejecting all-black nontransparent BAKED_HEAD composite before upload" << LL_ENDL;
+        completion->complete(false);
+        return;
+    }
+    LLPointer<LLImageRaw> mask = new LLImageRaw(mFullWidth, mFullHeight, 1);
+    LLPointer<LLImageRaw> baked = new LLImageRaw(mFullWidth, mFullHeight, 5);
+    if (!mask->getData() || !baked->getData())
+    {
+        completion->complete(false);
+        return;
+    }
+    layer->gatherMorphMaskAlpha(mask->getData(), mOrigin.mX, mOrigin.mY,
+                               mFullWidth, mFullHeight, mBoundTarget);
+    if (!LLBake::packFiveChannels(rgba.data(), rgba.size(), mask->getData(), mask->getDataSize(),
+                                 baked->getData(), baked->getDataSize(), mFullWidth, mFullHeight))
+    {
+        completion->complete(false);
+        return;
+    }
+    LLPointer<LLImageJ2C> compressed = new LLImageJ2C;
+    if (!compressed->encode(baked, LINDEN_J2C_COMMENT_PREFIX "RGBHM") || compressed->getDataSize() <= 0 ||
+        !compressed->updateData() || compressed->getComponents() != 5 ||
+        compressed->getWidth() != mFullWidth || compressed->getHeight() != mFullHeight)
+    {
+        LL_WARNS_ONCE("LocalBake") << "Local bake J2C encoding or metadata validation failed" << LL_ENDL;
+        completion->complete(false);
+        return;
+    }
+    LL_INFOS_ONCE("LocalBake") << "Local bake encoded; components=" << static_cast<S32>(compressed->getComponents())
+                             << "; bytes=" << compressed->getDataSize() << LL_ENDL;
+    LLTransactionID transaction;
+    transaction.generate();
+    const LLUUID asset_id = transaction.makeAssetID(gAgent.getSecureSessionID());
+    const std::string cap = gAgent.getRegionCapability("UploadBakedTexture");
+    if (mUploadPolicy.useHttp(!cap.empty()))
+    {
+        const std::string data(reinterpret_cast<const char*>(compressed->getData()), compressed->getDataSize());
+        LLResourceUploadInfo::ptr_t upload(new LLTasiaBakeUpload(asset_id, data, completion));
+        LLViewerAssetUpload::EnqueueInventoryUpload(cap, upload);
+    }
+    else if (gAssetStorage)
+    {
+        LLFileSystem file(asset_id, LLAssetType::AT_TEXTURE, LLFileSystem::WRITE);
+        if (!file.write(compressed->getData(), compressed->getDataSize()))
+        {
+            completion->complete(false);
+            return;
+        }
+        auto* userdata = new std::shared_ptr<LLTasiaBakeCompletion>(completion);
+        gAssetStorage->storeAssetData(transaction, LLAssetType::AT_TEXTURE,
+            [](const LLUUID& id, void* context, S32 result, LLExtStat)
+            {
+                std::unique_ptr<std::shared_ptr<LLTasiaBakeCompletion>> saved(
+                    static_cast<std::shared_ptr<LLTasiaBakeCompletion>*>(context));
+                (*saved)->complete(result >= 0, id);
+            }, userdata, true, true, true);
+    }
+    else
+    {
+        completion->complete(false);
+    }
+}
+
+bool LLViewerTexLayerSetBuffer::completeInvisibleBake()
+{
+    if (getViewerTexLayerSet()->isVisible()) return false;
+    mUploadCompletion->complete(true, IMG_INVISIBLE);
+    return true;
+}
+
+void LLViewerTexLayerSetBuffer::processUploadCompletion()
+{
+    if (!mUploadCompletion) return;
+    bool success = false;
+    LLUUID id;
+    if (!mUploadCompletion->poll(success, id)) return;
+    const auto result = mUploadPolicy.complete(mUploadCompletion->ticket, success);
+    mUploadCompletion.reset();
+    if (!usesLegacyUpload())
+    {
+        cancelUpload();
+        return;
+    }
+    if (result == TasiaBake::UploadPolicy::Result::Accepted)
+    {
+        if (id == IMG_INVISIBLE)
+        {
+            LL_INFOS_ONCE("LocalBake") << "Invisible alpha bake assigned without upload" << LL_ENDL;
+        }
+        else
+        {
+            LL_INFOS_ONCE("LocalBake") << "Local bake upload completed; assigning baked texture" << LL_ENDL;
+        }
+        getViewerTexLayerSet()->getAvatar()->setNewBakedTexture(
+            getViewerTexLayerSet()->getBakedTexIndex(), id);
+        // Refresh attachment BOM textures: attachments using baked texture
+        // magic IDs (IMG_USE_BAKED_*) need to rebind to the newly uploaded
+        // bake, otherwise surfaces like Genus Eyebrow Tintable A stay black.
+        LLVOAvatarSelf* avatar = getViewerTexLayerSet()->getAvatar();
+        if (avatar)
+        {
+            for (const auto& [attachment_point_id, attachment] : avatar->mAttachmentPoints)
+            {
+                if (attachment)
+                {
+                    for (auto& objectp : attachment->mAttachedObjects)
+                    {
+                        if (!objectp.isNull())
+                        {
+                            objectp->refreshBakeTexture();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else if (result == TasiaBake::UploadPolicy::Result::Retry)
+    {
+        mUploadRetryTimer.start();
+    }
+    else if (result == TasiaBake::UploadPolicy::Result::Exhausted)
+    {
+        LL_WARNS("LocalBake") << "Local bake upload exhausted bounded retries" << LL_ENDL;
+        LLNotificationsUtil::add("TasiaAppearanceUploadFailed");
+    }
 }
 
 bool LLViewerTexLayerSetBuffer::isInitialized(void) const
@@ -288,6 +583,17 @@ void LLViewerTexLayerSet::requestUpdate()
         createComposite();
         getViewerComposite()->requestUpdate();
     }
+}
+
+void LLViewerTexLayerSet::requestUpload()
+{
+    createComposite();
+    getViewerComposite()->requestUpload();
+}
+
+void LLViewerTexLayerSet::cancelUpload()
+{
+    if (mComposite) getViewerComposite()->cancelUpload();
 }
 
 void LLViewerTexLayerSet::updateComposite()

@@ -129,6 +129,12 @@
 		<label name="audio/mpeg_label">
 			Dźwięk (MP3)
 		</label>
+		<widgettype>
+			audio
+		</widgettype>
+		<impl>
+			media_plugin_cef
+		</impl>
 	</mimetype>
 	<mimetype name="audio/x-aiff">
 		<label name="audio/x-aiff_label">

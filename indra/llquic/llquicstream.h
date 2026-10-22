@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 
 #include "stdtypes.h"
 
@@ -35,6 +36,7 @@ public:
     LLQuicStream& operator=(LLQuicStream&&)      = delete;
 
     bool send(const U8* data, S32 size);
+    bool isShutdown() const { return mShutdown.load(std::memory_order_acquire); }
 
     void onStreamEvent(QUIC_STREAM_EVENT* event);
 
@@ -59,4 +61,6 @@ private:
     uint32_t             mRxExpectedLength  { 0 };
     uint8_t              mRxLengthBytes[4]  { };
     std::vector<uint8_t> mRxPayload;
+    bool mRxInvalid = false;
+    std::atomic<bool> mShutdown{false};
 };

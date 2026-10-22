@@ -83,3 +83,5 @@ add_custom_command(
 
 set(LLCONVEXDECOMPOSITION_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/${LIBS_OPEN_PREFIX}llconvexdecomposition)
 set(LLCONVEXDECOMPOSITION_LIBRARIES llconvexdecomposition)
+
+include(TasiaMemoryDiagnostics)

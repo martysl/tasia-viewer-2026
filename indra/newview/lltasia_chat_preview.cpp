@@ -26,6 +26,7 @@
 #include "lltasia_chat_preview.h"
 
 #include "llbutton.h"
+#include "lldir.h"
 #include "llfloaterreg.h"
 #include "llfloaterwebcontent.h"
 #include "llmediactrl.h"
@@ -154,6 +155,7 @@ std::string tasiaGiphyIdFromSlug(const std::string& slug)
 
 bool tasiaExtractGiphyPreviewFromURL(std::string url, TasiaGiphyPreview& preview)
 {
+    preview = TasiaGiphyPreview();
     tasiaStripTrailingUrlPunctuation(url);
     LLURI uri(url);
     std::string scheme = uri.scheme();
@@ -165,6 +167,18 @@ bool tasiaExtractGiphyPreviewFromURL(std::string url, TasiaGiphyPreview& preview
 
     std::string host = uri.hostName();
     LLStringUtil::toLower(host);
+    const bool klipy = tasiaEndsWith(host, ".klipy.com") && host != "api.klipy.com";
+    const bool giphy_media = tasiaEndsWith(host, ".giphy.com") && host != "www.giphy.com" && host != "api.giphy.com";
+    if ((klipy || giphy_media) && scheme == "https" && uri.userName().empty() &&
+        uri.password().empty() && uri.defaultPort() && url.size() <= 2048 &&
+        (tasiaIsImageURL(uri.path()) || tasiaEndsWith(uri.path(), ".mp4") || tasiaEndsWith(uri.path(), ".webm")))
+    {
+        preview.provider = klipy ? "KLIPY" : "GIPHY";
+        preview.id = uri.path();
+        preview.media_url = url;
+        preview.page_url = url;
+        return true;
+    }
     if (!tasiaIsGiphyHost(host))
     {
         return false;
@@ -182,7 +196,7 @@ bool tasiaExtractGiphyPreviewFromURL(std::string url, TasiaGiphyPreview& preview
         preview.id = tasiaGiphyIdFromSlug(segments[segments.size() - 1]);
     }
 
-    if (preview.id.empty())
+    if (!tasiaIsGiphyId(preview.id))
     {
         return false;
     }
@@ -279,6 +293,7 @@ bool tasiaExtractYouTubePreviewFromURL(std::string url, TasiaYouTubePreview& pre
 
 bool tasiaFindFirstGiphyPreview(const std::string& text, TasiaGiphyPreview& preview)
 {
+    std::string provider_page, provider_name;
     std::string::size_type search_pos = 0;
     while (search_pos < text.size())
     {
@@ -305,9 +320,20 @@ bool tasiaFindFirstGiphyPreview(const std::string& text, TasiaGiphyPreview& prev
             url_end = text.size();
         }
 
-        if (tasiaExtractGiphyPreviewFromURL(text.substr(url_pos, url_end - url_pos), preview))
+        std::string candidate = text.substr(url_pos, url_end - url_pos);
+        tasiaStripTrailingUrlPunctuation(candidate);
+        if (tasiaExtractGiphyPreviewFromURL(candidate, preview))
         {
+            if (!provider_page.empty() && provider_name == preview.provider) preview.page_url = provider_page;
             return true;
+        }
+        const LLURI page(candidate);
+        if (page.scheme() == "https" && page.userName().empty() && page.password().empty() &&
+            page.defaultPort() && page.escapedQuery().empty() && candidate.size() <= 2048 &&
+            (page.hostName() == "giphy.com" || page.hostName() == "www.giphy.com" || page.hostName() == "klipy.com"))
+        {
+            provider_page = candidate;
+            provider_name = page.hostName() == "klipy.com" ? "KLIPY" : "GIPHY";
         }
         search_pos = url_end;
     }
@@ -549,7 +575,14 @@ TasiaGiphyPreviewPanel::TasiaGiphyPreviewPanel(const TasiaGiphyPreview& preview)
     LLMediaCtrl::Params media_params;
     media_params.name = "tasia_giphy_preview_media";
     media_params.rect = LLRect(10, 178, 330, 28);
-    media_params.start_url = mMediaURL;
+    std::string local = gDirUtilp->findSkinnedFilename("html", "tasia_media/preview.html");
+    if (!local.empty())
+    {
+        std::replace(local.begin(), local.end(), '\\', '/');
+        const std::string allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~/:";
+        media_params.start_url = (local[0] == '/' ? "file://" : "file:///") + LLURI::escape(local, allowed) +
+            "#provider=" + (preview.provider == "KLIPY" ? "klipy" : "giphy") + "&source=" + LLURI::escape(mMediaURL);
+    }
     media_params.border_visible = true;
     media_params.focus_on_click = false;
     media_params.trusted_content = false;
@@ -560,7 +593,7 @@ TasiaGiphyPreviewPanel::TasiaGiphyPreviewPanel(const TasiaGiphyPreview& preview)
     LLTextBox::Params title_params;
     title_params.name = "tasia_giphy_preview_title";
     title_params.rect = LLRect(10, 24, 330, 6);
-    title_params.initial_value = LLSD("GIPHY");
+    title_params.initial_value = LLSD(preview.provider);
     title_params.use_ellipses = true;
     mTitle = LLUICtrlFactory::create<LLTextBox>(title_params);
     addChild(mTitle);
@@ -576,7 +609,7 @@ TasiaGiphyPreviewPanel::TasiaGiphyPreviewPanel(const TasiaGiphyPreview& preview)
     LLTextBox::Params powered_params;
     powered_params.name = "tasia_giphy_preview_powered";
     powered_params.rect = LLRect(10, 64, 330, 46);
-    powered_params.initial_value = LLSD("Powered by GIPHY");
+    powered_params.initial_value = LLSD("Powered by " + preview.provider);
     mPoweredBy = LLUICtrlFactory::create<LLTextBox>(powered_params);
     addChild(mPoweredBy);
 
@@ -619,7 +652,7 @@ void TasiaGiphyPreviewPanel::openInViewer()
     LLFloaterWebContent::Params params;
     params.url = mPageURL;
     params.show_chrome = false;
-    params.trusted_content = true;
+    params.trusted_content = false;
     params.allow_address_entry = false;
     params.clean_browser = true;
     LLFloaterReg::showInstance("web_content", params);

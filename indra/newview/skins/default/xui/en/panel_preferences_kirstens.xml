@@ -3,7 +3,7 @@
  border="true"
  follows="left|top|right|bottom"
  height="460"
- label="S24 prefs"
+ label="Tasia prefs"
  layout="topleft"
  left="102"
  name="Display panel"
@@ -316,7 +316,7 @@
 	  name="skin_select_textbox"
 	  top_pad="10"
 	  width="400">
-		S24 UI Selection - (Requires Restart):
+		Tasia UI Selection - (Requires Restart):
 	</text>
 	<!-- S24 - Dynamic skin selector: replaces hardcoded radio buttons with combo box populated from skins folder -->
 	<combo_box
@@ -330,7 +330,7 @@
 	<button
 		 follows="top|left"
 		 height="23"
-		 label="⚠ S24 Engine"
+		 label="⚠ Tasia Engine"
 		 layout="topleft"
 		 left_pad="10"
 		 name="KVTweaks"

@@ -1,0 +1,32 @@
+{
+  "packages": {
+    "@giphy/js-fetch-api": {
+      "version": "5.8.0",
+      "integrity": "sha512-DWdNauYaBSLPeAe/O+uzXtPIoUvmSnYV8Q49p+cPjEQ7Ncj1mDg1fuSKyl0OmPxCm6fzGJ4kuJjsWzyWn9ubbA=="
+    },
+    "@giphy/js-util": {
+      "version": "5.2.0",
+      "integrity": "sha512-Qt7pGh2cqiNmXLeWAgb459wK8+BuMLtIxTfg4ZksnPHPsLthiHT9hhzs2QhqUh7Pp/HOq+Cbv2etGDfnq+xiKA=="
+    },
+    "@giphy/js-types": {
+      "version": "5.1.0",
+      "integrity": "sha512-BZYCDtYNRR7cUWkbDLB4wmm3qmWMsVCQdUiBNOfmZ3yAazCgygKJoDI/5Rq4CK5MBaOc5LVdF8viC2WtoBdaPA=="
+    },
+    "uuid": {
+      "version": "9.0.1",
+      "integrity": "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA=="
+    },
+    "esbuild": {
+      "version": "0.25.12",
+      "integrity": "sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg=="
+    }
+  },
+  "bundle_sha256": "85a4a93c1633ce99cbec0a8aec63a413b5909b10bce29b0ff9dfb92656156381",
+  "preview_bundle_sha256": "f4750ff801a194a5ff48bd24a5d46b97cc7b0aff03afb9529f5e726305c714e6",
+  "sources": {
+    "scripts/tasia_media_picker.mjs": "897ba140f5ca88a4605fcadd482cabc4ae551c456c29aa321ac1d2fe4f13252e",
+    "scripts/tasia_media_policy.mjs": "d22e83ecb4a22911ccaa792f3d0e3b89877c0e15477964b3afc85c295fdc6488",
+    "scripts/tasia_media_preview.mjs": "82923a8c05580c8f9fe49d2317a5d7cac7e1b7d2402479a6d50f4039184f9526"
+  },
+  "bundledInputCount": 20
+}

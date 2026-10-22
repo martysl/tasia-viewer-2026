@@ -69,6 +69,13 @@ if (-not (Test-Path $BuildDir)) {
 }
 $BuildDir = (Resolve-Path $BuildDir).Path
 
+# Tasia's strict packager checks the branded executable, converter and CEF assets.
+# Keep this legacy entry point for callers, but never silently package the old EXE.
+$destination = Join-Path $BuildDir ('TasiaViewer-Package-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+& (Join-Path $repoRoot 'scripts/Package-TasiaViewer.ps1') -BuildDir $BuildDir `
+    -Destination $destination -Configuration $Configuration
+return
+
 
 function Write-PackageHeader {
     Clear-Host

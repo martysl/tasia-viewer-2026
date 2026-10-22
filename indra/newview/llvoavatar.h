@@ -167,16 +167,18 @@ public:
     /*virtual*/ void            updateRegion(LLViewerRegion *regionp);
     /*virtual*/ void            updateSpatialExtents(LLVector4a& newMin, LLVector4a &newMax);
     void                        calculateSpatialExtents(LLVector4a& newMin, LLVector4a& newMax);
+    // <FS:Beq/> BOM constrain number of bake requests when BOM not supported
+    S32             getNumBakes() const;
     /*virtual*/ bool            lineSegmentIntersect(const LLVector4a& start, const LLVector4a& end,
-                                                 S32 face = -1,                    // which face to check, -1 = ALL_SIDES
-                                                 bool pick_transparent = false,
-                                                 bool pick_rigged = false,
-                                                 bool pick_unselectable = true,
-                                                 S32* face_hit = NULL,             // which face was hit
-                                                 LLVector4a* intersection = NULL,   // return the intersection point
-                                                 LLVector2* tex_coord = NULL,      // return the texture coordinates of the intersection point
-                                                 LLVector4a* normal = NULL,         // return the surface normal at the intersection point
-                                                 LLVector4a* tangent = NULL);     // return the surface tangent at the intersection point
+                                                   S32 face = -1,
+                                                   bool pick_transparent = false,
+                                                   bool pick_rigged = false,
+                                                   bool pick_unselectable = true,
+                                                   S32* face_hit = NULL,
+                                                   LLVector4a* intersection = NULL,
+                                                   LLVector2* tex_coord = NULL,
+                                                   LLVector4a* normal = NULL,
+                                                   LLVector4a* tangent = NULL);
     virtual LLViewerObject* lineSegmentIntersectRiggedAttachments(
                                                  const LLVector4a& start, const LLVector4a& end,
                                                  S32 face = -1,                    // which face to check, -1 = ALL_SIDES
@@ -718,7 +720,10 @@ public:
     // Global colors
     //--------------------------------------------------------------------
 public:
-    /*virtual*/void onGlobalColorChanged(const LLTexGlobalColor* global_color);
+    // <FS:Ansariel> [Legacy Bake]
+    ///*virtual*/void onGlobalColorChanged(const LLTexGlobalColor* global_color);
+    /*virtual*/void onGlobalColorChanged(const LLTexGlobalColor* global_color, bool upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
 
     //--------------------------------------------------------------------
     // Visibility
@@ -886,7 +891,10 @@ protected:
     // Composites
     //--------------------------------------------------------------------
 public:
-    virtual void    invalidateComposite(LLTexLayerSet* layerset);
+    // <FS:Ansariel> [Legacy Bake]
+    //virtual void  invalidateComposite(LLTexLayerSet* layerset);
+    virtual void    invalidateComposite(LLTexLayerSet* layerset, bool upload_result);
+    // </FS:Ansariel> [Legacy Bake]
     virtual void    invalidateAll();
     virtual void    setCompositeUpdatesEnabled(bool b) {}
     virtual void    setCompositeUpdatesEnabled(U32 index, bool b) {}
@@ -920,7 +928,10 @@ private:
 public:
     void            debugColorizeSubMeshes(U32 i, const LLColor4& color);
     virtual void    updateMeshTextures();
-    void            updateSexDependentLayerSets();
+    // <FS:Ansariel> [Legacy Bake]
+    //void          updateSexDependentLayerSets();
+    void            updateSexDependentLayerSets(bool upload_bake);
+    // </FS:Ansariel> [Legacy Bake]
     virtual void    dirtyMesh(); // Dirty the avatar mesh
     void            updateMeshData();
     void            updateMeshVisibility();
@@ -1029,6 +1040,7 @@ private:
     F32             mLastAppearanceBlendTime;
     bool            mIsEditingAppearance; // flag for if we're actively in appearance editing mode
     bool            mUseLocalAppearance; // flag for if we're using a local composite
+    bool            mUseServerBakes; // source of baked textures; legacy OpenSim uses the simulator host
 
     static uuid_list_t  sEarlyAppearanceList;
 
@@ -1385,4 +1397,3 @@ void dump_sequential_xml(const std::string outprefix, const LLSD& content);
 void dump_visual_param(apr_file_t* file, LLVisualParam* viewer_param, F32 value);
 
 #endif // LL_VOAVATAR_H
-

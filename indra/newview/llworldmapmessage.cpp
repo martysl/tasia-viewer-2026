@@ -32,6 +32,8 @@
 #include "llworldmap.h"
 #include "llagent.h"
 #include "llfloaterworldmap.h"
+#include "llviewernetwork.h"
+#include "lltasia_region_compat.h"
 
 constexpr U32 LAYER_FLAG = 2;
 
@@ -184,6 +186,8 @@ void LLWorldMapMessage::processMapBlockReply(LLMessageSystem* msg, void**)
 //      U8 water_height;
 //      U8 agents;
         LLUUID image_id;
+        U16 size_x = LLTasiaRegion::DEFAULT_WIDTH;
+        U16 size_y = LLTasiaRegion::DEFAULT_WIDTH;
         msg->getU16Fast(_PREHASH_Data, _PREHASH_X, x_regions, block);
         msg->getU16Fast(_PREHASH_Data, _PREHASH_Y, y_regions, block);
         msg->getStringFast(_PREHASH_Data, _PREHASH_Name, name, block);
@@ -193,6 +197,29 @@ void LLWorldMapMessage::processMapBlockReply(LLMessageSystem* msg, void**)
 //      msg->getU8Fast(_PREHASH_Data, _PREHASH_Agents, agents, block);
         msg->getUUIDFast(_PREHASH_Data, _PREHASH_MapImageID, image_id, block);
 
+        // OpenSim optionally appends one Size block for each Data block.
+        // Missing extension blocks retain legacy 256m map behavior; SL stays
+        // on the standard fixed-size protocol path.
+        if (LLGridManager::getInstance()->isInOpenSim())
+        {
+            const S32 size_blocks = msg->getNumberOfBlocksFast(_PREHASH_Size);
+            if (size_blocks == num_blocks)
+            {
+                msg->getU16Fast(_PREHASH_Size, _PREHASH_SizeX, size_x, block);
+                msg->getU16Fast(_PREHASH_Size, _PREHASH_SizeY, size_y, block);
+            }
+            else if (size_blocks != 0)
+            {
+                LL_WARNS("WorldMap") << "MapBlockReply size block count " << size_blocks
+                    << " does not match data block count " << num_blocks
+                    << "; using legacy 256m extents" << LL_ENDL;
+            }
+            if (!LLTasiaRegion::validMapDimensions(size_x, size_y))
+            {
+                size_x = size_y = LLTasiaRegion::DEFAULT_WIDTH;
+            }
+        }
+
         U32 x_world = (U32)(x_regions) * REGION_WIDTH_UNITS;
         U32 y_world = (U32)(y_regions) * REGION_WIDTH_UNITS;
 
@@ -200,7 +227,8 @@ void LLWorldMapMessage::processMapBlockReply(LLMessageSystem* msg, void**)
         if (!name.empty())
         {
         // Insert that region in the world map, if failure, flag it as a "null_sim"
-        if (!(LLWorldMap::getInstance()->insertRegion(x_world, y_world, name, image_id, (U32)accesscode, region_flags)))
+        if (!(LLWorldMap::getInstance()->insertRegion(x_world, y_world, size_x, size_y,
+            name, image_id, (U32)accesscode, region_flags)))
         {
             found_null_sim = true;
         }
@@ -269,4 +297,3 @@ void LLWorldMapMessage::processMapItemReply(LLMessageSystem* msg, void**)
         LLWorldMap::getInstance()->insertItem(X, Y, name, uuid, type, extra, extra2);
     }
 }
-

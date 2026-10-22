@@ -27,6 +27,7 @@
 
 #ifndef LL_LLVIEWERNETWORK_H
 #define LL_LLVIEWERNETWORK_H
+#include <functional>
 
 // @TODO this really should be private, but is used in llslurl
 #define MAINGRID "util.agni.lindenlab.com"
@@ -122,6 +123,8 @@ class LLGridManager : public LLSingleton<LLGridManager>
 
 	/// Get the URI for webdev help functions for the selected grid
 	std::string getHelperURI() { return getHelperURI(mGrid); }
+    std::string getCurrencyHelperURI();
+    std::string getMarketplaceURL();
 
 	/// Get the url of the splash page to be displayed prior to login
 	std::string getLoginPage(const std::string& grid_name);
@@ -199,6 +202,12 @@ class LLGridManager : public LLSingleton<LLGridManager>
 	/// Is the selected grid one of the hard-coded default grids (Agni or Aditi)
 	bool isSystemGrid() { return isSystemGrid(mGrid); }
 
+	/// Only the built-in Agni and Aditi grids use Second Life compatibility.
+	bool isInSecondLife() const { return mGrid == MAINGRID || mGrid == BETAGRID; }
+
+	/// All other grids use OpenSim compatibility, independently of transport.
+	bool isInOpenSim() const { return !isInSecondLife(); }
+
 	/// Is the selected grid a production grid?
 	bool isInProductionGrid();
 	/**
@@ -210,8 +219,18 @@ class LLGridManager : public LLSingleton<LLGridManager>
 
 	/// Manage custom grids. Changes are persisted before success is reported.
 	/// Built-in Second Life grids cannot be replaced or removed.
-	bool addCustomGrid(const std::string& login_uri, const std::string& label, std::string& error);
+	bool addCustomGrid(const std::string& login_uri, const std::string& label, std::string& error,
+        const LLSD& metadata = LLSD());
 	bool removeCustomGrid(const std::string& grid, std::string& error);
+    LLSD getGridInfo(const std::string& grid) const;
+    /// Resolve a user-supplied grid name to the internal grid key. Accepts the
+    /// internal key, the grid id/label, a bare host, or a friendly name such as
+    /// "secondlife.com" (which maps to the built-in Agni grid). Returns an
+    /// empty string when the grid is unknown.
+    std::string resolveGridKey(const std::string& grid);
+    bool setGridMetadata(const std::string& grid, const LLSD& metadata, std::string& error);
+    bool importGridCatalog(const std::string& xml, std::string& error, bool persist = true);
+    void requestGridCatalog(std::function<void(bool)> callback = {});
 
   private:
 	bool saveCustomGrids(std::string& error);
@@ -236,6 +255,9 @@ class LLGridManager : public LLSingleton<LLGridManager>
 	std::string mGrid;
 	std::string mGridFile;
 	LLSD mGridList;
+    LLSD mRemovedGrids = LLSD::emptyMap();
+    bool mCatalogPending = false;
+    U64 mCatalogGeneration = 0;
 	bool mIsInProductionGrid;
 };
 

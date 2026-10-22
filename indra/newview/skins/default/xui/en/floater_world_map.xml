@@ -12,8 +12,15 @@
  save_rect="true"
  save_visibility="true"
  single_instance="true"
- title="WORLD MAP"
- width="650">
+   title="TASIA WORLD EXPLORER"
+  width="650">
+  <string name="tasia_travel">[GRID] — Travel with Tasia Viewer</string>
+  <text name="tasia_map_banner" left="12" right="-125" top="23" height="22" follows="left|right|top"
+   font="SansSerifBold" text_color="White" layout="topleft" />
+  <check_box name="tasia_globe_toggle" control_name="TasiaMapGlobe" label="3D globe"
+   right="-10" top="23" width="110" height="22" follows="right|top" layout="topleft" />
+  <text name="tasia_map_hint" left="12" right="-8" top="48" height="18" follows="left|right|top"
+   layout="topleft" font="SansSerifSmall">3D: drag to rotate · wheel to zoom · select a region, then Teleport. Virtual grid atlas.</text>
   <string name="UnnamedParcel">
     (Unnamed Parcel)
   </string>
@@ -34,7 +41,7 @@
    follows="all"
    name="floater_map_stack"
    tab_group="1"
-   top="16"
+    top="71"
    left="0"
    right="-1"
    bottom="-1"

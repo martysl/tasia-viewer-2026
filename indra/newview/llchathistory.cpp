@@ -1596,6 +1596,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
         if (!message_from_log)
         {
             bool preview_added = false;
+            TasiaGiphyPreview provider_preview;
+            const bool has_provider_preview = gSavedSettings.getBOOL("TasiaAnimatedGifChatPreview") &&
+                tasiaFindFirstGiphyPreview(message, provider_preview);
 
             if (gSavedSettings.getBOOL("TasiaYouTubeChatPreview"))
             {
@@ -1622,7 +1625,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
                 }
             }
 
-            if (!preview_added && gSavedSettings.getBOOL("TasiaImageChatPreview"))
+            if (!preview_added && !has_provider_preview && gSavedSettings.getBOOL("TasiaImageChatPreview"))
             {
                 TasiaImagePreview image_preview;
                 if (tasiaFindFirstImagePreview(message, image_preview))
@@ -1647,10 +1650,9 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
                 }
             }
 
-            if (!preview_added && gSavedSettings.getBOOL("TasiaAnimatedGifChatPreview"))
+            if (!preview_added && has_provider_preview)
             {
-                TasiaGiphyPreview preview;
-                if (tasiaFindFirstGiphyPreview(message, preview))
+                const TasiaGiphyPreview& preview = provider_preview;
                 {
                     TasiaGiphyPreviewPanel* preview_panel = new TasiaGiphyPreviewPanel(preview);
 
@@ -1667,7 +1669,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
                     params.right_pad = mRightWidgetPad;
                     params.top_pad = 4;
                     params.bottom_pad = 4;
-                    mEditor->appendWidget(params, "\n[GIPHY] " + preview.page_url, false);
+                    mEditor->appendWidget(params, "\n[" + preview.provider + "] " + preview.page_url, false);
                 }
             }
         }

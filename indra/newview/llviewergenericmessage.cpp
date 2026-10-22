@@ -86,6 +86,14 @@ void process_generic_message(LLMessageSystem* msg, void**)
 	LLDispatcher::sparam_t strings;
 	LLDispatcher::unpackMessage(msg, request, invoice, strings);
 
+	if (request == "quicready")
+	{
+		// Agent identity checked above; message layer also requires the same
+		// authenticated QUIC connection, not a spoofed UDP control message.
+		msg->markQuicReady(msg->getSender());
+		return;
+	}
+
 	if(!gGenericDispatcher.dispatch(request, invoice, strings))
 	{
 		LL_WARNS() << "GenericMessage " << request << " failed to dispatch" 

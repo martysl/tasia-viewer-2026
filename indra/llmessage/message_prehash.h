@@ -559,6 +559,8 @@ extern char const* const _PREHASH_ObjectShape;
 extern char const* const _PREHASH_GroupRoleDataReply;
 extern char const* const _PREHASH_MuteCRC;
 extern char const* const _PREHASH_Size;
+extern char const* const _PREHASH_SizeX;
+extern char const* const _PREHASH_SizeY;
 extern char const* const _PREHASH_FromAddress;
 extern char const* const _PREHASH_Body;
 extern char const* const _PREHASH_FileData;

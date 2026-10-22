@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater name="floater_translation_settings" title="USTAWIENIA TŁUMACZENIA CZATU">
+    <check_box name="use_tasia_ai" label="Zamiast tego używaj AI (API zgodne z OpenAI)" />
+    <line_editor name="ai_endpoint" default_text="Pełny adres HTTPS chat/completions" />
+    <line_editor name="ai_model" default_text="Identyfikator modelu" />
+    <line_editor name="ai_key" default_text="Klucz API (tylko na tę sesję)" />
+    <text name="ai_privacy">Opcjonalnie: zwykły tekst innych awatarów jest wysyłany do wybranego dostawcy AI. Pomijam własne wiadomości, emoty i znane gesty. Nieznane gesty innych osób bywają nieodróżnialne od tekstu. Dostawca może naliczać opłaty.</text>
 	<string name="bing_api_key_not_verified">
 		Nie można zweryfikować Bing appID. Spróbuj ponownie.
 	</string>

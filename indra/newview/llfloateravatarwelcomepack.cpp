@@ -31,10 +31,9 @@
 #include "llmediactrl.h"
 #include "lluictrlfactory.h"
 #include "llviewercontrol.h"
-#include "llweb.h"
 
 LLFloaterAvatarWelcomePack::LLFloaterAvatarWelcomePack(const LLSD& key)
-    :   LLFloater(key)
+    :   LLFloater(key), mAvatarPicker(nullptr)
 {
 }
 
@@ -54,9 +53,12 @@ bool LLFloaterAvatarWelcomePack::postBuild()
     if (mAvatarPicker)
     {
         mAvatarPicker->clearCache();
+        mAvatarPicker->setTrustedContent(false);
+        mAvatarPicker->setAllowFileDownload(false);
         mAvatarPicker->setErrorPageURL(gSavedSettings.getString("GenericErrorPageURL"));
-        std::string url = gSavedSettings.getString("AvatarWelcomePack");
-        url = LLWeb::expandURLSubstitutions(url, LLSD());
+        // Product destination, not a grid-specific upstream avatar-picker URL.
+        // A copied profile may still contain the old AvatarWelcomePack setting.
+        const std::string url = "https://startup.tasiaviewer.work/welcomepack/";
         mAvatarPicker->navigateTo(url, std::string{HTTP_CONTENT_TEXT_HTML});
     }
 

@@ -79,6 +79,11 @@ public:
     /*virtual*/ void        setWeight(F32 weight);
     /*virtual*/ void        setAnimationTarget(F32 target_value);
     /*virtual*/ void        animate(F32 delta);
+    // <FS:Ansariel> [Legacy Bake]
+    /*virtual*/ void        setWeight(F32 weight, bool upload_bake) override;
+    /*virtual*/ void        setAnimationTarget(F32 target_value, bool upload_bake) override;
+    /*virtual*/ void        animate(F32 delta, bool upload_bake) override;
+    // </FS:Ansariel> [Legacy Bake]
 
     // LLViewerVisualParam Virtual functions
     /*virtual*/ F32                 getTotalDistortion()                                    { return 1.f; }
@@ -162,6 +167,11 @@ public:
     /*virtual*/ void            setWeight(F32 weight);
     /*virtual*/ void            setAnimationTarget(F32 target_value);
     /*virtual*/ void            animate(F32 delta);
+    // <FS:Ansariel> [Legacy Bake]
+    /*virtual*/ void          setWeight(F32 weight, bool upload_bake) override;
+    /*virtual*/ void          setAnimationTarget(F32 target_value, bool upload_bake) override;
+    /*virtual*/ void          animate(F32 delta, bool upload_bake) override;
+    // </FS:Ansariel> [Legacy Bake]
 
 
     // LLViewerVisualParam Virtual functions
@@ -177,7 +187,9 @@ public:
 protected:
     LLTexLayerParamColor(const LLTexLayerParamColor& pOther);
 
-    virtual void onGlobalColorChanged() {}
+    // <FS:Ansariel> [Legacy Bake]
+    //virtual void onGlobalColorChanged() {}
+    virtual void onGlobalColorChanged(bool upload_bake) {}
 private:
     LLVector4a              mAvgDistortionVec;
 };

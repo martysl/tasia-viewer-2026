@@ -3,6 +3,8 @@
     <bottom_toolbar
      button_display_mode="icons_with_text">
         <command  name="chat" />
+        <command  name="tasia_chat" />
+        <command  name="tasia_feed" />
         <command  name="kvquickchat" />
         <command  name="speak" />
         <command  name="people" />

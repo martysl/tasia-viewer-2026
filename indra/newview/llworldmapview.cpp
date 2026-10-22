@@ -429,8 +429,8 @@ void LLWorldMapView::draw()
         // When the view isn't panned, 0,0 = center of rectangle
         F32 bottom =    mPanY + half_height + relative_y;
         F32 left =      mPanX + half_width + relative_x;
-        F32 top =       bottom + mMapScale ;
-        F32 right =     left + mMapScale ;
+        F32 top =       bottom + mMapScale * (info->getSizeY() / REGION_WIDTH_METERS);
+        F32 right =     left + mMapScale * (info->getSizeX() / REGION_WIDTH_METERS);
 
         // Discard if region is outside the screen rectangle (not visible on screen)
         if ((top < 0.f)   || (bottom > height) ||

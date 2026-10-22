@@ -31,6 +31,7 @@
 #include "llviewerwearable.h"
 #include "lluuid.h"
 #include "llassetstorage.h"
+#include <functional>
 
 // Globally constructed; be careful that there's no dependency with gAgent.
 /*
@@ -53,7 +54,8 @@ public:
                                  LLAvatarAppearance *avatarp,
                                  LLAssetType::EType asset_type,
                                  void(*asset_arrived_callback)(LLViewerWearable*, void* userdata),
-                                 void* userdata);
+                                 void* userdata,
+                                 std::function<bool()> is_current = {});
 
     LLViewerWearable*           createCopy(const LLViewerWearable* old_wearable, const std::string& new_name = std::string());
     LLViewerWearable*           createNewWearable(LLWearableType::EType type, LLAvatarAppearance *avatarp);

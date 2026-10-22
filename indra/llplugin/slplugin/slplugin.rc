@@ -1,4 +1,4 @@
-// slplugin.rc – version info for Defender heuristics
+// slplugin.rc ï¿½ version info for Defender heuristics
 
 // RC.EXE (Resource Compiler) cannot parse C++ code.
 // Prevent windows.h from including DirectXMath and other C++ headers.
@@ -33,12 +33,12 @@ FILETYPE 0x1
     {
         BLOCK "040904b0"
         {
-            VALUE "CompanyName", "Kirstens Viewer Project"
+            VALUE "CompanyName", "Tasia Viewer Project"
                 VALUE "FileDescription", "SLPlugin Headless Viewer Component"
                 VALUE "FileVersion", "1.0.0.0"
                 VALUE "InternalName", "slplugin.exe"
                 VALUE "OriginalFilename", "slplugin.exe"
-                VALUE "ProductName", "Kirstens Viewer"
+                VALUE "ProductName", "Tasia Viewer"
                 VALUE "ProductVersion", "1.0.0.0"
         }
     }

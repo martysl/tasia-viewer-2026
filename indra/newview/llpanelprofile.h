@@ -104,6 +104,11 @@ public:
     void refreshName();
 
     void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name);
+    void onPartnerAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name);
+    // Called by the profile badge HTTP coroutine after its handle check.
+    void onTasiaRemoteBadgeDownloaded(const std::string& icon_url,
+                                      const std::string& mime_type,
+                                      const LLSD::Binary& body);
 
     void setProfileImageUploading(bool loading);
     void setProfileImageUploaded(const LLUUID &image_asset_id);
@@ -135,6 +140,7 @@ protected:
      * Fills account status.
      */
     void fillAccountStatus(const LLAvatarData* avatar_data);
+    void fillTasiaUserData(const LLUUID& avatar_id, const std::string& account_text);
 
     /**
      * Sets permissions specific icon
@@ -180,6 +186,12 @@ private:
     void onShowAgentProfileTexture();
     void onShowTexturePicker();
     void onCommitProfileImage(const LLUUID& id);
+    void setPartnerLinkText(const std::string& partner_name);
+    void refreshTasiaProfileData();
+    bool setTasiaRemoteBadgeIcon(const std::string& icon_url,
+                                 const std::string& tooltip,
+                                 const std::string& fallback_badge_name);
+    void showTasiaBadgeFallback();
 
 private:
     typedef std::map<std::string, LLUUID> group_map_t;
@@ -214,6 +226,15 @@ private:
     bool                mAllowEdit;
     std::string         mDescriptionText;
     boost::signals2::connection mAvatarNameCacheConnection;
+    boost::signals2::connection mPartnerNameCacheConnection;
+    LLUUID              mPartnerAvatarId;
+    LLColor4 mDisplayNameDefaultColor;
+    LLColor4 mUserNameDefaultColor;
+    LLRect mAccountInfoDefaultRect;
+    std::string mAccountInfoText;
+    std::string mTasiaBadgeIconUrl;
+    std::string mTasiaBadgeFallbackName;
+    std::string mTasiaBadgeFallbackTooltip;
     boost::signals2::connection mMenuNameCacheConnection;
 };
 
@@ -324,6 +345,8 @@ public:
     void onOpen(const LLSD& key) override;
 
     bool postBuild() override;
+
+    void updateData() override;
 
     void processProperties(void* data, EAvatarProcessorType type) override;
     void processProperties(const LLAvatarData* avatar_data);

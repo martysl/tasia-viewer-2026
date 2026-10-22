@@ -99,6 +99,7 @@ public:
 
     /** Expects a pointer to a canonical name string */
     void setMessage(const char* name, const LLSD& msg);
+    const LLSD& getMessage() const { return mMessage; }
 
 private:
     const char* mMessageName; // Canonical (prehashed) string.

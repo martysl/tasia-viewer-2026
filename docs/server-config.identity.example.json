@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "grid": "grid.example.org:8002",
+      "uuid": "11111111-1111-1111-1111-111111111111",
+      "custom_title": "Community creator",
+      "display_name": "Cosmetic display name",
+      "username": "Cosmetic username",
+      "account_type": "Cosmetic account label",
+      "badge_name": "Contributor",
+      "profile_text": "Optional public profile note",
+      "tooltip": "Optional public explanation",
+      "tag_color": "#48E094"
+    }
+  ]
+}

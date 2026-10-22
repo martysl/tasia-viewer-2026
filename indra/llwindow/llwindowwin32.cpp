@@ -4173,7 +4173,7 @@ void LLSplashScreenWin32::showImpl()
 			ShowWindow(mWindow, SW_SHOW);
 
 			// Should set taskbar text without creating a header for the window (caption)
-			SetWindowText(mWindow, TEXT("Kirstens Viewer"));
+			SetWindowText(mWindow, TEXT("Advanced Multiverse Viewer by Tasia and Marty"));
 
 			// Signal the caller once the window genuinely exists, matching
 			// the previous synchronous showImpl() contract that

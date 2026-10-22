@@ -45,17 +45,19 @@
       border="true"
       label="Info"
       help_topic="about_support_tab"
-      name="support_panel">
+       name="support_panel">
+      <icon name="tasia_about_logo" image_name="login_tasia_logo_horizontal"
+        follows="top|left" left="190" top="5" width="96" height="54" />
       <text_editor
         parse_urls="true"
        follows="top|left"
        font="SansSerif"
-       height="343"
+        height="283"
        bg_readonly_color="Black_50"
        left="5"
        max_length="65536"
        name="support_editor"
-       top="5"
+       top="65"
        width="465"
        word_wrap="true" />
       <button
@@ -81,17 +83,21 @@
        left="5"
        text_color="LtGray"
        max_length="65536"
-       name="credits"
+        name="credits"
+        parse_urls="true"
        top_pad="10"
        width="465"
        word_wrap="true">
-S24(8) DX - Hradr
-A Second Life client, brought to you by Kirstenlee.
+Tasia Viewer DX
+Advanced Multiverse Viewer by Tasia and Marty
+For Second Life, OpenSim and compatible virtual worlds.
 
-Core  : S-Series 
-Patch : 2026.9
-Build : 4015
-Version : Alpha 1.2
+Special thanks to Kirstenlee Cinquetti (Kirsten) for Kirstens Viewer and its native DirectX 11 renderer, which form the foundation of Tasia Viewer DX.
+
+[https://github.com/Kirstenlee/Kirstensviewer Kirstens Viewer — source code]
+[https://sourceforge.net/projects/kirstensviewers/ Kirstens Viewer — project and releases]
+
+Upstream author and third-party copyright notices are preserved in the Licenses tab.
 	  </text_editor>
     </panel>
     <panel

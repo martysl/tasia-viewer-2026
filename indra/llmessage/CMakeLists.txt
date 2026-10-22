@@ -12,6 +12,7 @@ include(LLFileSystem)
 include(Tut)
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
+include_directories (${CMAKE_CURRENT_SOURCE_DIR}/../llquic)
 
 include_directories(
     ${LLCOMMON_INCLUDE_DIRS}
@@ -197,6 +198,7 @@ add_library (llmessage ${llmessage_SOURCE_FILES})
 
 target_link_libraries(
   llmessage
+  llquic
   ${CURL_LIBRARIES}
   ${LLCOMMON_LIBRARIES}
   ${LLFILESYSTEM_LIBRARIES}
@@ -209,5 +211,4 @@ target_link_libraries(
   ${BOOST_CONTEXT_LIBRARY}
   ${BOOST_SYSTEM_LIBRARY}
   )
-
 

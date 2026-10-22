@@ -1495,14 +1495,22 @@ bool LLAvatarAppearance::teToColorParams( ETextureIndex te, U32 *param_name )
     return true;
 }
 
-void LLAvatarAppearance::setClothesColor( ETextureIndex te, const LLColor4& new_color)
+// <FS:Ansariel> [Legacy Bake]
+//void LLAvatarAppearance::setClothesColor( ETextureIndex te, const LLColor4& new_color)
+void LLAvatarAppearance::setClothesColor( ETextureIndex te, const LLColor4& new_color, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
     U32 param_name[3];
     if( teToColorParams( te, param_name ) )
     {
-        setVisualParamWeight( param_name[0], new_color.mV[VRED]);
-        setVisualParamWeight( param_name[1], new_color.mV[VGREEN]);
-        setVisualParamWeight( param_name[2], new_color.mV[VBLUE]);
+        // <FS:Ansariel> [Legacy Bake]
+        //setVisualParamWeight( param_name[0], new_color.mV[VRED]);
+        //setVisualParamWeight( param_name[1], new_color.mV[VGREEN]);
+        //setVisualParamWeight( param_name[2], new_color.mV[VBLUE]);
+        setVisualParamWeight( param_name[0], new_color.mV[VRED], upload_bake);
+        setVisualParamWeight( param_name[1], new_color.mV[VGREEN], upload_bake);
+        setVisualParamWeight( param_name[2], new_color.mV[VBLUE], upload_bake);
+        // </FS:Ansariel> [Legacy Bake]
     }
 }
 

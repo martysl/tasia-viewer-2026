@@ -87,6 +87,10 @@ public:
 
     static void cleanupGlobals();
 
+    // Grow bounded buffers without losing maps belonging to another region.
+    bool ensureParcelCapacity(S32 grids_per_edge);
+    void resetAgentParcelOverlay(F32 region_width);
+
     bool    selectionEmpty() const;
     F32     getSelectionWidth() const   { return F32(mEastNorth.mdV[VX] - mWestSouth.mdV[VX]); }
     F32     getSelectionHeight() const  { return F32(mEastNorth.mdV[VY] - mWestSouth.mdV[VY]); }
@@ -366,6 +370,10 @@ private:
     // WEST_MASK = draw west edge
     // SOUTH_MASK = draw south edge
     S32                         mParcelsPerEdge;
+    S32                         mParcelBufferGridsPerEdge;
+    S32                         mAgentParcelGridsPerEdge;
+    S32                         mHighlightGridsPerEdge;
+    S32                         mCollisionGridsPerEdge;
     U8*                         mHighlightSegments;
     U8*                         mAgentParcelOverlay;
 

@@ -27,6 +27,8 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llviewerregion.h"
+#include "llviewernetwork.h"
+#include "lltasia_region_compat.h"
 
 // linden libraries
 #include "indra_constants.h"
@@ -702,9 +704,11 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
     mViewerAssetUrl(""),
     mCacheLoaded(false),
     mCacheDirty(false),
+    mSimulatorFeaturesReceived(false),
+    mMinSimHeight(0.f),
+    mSayRange(20.f),
     mReleaseNotesRequested(false),
     mCapabilitiesState(CAPABILITIES_STATE_INIT),
-    mSimulatorFeaturesReceived(false),
     mBitsReceived(0.f),
     mPacketsReceived(0.f),
     mDead(false),
@@ -2131,39 +2135,41 @@ F32 LLViewerRegion::getCompositionXY(const S32 x, const S32 y) const
         return adj_comp;
     };
 
-    if (x >= 256)
+    const S32 width = S32(mWidth);
+    const F32 last = mWidth - 1.f;
+    if (x >= width)
     {
-        if (y >= 256)
+        if (y >= width)
         {
-            LLVector3d center = getCenterGlobal() + LLVector3d(256.f, 256.f, 0.f);
+            LLVector3d center = getCenterGlobal() + LLVector3d(mWidth, mWidth, 0.f);
             LLViewerRegion *regionp = LLWorld::getInstance()->getRegionFromPosGlobal(center);
             if (regionp)
             {
-                F32 our_comp = getComposition()->getValueScaled(255, 255);
-                F32 adj_comp = regionp->getComposition()->getValueScaled(x - 256.f, y - 256.f);
+                F32 our_comp = getComposition()->getValueScaled(last, last);
+                F32 adj_comp = regionp->getComposition()->getValueScaled(x - mWidth, y - mWidth);
                 return blendAdjacentComposition(our_comp, adj_comp);
             }
         }
         else
         {
-            LLVector3d center = getCenterGlobal() + LLVector3d(256.f, 0, 0.f);
+            LLVector3d center = getCenterGlobal() + LLVector3d(mWidth, 0, 0.f);
             LLViewerRegion *regionp = LLWorld::getInstance()->getRegionFromPosGlobal(center);
             if (regionp)
             {
-                F32 our_comp = getComposition()->getValueScaled(255.f, (F32)y);
-                F32 adj_comp = regionp->getComposition()->getValueScaled(x - 256.f, (F32)y);
+                F32 our_comp = getComposition()->getValueScaled(last, (F32)y);
+                F32 adj_comp = regionp->getComposition()->getValueScaled(x - mWidth, (F32)y);
                 return blendAdjacentComposition(our_comp, adj_comp);
             }
         }
     }
-    else if (y >= 256)
+    else if (y >= width)
     {
-        LLVector3d center = getCenterGlobal() + LLVector3d(0.f, 256.f, 0.f);
+        LLVector3d center = getCenterGlobal() + LLVector3d(0.f, mWidth, 0.f);
         LLViewerRegion *regionp = LLWorld::getInstance()->getRegionFromPosGlobal(center);
         if (regionp)
         {
-            F32 our_comp = getComposition()->getValueScaled((F32)x, 255.f);
-            F32 adj_comp = regionp->getComposition()->getValueScaled((F32)x, y - 256.f);
+            F32 our_comp = getComposition()->getValueScaled((F32)x, last);
+            F32 adj_comp = regionp->getComposition()->getValueScaled((F32)x, y - mWidth);
             return blendAdjacentComposition(our_comp, adj_comp);
         }
     }
@@ -2551,6 +2557,24 @@ void LLViewerRegion::setSimulatorFeatures(const LLSD& sim_features)
     LLSDSerialize::toPrettyXML(sim_features, str);
     LL_INFOS() << "region " << getName() << " "  << str.str() << LL_ENDL;
     mSimulatorFeatures = sim_features;
+
+    mMinSimHeight = 0.f;
+    mSayRange = 20.f;
+    if (LLGridManager::getInstance()->isInOpenSim() &&
+        sim_features.has("OpenSimExtras"))
+    {
+        const LLSD& extras = sim_features["OpenSimExtras"];
+        if (extras.has("MinSimHeight"))
+        {
+            mMinSimHeight = LLTasiaRegion::safeMinSimHeight(
+                true, static_cast<F32>(extras["MinSimHeight"].asReal()));
+        }
+        if (extras.has("say-range"))
+        {
+            mSayRange = LLTasiaRegion::safeSayRange(
+                true, extras["say-range"].asReal());
+        }
+    }
 
     setSimulatorFeaturesReceived(true);
 
@@ -3186,7 +3210,9 @@ void LLViewerRegion::unpackRegionHandshake()
         mProductName = productName;
     }
 
-    mCentralBakeVersion = region_protocols & 1; // was (S32)gSavedSettings.getBOOL("UseServerTextureBaking");
+    // Bit 0 alone advertises server-side baking. OpenSim's extended-bakes
+    // bit 63 does not imply a Linden appearance service.
+    mCentralBakeVersion = region_protocols & 1;
     LLVLComposition *compp = getComposition();
     if (compp)
     {
@@ -3384,6 +3410,11 @@ void LLViewerRegionImpl::buildCapabilityNames(LLSD& capabilityNames)
     capabilityNames.append("RegionExperiences");
     capabilityNames.append("ExperienceQuery");
     capabilityNames.append("GetMetadata");
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        capabilityNames.append("GetMesh");
+        capabilityNames.append("GetMesh2");
+    }
     capabilityNames.append("GetObjectCost");
     capabilityNames.append("GetObjectPhysicsData");
     capabilityNames.append("GroupAPIv1");
@@ -3543,6 +3574,14 @@ void LLViewerRegion::setCapability(const std::string& name, const std::string& u
             else
             /*==============================================================*/
             mViewerAssetUrl = url;
+            if (LLGridManager::getInstance()->isInOpenSim())
+            {
+                // One-shot, OpenSim-only: which asset path did this grid
+                // actually advertise? Decides whether baked textures can use
+                // HTTP or need the legacy UDP transfer. Never logs any URL.
+                LL_INFOS_ONCE("OpenSimAssets") << "ViewerAsset capability advertised: "
+                    << (mViewerAssetUrl.empty() ? "NO" : "YES") << LL_ENDL;
+            }
         }
     }
 }
@@ -3805,6 +3844,28 @@ void LLViewerRegion::getNeighboringRegionsStatus( std::vector<S32>& regions )
 {
     mImpl->mLandp->getNeighboringRegionsStatus( regions );
 }
+
+void LLViewerRegion::getAdjacentRegions(std::vector<LLViewerRegion*>& adjacent_regions) const
+{
+    adjacent_regions.clear();
+    const LLVector3d& origin = getOriginGlobal();
+    const F64 width = getWidth();
+
+    for (LLViewerRegion* candidate : LLWorld::getInstance()->getRegionList())
+    {
+        if (!candidate || candidate == this)
+            continue;
+
+        const LLVector3d& candidate_origin = candidate->getOriginGlobal();
+        if (LLTasiaRegion::regionsAdjacent(origin.mdV[VX], origin.mdV[VY], width,
+                                           candidate_origin.mdV[VX], candidate_origin.mdV[VY],
+                                           candidate->getWidth()))
+        {
+            adjacent_regions.push_back(candidate);
+        }
+    }
+}
+
 void LLViewerRegion::showReleaseNotes()
 {
     std::string url = this->getCapability("ServerReleaseNotes");
@@ -3951,4 +4012,3 @@ void LLViewerRegion::applyCacheMiscExtras(LLViewerObject* obj)
         }
     }
 }
-

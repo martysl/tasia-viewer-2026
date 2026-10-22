@@ -55,7 +55,11 @@ enum EAvatarProcessorType
     APT_PICK_INFO,
     APT_TEXTURES,
     APT_CLASSIFIEDS,
-    APT_CLASSIFIED_INFO
+    APT_CLASSIFIED_INFO,
+    // OpenSim legacy UDP/generic-message profile endpoints.
+    APT_NOTES,
+    APT_GROUPS,
+    APT_PICKS
 };
 
 // legacy data is supposed to match AvatarPropertiesReply,
@@ -115,6 +119,35 @@ struct LLAvatarData::LLGroupData
     LLUUID group_id;
     std::string group_name;
     LLUUID group_insignia_id;
+};
+
+// OpenSim replies to AvatarPropertiesRequest with group membership separately
+// from AvatarPropertiesReply (often delivered through EventQueue).
+struct LLAvatarGroups
+{
+    LLUUID agent_id;
+    LLUUID avatar_id;
+    typedef LLAvatarData::LLGroupData group_data_t;
+    typedef std::list<group_data_t> group_list_t;
+    group_list_t group_list;
+};
+
+// OpenSim's legacy generic profile endpoints return these independently of
+// the base AvatarPropertiesReply.
+struct LLAvatarPicks
+{
+    LLUUID agent_id;
+    LLUUID target_id;
+    typedef std::pair<LLUUID, std::string> pick_data_t;
+    typedef std::list<pick_data_t> picks_list_t;
+    picks_list_t picks_list;
+};
+
+struct LLAvatarNotes
+{
+    LLUUID agent_id;
+    LLUUID target_id;
+    std::string notes;
 };
 
 struct LLPickData
@@ -201,6 +234,9 @@ public:
     void sendAvatarLegacyPropertiesRequest(const LLUUID& avatar_id);
     void sendAvatarTexturesRequest(const LLUUID& avatar_id);
     void sendAvatarClassifiedsRequest(const LLUUID& avatar_id);
+    void sendAvatarPicksRequest(const LLUUID& avatar_id);
+    void sendAvatarNotesRequest(const LLUUID& avatar_id);
+    void sendNotes(const LLUUID& avatar_id, const std::string& notes);
 
     // Duplicate pick info requests are not suppressed.
     void sendPickInfoRequest(const LLUUID& creator_id, const LLUUID& pick_id);

@@ -46,6 +46,7 @@
 
 // newview includes
 #include "llagent.h"
+#include "llagentdata.h"
 #include "llagentaccess.h"
 #include "llagentbenefits.h"
 #include "llagentcamera.h"
@@ -77,6 +78,7 @@
 #include "llfloatersnapshot.h"
 #include "llfloatertools.h"
 #include "llfloaterworldmap.h"
+#include "llfloaterwebcontent.h"
 #include "llfloaterbuildoptions.h"
 #include "llavataractions.h"
 #include "lllandmarkactions.h"
@@ -124,6 +126,8 @@
 #include "llviewernetwork.h"
 #include "llviewerobjectlist.h"
 #include "llviewerparcelmgr.h"
+#include "llvieweraudio.h"
+#include "llfloatermusicplayer.h"
 #include "llviewerregion.h"
 #include "llviewerstats.h"
 #include "llviewerstatsrecorder.h"
@@ -142,6 +146,7 @@
 #include "llwindow.h"
 #include "llpathfindingmanager.h"
 #include "llstartup.h"
+#include "lluri.h"
 #include <unordered_map>
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
@@ -5819,6 +5824,23 @@ class LLToolsStopAllAnimations : public view_listener_t
     }
 };
 
+class LLAudioStopMusic : public view_listener_t
+{
+    bool handleEvent(const LLSD& userdata)
+    {
+        LLViewerAudio* audio = LLViewerAudio::getInstance();
+        audio->setParcelAudioStoppedByUser(true);
+        audio->stopInternetStreamWithAutoFade();
+
+        LLFloaterMusicPlayer* player = LLFloaterReg::findTypedInstance<LLFloaterMusicPlayer>("music_player");
+        if (player)
+        {
+            player->stopFromMediaControls();
+        }
+        return true;
+    }
+};
+
 class LLToolsReleaseKeys : public view_listener_t
 {
     bool handleEvent(const LLSD& userdata)
@@ -8848,6 +8870,58 @@ const LLRect LLViewerMenuHolderGL::getMenuRect() const
     return LLRect(0, getRect().getHeight() - MENU_BAR_HEIGHT, getRect().getWidth(), STATUS_BAR_HEIGHT);
 }
 
+void handle_tasia_chat(const LLSD& /*param*/)
+{
+    std::string url = "https://chat.tasiaviewer.work/";
+    // Login-menu access is anonymous. Never reuse partially initialized identity.
+    if (LLStartUp::getStartupState() == STATE_STARTED && gAgent.getID().notNull())
+    {
+        std::string display_name = gAgentUsername;
+        LLAvatarName avatar_name;
+        if (LLAvatarNameCache::get(gAgent.getID(), &avatar_name))
+        {
+            display_name = avatar_name.getDisplayName();
+        }
+
+        // Preserve the website's existing identity contract. These public fields
+        // are context, not authentication; never send session IDs or credentials.
+        LLSD query;
+        query["uuid"] = gAgent.getID().asString();
+        query["username"] = gAgentUsername;
+        query["display"] = display_name;
+        query["hud"] = "1";
+        query["grid"] = LLGridManager::getInstance()->getGridId();
+        url += LLURI::mapToQueryString(query);
+    }
+
+    LLFloaterWebContent::Params params;
+    params.url = url;
+    params.target = "tasia_chat";
+    params.show_chrome = false;
+    params.allow_address_entry = false;
+    params.trusted_content = false;
+    params.show_page_title = false;
+    if (LLFloater* floater = LLFloaterReg::showInstance("web_content", params))
+    {
+        floater->setTitle(LLTrans::getString("Command_TasiaChat_Label"));
+    }
+}
+
+void handle_tasia_feed(const LLSD& /*param*/)
+{
+    LLFloaterWebContent::Params params;
+    params.url = "https://api.tasiaviewer.work/feed/";
+    params.target = "tasia_feed";
+    params.show_chrome = false;
+    params.allow_address_entry = false;
+    params.trusted_content = false;
+    params.show_page_title = false;
+    if (LLFloater* floater = LLFloaterReg::showInstance("web_content", params))
+    {
+        floater->setTitle(LLTrans::getString("Command_TasiaFeed_Label"));
+    }
+}
+
 void handle_web_browser_test(const LLSD& param)
 {
     std::string url = param.asString();
@@ -9628,6 +9702,8 @@ static void register_agent_ui_callbacks()
     // Note: executes before LLToolBar::createButton and before menu builds
     LLUICtrl::EnableCallbackRegistry::Registrar& global_enable = LLUICtrl::EnableCallbackRegistry::defaultRegistrar();
     LLUICtrl::CommitCallbackRegistry::Registrar& global_commit = LLUICtrl::CommitCallbackRegistry::defaultRegistrar();
+    global_commit.add("Tasia.Chat", boost::bind(&handle_tasia_chat, _2));
+    global_commit.add("Tasia.Feed", boost::bind(&handle_tasia_feed, _2));
     global_commit.add("Agent.toggleFlying", boost::bind(&LLAgent::toggleFlying));
     global_enable.add("Agent.enableFlyLand", boost::bind(&enable_fly_land));
     global_commit.add("Agent.PressMicrophone", boost::bind(&LLAgent::pressMicrophone, _2));
@@ -9805,6 +9881,7 @@ void initialize_menus()
     commit.add("Tools.Link", boost::bind(&handle_link_objects));
     commit.add("Tools.Unlink", boost::bind(&handle_unlink_objects));
     view_listener_t::addMenu(new LLToolsStopAllAnimations(), "Tools.StopAllAnimations");
+    view_listener_t::addMenu(new LLAudioStopMusic(), "Audio.StopMusic");
     view_listener_t::addMenu(new LLToolsReleaseKeys(), "Tools.ReleaseKeys");
     view_listener_t::addMenu(new LLToolsEnableReleaseKeys(), "Tools.EnableReleaseKeys");
     commit.add("Tools.LookAtSelection", boost::bind(&handle_look_at_selection, _2));
@@ -10079,7 +10156,11 @@ void initialize_menus()
     view_listener_t::addMenu(new LLAvatarResetSelfSkeleton(), "Avatar.ResetSelfSkeleton");
     view_listener_t::addMenu(new LLAvatarResetSelfSkeletonAndAnimations(), "Avatar.ResetSelfSkeletonAndAnimations");
 
-    commit.add("Avatar.OpenMarketplace", boost::bind(&LLWeb::loadURLExternal, gSavedSettings.getString("MarketplaceURL")));
+    commit.add("Avatar.OpenMarketplace", [](LLUICtrl*, const LLSD&)
+    {
+        const auto url = LLGridManager::getInstance()->getMarketplaceURL();
+        if (!url.empty()) LLWeb::loadURLExternal(url);
+    });
 
     view_listener_t::addMenu(new LLAvatarEnableAddFriend(), "Avatar.EnableAddFriend");
     enable.add("Avatar.EnableFreezeEject", boost::bind(&enable_freeze_eject, _2));

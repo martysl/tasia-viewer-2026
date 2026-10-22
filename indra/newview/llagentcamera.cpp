@@ -2065,9 +2065,10 @@ F32 LLAgentCamera::getCameraMaxZoomDistance()
     }
 
     // Ignore "DisableCameraConstraints", we don't want to be out of draw range when we focus onto objects or avatars
+    const F32 region_width = gAgent.getRegion() ? gAgent.getRegion()->getWidth() : REGION_WIDTH_METERS;
     return llmin(MAX_CAMERA_DISTANCE_FROM_OBJECT,
                  mDrawDistance - 1, // convenience, don't hit draw limit when focusing on something
-                 LLWorld::getInstance()->getRegionWidthInMeters() - CAMERA_FUDGE_FROM_OBJECT);
+                  region_width - CAMERA_FUDGE_FROM_OBJECT);
 }
 
 LLVector3 LLAgentCamera::getAvatarRootPosition()
@@ -3033,4 +3034,3 @@ void LLAgentCamera::updateSmoothMovement(F32 dt)
 
 
 // EOF
-

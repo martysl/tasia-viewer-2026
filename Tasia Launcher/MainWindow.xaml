@@ -1,0 +1,126 @@
+<Window x:Class="TasiaViewerLauncher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tasia Viewer Launcher" Width="780" Height="650"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="True" Background="Transparent"
+        FontFamily="Segoe UI" Foreground="#E6EEFA"
+        Loaded="Window_Loaded">
+  <Window.Resources>
+    <Style x:Key="ChromeButton" TargetType="Button">
+      <Setter Property="Foreground" Value="#A4BEDB"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Padding" Value="8,4"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Background" Value="#304B6B"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="MainAction" TargetType="Button">
+      <Setter Property="Background" Value="#2C72A8"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#3688C3"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="#255B8B"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+  <Border Background="#182337" CornerRadius="11" BorderBrush="#30415A" BorderThickness="1" Padding="12">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="58"/>
+        <RowDefinition Height="225"/>
+        <RowDefinition Height="72"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="52"/>
+        <RowDefinition Height="39"/>
+      </Grid.RowDefinitions>
+      <Grid Grid.Row="0" MouseLeftButtonDown="DragWindow">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="◎" FontSize="28" Foreground="#7ACEFF" VerticalAlignment="Center" Margin="1,0,9,0"/>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock FontWeight="Bold" FontSize="17" Text="TASIA VIEWER"/>
+            <TextBlock FontSize="10" Foreground="#92AECB" Text="LAUNCHER · DIRECTX EDITION"/>
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Background="#27415B" CornerRadius="10" Padding="8,3" Margin="0,0,9,0">
+            <TextBlock x:Name="LauncherVersionBadge" FontSize="11" Foreground="#B9D8FC" Text="PREVIEW"/>
+          </Border>
+          <Border Background="#0A3B2E" CornerRadius="10" Padding="8,3" Margin="0,0,11,0">
+            <TextBlock Foreground="#2ADE9C" FontSize="12" Text="● Installed"/>
+          </Border>
+          <Button Style="{StaticResource ChromeButton}" Content="—" Click="Minimize_Click" ToolTip="Minimize"/>
+          <Button Style="{StaticResource ChromeButton}" Content="✕" Click="Close_Click" ToolTip="Close"/>
+        </StackPanel>
+      </Grid>
+      <Border Grid.Row="1" CornerRadius="9" ClipToBounds="True">
+        <Border.Background><ImageBrush ImageSource="/Assets/space-banner.png" Stretch="UniformToFill"/></Border.Background>
+        <Grid>
+          <TextBlock Text="EXPLORE BEYOND THE GRID  ✦" FontSize="10" Foreground="#C4E7FF" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="16"/>
+        </Grid>
+      </Border>
+      <Grid Grid.Row="2">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="Installed version" Foreground="#A6BED8" FontSize="12" Margin="0,0,0,5"/>
+          <TextBlock x:Name="InstalledVersionText" Text="1.0.0" FontSize="16" FontWeight="Bold"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+          <TextBlock Text="Update status" HorizontalAlignment="Right" Foreground="#A6BED8" FontSize="12" Margin="0,0,0,5"/>
+          <TextBlock x:Name="UpdateStatusText" Text="Not checked" HorizontalAlignment="Right" Foreground="#9CDACA" FontSize="14"/>
+          <TextBlock x:Name="UpdateDetailsText" Text="" HorizontalAlignment="Right" Foreground="#7F9CBC" FontSize="10" Margin="0,3,0,0"/>
+        </StackPanel>
+      </Grid>
+      <Border Grid.Row="3" Background="#22344E" CornerRadius="9" Padding="13" Margin="0,0,0,12">
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <Grid>
+            <TextBlock FontSize="16" FontWeight="Bold" Text="Latest news"/>
+            <TextBlock Text="▤" HorizontalAlignment="Right" FontSize="20" Foreground="#9AC9F2"/>
+          </Grid>
+          <TextBlock Grid.Row="1" x:Name="NewsTitleText" FontSize="15" Text="Welcome to Tasia Viewer!" Margin="0,15,0,7"/>
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <TextBlock x:Name="NewsBodyText" Text="News will appear here when the server is ready."
+                       TextWrapping="Wrap" FontSize="13" Foreground="#C6D7EC"/>
+          </ScrollViewer>
+          <TextBlock Grid.Row="3" x:Name="NewsStatusText" FontSize="11" Margin="0,7,0,0" Text="Waiting for news server" Foreground="#92AECA"/>
+        </Grid>
+      </Border>
+      <Button Grid.Row="4" x:Name="LaunchButton" Style="{StaticResource MainAction}" Click="Launch_Click" Content="⊙   LAUNCH TASIA VIEWER"/>
+      <Grid Grid.Row="5">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Button Style="{StaticResource ChromeButton}" Content="⚙ Settings" Click="Settings_Click" FontSize="12" Padding="4,5"/>
+        <TextBlock Grid.Column="1" Text="WINDOWS LAUNCHER · PREVIEW BUILD" Foreground="#6F8BA9" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        <Button Grid.Column="2" x:Name="CheckUpdatesButton" Style="{StaticResource ChromeButton}" Content="⟳  Check for updates" Click="CheckUpdates_Click" FontSize="12" Padding="4,5"/>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

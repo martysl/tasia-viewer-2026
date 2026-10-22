@@ -62,8 +62,12 @@ public:
     bool                isOldVersion() const;
 
     /*virtual*/ void    writeToAvatar(LLAvatarAppearance *avatarp);
-    void                removeFromAvatar()  { LLViewerWearable::removeFromAvatar( mType); }
-    static void         removeFromAvatar( LLWearableType::EType type);
+// <FS:Ansariel> [Legacy Bake]
+    //void              removeFromAvatar()  { LLViewerWearable::removeFromAvatar( mType); }
+    //static void           removeFromAvatar( LLWearableType::EType type);
+    void                removeFromAvatar( bool upload_bake )    { LLViewerWearable::removeFromAvatar( mType, upload_bake ); }
+    static void         removeFromAvatar( LLWearableType::EType type, bool upload_bake );
+    // </FS:Ansariel> [Legacy Bake]
 
     /*virtual*/ EImportResult   importStream( std::istream& input_stream, LLAvatarAppearance* avatarp );
 

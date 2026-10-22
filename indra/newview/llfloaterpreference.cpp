@@ -543,6 +543,12 @@ bool LLFloaterPreference::postBuild()
     getChild<LLTabContainer>("privacy_tab_container")->removeTabPanel(panel);
 #endif
 
+    if (gDirUtilp->isPortable())
+    {
+        getChildView("set_cache")->setEnabled(false);
+        getChildView("log_path_button")->setEnabled(false);
+    }
+
     return true;
 }
 
@@ -1147,6 +1153,7 @@ void LLFloaterPreference::onNameTagOpacityChange(const LLSD& newvalue)
 
 void LLFloaterPreference::onClickSetCache()
 {
+    if (gDirUtilp->isPortable()) return;
     std::string cur_name(gSavedSettings.getString("CacheLocation"));
 //  std::string cur_top_folder(gDirUtilp->getBaseFileName(cur_name));
 
@@ -1157,6 +1164,7 @@ void LLFloaterPreference::onClickSetCache()
 
 void LLFloaterPreference::changeCachePath(const std::vector<std::string>& filenames, std::string proposed_name)
 {
+    if (gDirUtilp->isPortable()) return;
     std::string dir_name = filenames[0];
     if (!dir_name.empty() && dir_name != proposed_name)
     {
@@ -1524,6 +1532,7 @@ void LLFloaterPreference::setAllIgnored()
 
 void LLFloaterPreference::onClickLogPath()
 {
+    if (gDirUtilp->isPortable()) return;
     std::string proposed_name(gSavedPerAccountSettings.getString("InstantMessageLogPath"));
     mPriorInstantMessageLogPath.clear();
 
@@ -1533,6 +1542,7 @@ void LLFloaterPreference::onClickLogPath()
 
 void LLFloaterPreference::changeLogPath(const std::vector<std::string>& filenames, std::string proposed_name)
 {
+    if (gDirUtilp->isPortable()) return;
     //Path changed
     if (proposed_name != filenames[0])
     {
@@ -1546,6 +1556,7 @@ void LLFloaterPreference::changeLogPath(const std::vector<std::string>& filename
 
 bool LLFloaterPreference::moveTranscriptsAndLog()
 {
+    if (gDirUtilp->isPortable()) return true; // No profile moves in portable mode.
     std::string instantMessageLogPath(gSavedPerAccountSettings.getString("InstantMessageLogPath"));
     std::string chatLogPath = gDirUtilp->add(instantMessageLogPath, gDirUtilp->getUserName());
 

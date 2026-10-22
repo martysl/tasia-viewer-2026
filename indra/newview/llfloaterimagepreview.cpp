@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "llfloateruploadclipboard.h"
 
 #include "llfloaterimagepreview.h"
 
@@ -88,6 +89,13 @@ LLFloaterImagePreview::LLFloaterImagePreview(const LLSD& args) :
     mImagep(NULL)
 {
     loadImage(mFilenameAndPath);
+    // Clipboard files are owned by this preview. Image upload uses mRawImagep,
+    // not this source file, so remove it immediately after decoding, including
+    // failures. Cancelling/closing the preview cannot leak a screenshot on disk.
+    if (args.isMap() && args["temporary_clipboard_image"].asBoolean())
+    {
+        tasia_release_clipboard_image(mFilenameAndPath);
+    }
 }
 
 //-----------------------------------------------------------------------------

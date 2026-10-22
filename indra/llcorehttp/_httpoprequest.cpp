@@ -28,6 +28,7 @@
 
 #include <cstdio>
 #include <algorithm>
+#include <limits>
 
 #include "httpcommon.h"
 #include "httphandler.h"
@@ -762,11 +763,15 @@ namespace LLCore
 	{
 		HttpOpRequest::ptr_t op(HttpOpRequest::fromHandle<HttpOpRequest>(userdata));
 
+		if (size && nmemb > (std::numeric_limits<size_t>::max)() / size) return 0;
+		const size_t req_size(size * nmemb);
+		const size_t limit = op->mReqOptions ? op->mReqOptions->getBodyLimit() : 0;
+		const size_t used = op->mReplyBody ? op->mReplyBody->size() : 0;
+		if (limit && (used > limit || req_size > limit - used)) return 0;
 		if (!op->mReplyBody)
 		{
 			op->mReplyBody = new BufferArray();
 		}
-		const size_t req_size(size * nmemb);
 		const size_t write_size(op->mReplyBody->append(static_cast<char*>(data), req_size));
 		HTTPStats::instance().recordDataDown(write_size);
 		return write_size;

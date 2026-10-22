@@ -144,6 +144,8 @@ public:
         LLVoiceChannel* mVoiceChannel;
         LLIMSpeakerMgr* mSpeakers;
         bool            mP2PAsAdhocCall;
+        // OpenSim one-to-one IM delivered as IM_SESSION_INVITE (see constructor).
+        bool            mOpenSimP2PInvite;
 
         bool mSessionInitialized;
 

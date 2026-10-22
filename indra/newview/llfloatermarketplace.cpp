@@ -29,6 +29,8 @@
 #include "llfloatermarketplace.h"
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
+#include "llviewernetwork.h"
+#include "lluri.h"
 
 LLFloaterMarketplace::LLFloaterMarketplace(const LLSD& key)
     : LLFloaterWebContent(key)
@@ -71,21 +73,23 @@ bool LLFloaterMarketplace::postBuild()
         return false;
 
     mWebBrowser->setErrorPageURL(gSavedSettings.getString("GenericErrorPageURL"));
-    std::string url = gSavedSettings.getString("MarketplaceURL");
+    std::string url = LLGridManager::getInstance()->getMarketplaceURL();
     // Convert string_view constant to std::string for navigateTo() which expects std::string
-    mWebBrowser->navigateTo(url, std::string{HTTP_CONTENT_TEXT_HTML});
+    if (!LLGridManager::getInstance()->isInSecondLife()) mWebBrowser->setTrustedContent(false);
+    if (!url.empty()) mWebBrowser->navigateTo(url, std::string{HTTP_CONTENT_TEXT_HTML});
 
     // If cookie is there, will set it now, Otherwise will have to wait for login completion
     // which will also update marketplace instance if it already exists.
-    LLViewerMedia::getInstance()->getOpenIDCookie(mWebBrowser);
+    if (LLGridManager::getInstance()->isInSecondLife())
+        LLViewerMedia::getInstance()->getOpenIDCookie(mWebBrowser);
 
     return true;
 }
 
 void LLFloaterMarketplace::openMarketplace()
 {
-    std::string url = gSavedSettings.getString("MarketplaceURL");
-    if (mCurrentURL != url)
+    std::string url = LLGridManager::getInstance()->getMarketplaceURL();
+    if (!url.empty() && mCurrentURL != url)
     {
         mWebBrowser->navigateTo(url, std::string{HTTP_CONTENT_TEXT_HTML}); 
     }
@@ -115,8 +119,10 @@ bool LLFloaterMarketplace::isMarketplaceURL(const std::string& url)
         return url;
     };
 
-    static LLCachedControl<std::string> marketplace_url(gSavedSettings, "MarketplaceURL", "https://marketplace.secondlife.com/");
-    std::string_view marketplace_url_trimmed = trimURL(marketplace_url());
+    const std::string marketplace_url = LLGridManager::getInstance()->getMarketplaceURL();
+    const LLURI expected(marketplace_url), candidate(url);
+    if (expected.scheme() != candidate.scheme() || expected.authority() != candidate.authority()) return false;
+    std::string_view marketplace_url_trimmed = trimURL(marketplace_url);
     std::string_view url_trimmed = trimURL(url);
 
     return !marketplace_url_trimmed.empty() && url_trimmed.starts_with(marketplace_url_trimmed);

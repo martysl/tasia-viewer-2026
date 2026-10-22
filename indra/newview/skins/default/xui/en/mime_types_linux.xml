@@ -306,7 +306,7 @@
 			audio
 		</widgettype>
 		<impl>
-			media_plugin_libvlc
+			media_plugin_cef
 		</impl>
 	</mimetype>
 	<mimetype name="audio/x-aiff">

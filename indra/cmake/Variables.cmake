@@ -74,10 +74,9 @@ endif()
 
 # Default deploy grid
 set(GRID agni CACHE STRING "Target Grid")
-set(VIEWER_CHANNEL "Kirstens S24" CACHE STRING "Viewer Channel Name")
+set(VIEWER_CHANNEL "Tasia Viewer DX" CACHE STRING "Viewer Channel Name")
 set(ENABLE_SIGNING OFF CACHE BOOL "Enable signing the viewer")
 set(VERSION_BUILD "0" CACHE STRING "Revision number passed in from the outside")
 set(USE_PRECOMPILED_HEADERS ON CACHE BOOL "Enable use of precompiled header directives where supported.")
 
 source_group("CMake Rules" FILES CMakeLists.txt)
-

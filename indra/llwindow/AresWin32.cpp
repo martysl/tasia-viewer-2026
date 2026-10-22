@@ -230,7 +230,7 @@ namespace AresWin32
      L"SLPlugin.exe",
      L"dullahan_host.exe",
      L"SLVoice.exe",
-     L"Kirstens-S24.exe" // sanctioned now for final sweep
+     L"TasiaViewer.exe" // current viewer; PID ownership is checked below
     };
 
     static bool IsPluginProcess(DWORD pid)
@@ -306,14 +306,14 @@ namespace AresWin32
 
         CloseHandle(snapshot);
 
-        std::sort(sweepQueue.begin(), sweepQueue.end(), [](const auto& a, const auto& b) {
-            return b.first == L"Kirstens-S24.exe";
+        std::sort(sweepQueue.begin(), sweepQueue.end(), [ourPID](const auto& a, const auto& b) {
+            return a.second != ourPID && b.second == ourPID;
             });
 
         // Calculate background process count (exclude main viewer exe from count)
         int backgroundProcessCount = 0;
         for (const auto& [exeName, pid] : sweepQueue) {
-            if (exeName != L"Kirstens-S24.exe") {
+            if (pid != ourPID) {
                 backgroundProcessCount++;
             }
         }
@@ -342,7 +342,7 @@ namespace AresWin32
         std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
 
         for (const auto& [exeName, pid] : sweepQueue) {
-            bool isMainExe = (exeName == L"Kirstens-S24.exe");
+            bool isMainExe = (pid == ourPID);
             if (isMainExe && !killmainexe) continue;
 
             auto processStart = std::chrono::steady_clock::now();
@@ -528,7 +528,7 @@ namespace AresWin32
 
     void RunFinalSweep(bool killmainexe, bool factoryReset)
     {
-        LL_INFOS() << "ARES_SENTINEL_BEGIN Sweep initiated - Kirsten's Viewer." << LL_ENDL;
+        LL_INFOS() << "ARES_SENTINEL_BEGIN Sweep initiated - Tasia Viewer." << LL_ENDL;
 
         // Dialog already shown earlier in shutdown sequence
         Sleep(300);  // Brief pause after dialog appears
@@ -620,9 +620,9 @@ namespace AresWin32
             // Echoes every action for transparency
             std::wostringstream cmdLine;
             cmdLine << L"cmd.exe /K \"";
-            cmdLine << L"title Kirstens S24 Factory Reset && ";
+            cmdLine << L"title Tasia Legacy Folder Reset && ";
             cmdLine << L"echo ========================================== && ";
-            cmdLine << L"echo KIRSTENS S24 FACTORY RESET && ";
+            cmdLine << L"echo LEGACY VIEWER FOLDER RESET && ";
             cmdLine << L"echo ========================================== && ";
             cmdLine << L"echo Waiting for viewer to exit... && ";
             cmdLine << L"timeout /t 3 /nobreak && ";
@@ -719,7 +719,7 @@ namespace AresWin32
             if (g_AresConsole)
             {
                 // Set console title
-                SetConsoleTitleW(L"Kirsten's S24 Viewer - Shutdown in Progress");
+                SetConsoleTitleW(L"Advanced Multiverse Viewer by Tasia and Marty - Shutdown in Progress");
 
                 // Center the console window
                 int consoleWidth = 900;
@@ -789,7 +789,8 @@ namespace AresWin32
         {
             // VT Mode: Gold Standard theme with ASCII-safe characters
             WriteVTLine(ANSI_STEEL_BLUE "+-------------------------------------------------------------------+" ANSI_RESET);
-            WriteVTLine(ANSI_STEEL_BLUE "| " ANSI_GOLD ANSI_BOLD "KIRSTEN'S S24 VIEWER" ANSI_RESET ANSI_WHITE "  -  SHUTDOWN SEQUENCE" ANSI_STEEL_BLUE "                        |" ANSI_RESET);
+            WriteVTLine(ANSI_STEEL_BLUE "| " ANSI_GOLD ANSI_BOLD "Advanced Multiverse Viewer by Tasia and Marty" ANSI_RESET ANSI_STEEL_BLUE "                     |" ANSI_RESET);
+            WriteVTLine(ANSI_STEEL_BLUE "| " ANSI_WHITE "Shutdown sequence" ANSI_RESET ANSI_STEEL_BLUE "                                                 |" ANSI_RESET);
             WriteVTLine(ANSI_STEEL_BLUE "+-------------------------------------------------------------------+" ANSI_RESET);
             WriteVTLine("");
         }
@@ -799,7 +800,8 @@ namespace AresWin32
             WORD bgColor = BACKGROUND_BLUE;
             SetConsoleTextAttribute(g_ConsoleOutput, bgColor | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
             UpdateAresDialog("+-------------------------------------------------------------------+");
-            UpdateAresDialog("| KIRSTEN'S S24 VIEWER  -  SHUTDOWN SEQUENCE                        |");
+            UpdateAresDialog("| Advanced Multiverse Viewer by Tasia and Marty                     |");
+            UpdateAresDialog("| Shutdown sequence                                                 |");
             UpdateAresDialog("+-------------------------------------------------------------------+");
             UpdateAresDialog("");
         }
@@ -832,7 +834,7 @@ namespace AresWin32
                 WriteVTLine(ANSI_GOLD ANSI_BOLD "[OK] Shutdown Complete" ANSI_RESET ANSI_WHITE "  -  All systems clean" ANSI_RESET);
                 WriteVTLine(ANSI_STEEL_BLUE "===================================================================" ANSI_RESET);
                 WriteVTLine("");
-                WriteVTLine(ANSI_WHITE "          Thank you for using " ANSI_GOLD ANSI_BOLD "Kirsten's S24 Viewer" ANSI_RESET ANSI_WHITE "!" ANSI_RESET);
+                WriteVTLine(ANSI_WHITE "Thank you for using " ANSI_GOLD ANSI_BOLD "Advanced Multiverse Viewer by Tasia and Marty" ANSI_RESET ANSI_WHITE "!" ANSI_RESET);
                 WriteVTLine(ANSI_DIM_WHITE "      Your session has been saved and all processes closed cleanly." ANSI_RESET);
                 WriteVTLine("");
             }
@@ -848,7 +850,7 @@ namespace AresWin32
                 UpdateAresDialog("");
 
                 SetConsoleTextAttribute(g_ConsoleOutput, bgColor | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-                UpdateAresDialog("               Thank you for using Kirsten's S24 Viewer!");
+                UpdateAresDialog("Thank you for using Advanced Multiverse Viewer by Tasia and Marty!");
                 UpdateAresDialog("");
                 UpdateAresDialog("        Your session has been saved and all processes closed cleanly.");
                 UpdateAresDialog("");
@@ -906,4 +908,3 @@ namespace AresWin32
     }
 
 }
-

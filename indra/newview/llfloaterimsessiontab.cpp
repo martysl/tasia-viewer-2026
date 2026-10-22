@@ -43,6 +43,7 @@
 #include "llemojihelper.h"
 #include "llfloaterreg.h"
 #include "llfloateremojipicker.h"
+#include "llfloatertasiamediapicker.h"
 #include "llfloaterimsession.h"
 #include "llfloaterimcontainer.h" // to replace separate IM Floaters with multifloater container
 #include "llfloaterimnearbychat.h"
@@ -313,6 +314,33 @@ bool LLFloaterIMSessionTab::postBuild()
     mChatHistory = getChild<LLChatHistory>("chat_history");
 
     mInputEditor = getChild<LLChatEntry>("chat_editor");
+
+    // Bind to the originating editor, not whichever conversation later has focus.
+    const LLHandle<LLView> editor_handle = mInputEditor->getHandle();
+    for (const auto& provider : {std::string("giphy"), std::string("klipy")})
+    {
+        if (auto* button = findChild<LLButton>(provider + "_picker_btn"))
+        {
+            button->setVisible(gSavedSettings.getBOOL(provider == "giphy" ? "TasiaGiphyEnabled" : "TasiaKlipyEnabled"));
+            button->setClickedCallback([editor_handle, provider](LLUICtrl*, const LLSD&)
+            {
+                LLFloaterTasiaMediaPicker::show(provider, [editor_handle](const std::string& url)
+                {
+                    if (auto* editor = dynamic_cast<LLChatEntry*>(editor_handle.get()))
+                    {
+                        // Do not silently truncate a two-link media selection.
+                        if (editor->getText().size() + url.size() + 2 > 1023)
+                        {
+                            LLNotificationsUtil::add("TasiaMediaLinkTooLong");
+                            return;
+                        }
+                        editor->insertText(" " + url + " ");
+                        editor->setFocus(true);
+                    }
+                });
+            });
+        }
+    }
 
     mChatLayoutPanel = getChild<LLLayoutPanel>("chat_layout_panel");
     mInputPanels = getChild<LLLayoutStack>("input_panels");

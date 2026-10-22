@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_ai_translate.h"
 
 #include "llfloatertranslationsettings.h"
 
@@ -69,6 +70,11 @@ bool LLFloaterTranslationSettings::postBuild()
     mOKBtn = getChild<LLButton>("ok_btn");
 
     mMachineTranslationCB->setCommitCallback(boost::bind(&LLFloaterTranslationSettings::updateControlsEnabledState, this));
+    getChild<LLCheckBoxCtrl>("use_tasia_ai")->setCommitCallback(
+        boost::bind(&LLFloaterTranslationSettings::updateControlsEnabledState, this));
+    for (const char* name : {"ai_endpoint", "ai_model", "ai_key"})
+        getChild<LLLineEditor>(name)->setKeystrokeCallback(
+            boost::bind(&LLFloaterTranslationSettings::updateControlsEnabledState, this), nullptr);
     mTranslationServiceRadioGroup->setCommitCallback(boost::bind(&LLFloaterTranslationSettings::updateControlsEnabledState, this));
     mOKBtn->setClickedCallback(boost::bind(&LLFloaterTranslationSettings::onBtnOK, this));
     getChild<LLButton>("cancel_btn")->setClickedCallback(boost::bind(&LLFloater::closeFloater, this, false));
@@ -113,6 +119,10 @@ bool LLFloaterTranslationSettings::postBuild()
 void LLFloaterTranslationSettings::onOpen(const LLSD& key)
 {
     mMachineTranslationCB->setValue(gSavedSettings.getBOOL("TranslateChat"));
+    getChild<LLCheckBoxCtrl>("use_tasia_ai")->setValue(gSavedSettings.getString("TranslationService") == "tasia_ai");
+    getChild<LLLineEditor>("ai_endpoint")->setText(gSavedSettings.getString("TasiaAITranslateEndpoint"));
+    getChild<LLLineEditor>("ai_model")->setText(gSavedSettings.getString("TasiaAITranslateModel"));
+    getChild<LLLineEditor>("ai_key")->setText(gSavedSettings.getString("TasiaAITranslateAPIKey"));
     mLanguageCombo->setSelectedByValue(gSavedSettings.getString("TranslateLanguage"), true);
     mTranslationServiceRadioGroup->setSelectedByValue(gSavedSettings.getString("TranslationService"), true);
 
@@ -205,6 +215,7 @@ void LLFloaterTranslationSettings::setDeepLVerified(bool ok, bool alert, S32 sta
 
 std::string LLFloaterTranslationSettings::getSelectedService() const
 {
+    if (getChild<LLCheckBoxCtrl>("use_tasia_ai")->getValue().asBoolean()) return "tasia_ai";
     return mTranslationServiceRadioGroup->getSelectedValue().asString();
 }
 
@@ -260,7 +271,16 @@ void LLFloaterTranslationSettings::updateControlsEnabledState()
     bool google_selected = service == "google";
     bool deepl_selected = service == "deepl";
 
-    mTranslationServiceRadioGroup->setEnabled(on);
+    const bool ai_selected = service == "tasia_ai";
+    getChild<LLCheckBoxCtrl>("use_tasia_ai")->setEnabled(on);
+    for (const char* name : {"ai_endpoint", "ai_model", "ai_key"})
+        getChild<LLLineEditor>(name)->setEnabled(on && ai_selected);
+    const bool ai_configured = ai_selected &&
+        getChild<LLLineEditor>("ai_endpoint")->getText().find("https://") == 0 &&
+        !getChild<LLLineEditor>("ai_model")->getText().empty() &&
+        !getChild<LLLineEditor>("ai_key")->getText().empty();
+
+    mTranslationServiceRadioGroup->setEnabled(on && !ai_selected);
     mLanguageCombo->setEnabled(on);
 
     // MS Azure
@@ -291,7 +311,7 @@ void LLFloaterTranslationSettings::updateControlsEnabledState()
                                  !mDeepLKeyVerified && getEnteredDeepLKey().isMap());
 
     bool service_verified =
-        (azure_selected && mAzureKeyVerified)
+        ai_configured || (azure_selected && mAzureKeyVerified)
         || (google_selected && mGoogleKeyVerified)
         || (deepl_selected && mDeepLKeyVerified);
     gSavedPerAccountSettings.setBOOL("TranslatingEnabled", service_verified);
@@ -406,7 +426,7 @@ void LLFloaterTranslationSettings::onClose(bool app_quitting)
     bool deepl_selected = service == "deepl";
 
     bool service_verified =
-        (azure_selected && mAzureKeyVerified)
+        (service == "tasia_ai" && tasia_ai_translation_configured()) || (azure_selected && mAzureKeyVerified)
         || (google_selected && mGoogleKeyVerified)
         || (deepl_selected && mDeepLKeyVerified);
     gSavedPerAccountSettings.setBOOL("TranslatingEnabled", service_verified);
@@ -416,6 +436,9 @@ void LLFloaterTranslationSettings::onBtnOK()
     gSavedSettings.setBOOL("TranslateChat", mMachineTranslationCB->getValue().asBoolean());
     gSavedSettings.setString("TranslateLanguage", mLanguageCombo->getSelectedValue().asString());
     gSavedSettings.setString("TranslationService", getSelectedService());
+    gSavedSettings.setString("TasiaAITranslateEndpoint", getChild<LLLineEditor>("ai_endpoint")->getText());
+    gSavedSettings.setString("TasiaAITranslateModel", getChild<LLLineEditor>("ai_model")->getText());
+    gSavedSettings.setString("TasiaAITranslateAPIKey", getChild<LLLineEditor>("ai_key")->getText());
     gSavedSettings.setLLSD("AzureTranslateAPIKey", getEnteredAzureKey());
     gSavedSettings.setString("GoogleTranslateAPIKey", getEnteredGoogleKey());
     gSavedSettings.setLLSD("DeepLTranslateAPIKey", getEnteredDeepLKey());

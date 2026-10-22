@@ -523,6 +523,8 @@ namespace tut
                       std::string("https://update.secondlife.com/update"),
                       LLGridManager::getInstance()->getUpdateServiceURL());
         ensure("Is Agni a production grid", LLGridManager::getInstance()->isInProductionGrid());
+        ensure("Agni uses Second Life compatibility", LLGridManager::getInstance()->isInSecondLife());
+        ensure("Agni does not use OpenSim compatibility", !LLGridManager::getInstance()->isInOpenSim());
         std::vector<std::string> uris;
         LLGridManager::getInstance()->getLoginURIs(uris);
         ensure_equals("getLoginURIs size", 1, uris.size());
@@ -541,6 +543,12 @@ namespace tut
                !LLGridManager::getInstance()->isSystemGrid());
         ensure("alternative grid is not a production grid",
                !LLGridManager::getInstance()->isInProductionGrid());
+        ensure("alternative grid uses OpenSim compatibility", LLGridManager::getInstance()->isInOpenSim());
+        ensure("alternative grid is not Second Life", !LLGridManager::getInstance()->isInSecondLife());
+
+        LLGridManager::getInstance()->setGridChoice("util.aditi.lindenlab.com");
+        ensure("Aditi uses Second Life compatibility", LLGridManager::getInstance()->isInSecondLife());
+        ensure("Aditi does not use OpenSim compatibility", !LLGridManager::getInstance()->isInOpenSim());
     }
 
 }

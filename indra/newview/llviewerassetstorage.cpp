@@ -34,6 +34,8 @@
 #include "llagent.h"
 #include "llappcorehttp.h"
 #include "llviewerregion.h"
+#include "llviewernetwork.h"
+#include "lltasia_asset_caps.h"
 
 #include "lltransfersourceasset.h"
 #include "lltransfertargetvfile.h"
@@ -439,6 +441,42 @@ struct LLScopedIncrement
     S32& mCounter;
 };
 
+bool LLViewerAssetStorage::startLegacyWearableTransfer(const LLUUID& uuid, LLAssetType::EType atype)
+{
+    // Older OpenSim deployments can serve body parts via TransferRequest even
+    // when ViewerAsset is absent or returns 404. Never change the SL asset path.
+    if (!LLGridManager::getInstance()->isInOpenSim() || !gAgent.getRegion() ||
+        (atype != LLAssetType::AT_BODYPART && atype != LLAssetType::AT_CLOTHING) ||
+        !mUpstreamHost.isOk()) return false;
+
+    // Re-find the live request after the HTTP coroutine yielded. Do not retain
+    // a raw request pointer across suspension: a timeout may have removed it.
+    auto found = std::find_if(mPendingDownloads.begin(), mPendingDownloads.end(),
+        [&uuid, atype](const LLAssetRequest* request)
+        { return request->getUUID() == uuid && request->getType() == atype; });
+    if (found == mPendingDownloads.end()) return false;
+    auto* request = static_cast<LLViewerAssetRequest*>(*found);
+    if (!request->mWithHTTP) return true; // One transfer for duplicate callbacks.
+    auto* channel = gTransferManager.getTargetChannel(mUpstreamHost, LLTCT_ASSET);
+    if (!channel) return false;
+
+    LLTransferSourceParamsAsset source;
+    source.setAsset(uuid, atype);
+    LLTransferTargetParamsVFile target;
+    target.setAsset(uuid, atype);
+    target.setCallback(downloadCompleteCallback, *request);
+    if (request->mMetricsStartTime.value())
+    {
+        LLViewerAssetStatsFF::record_dequeue(atype, true, false);
+        LLViewerAssetStatsFF::record_enqueue(atype, false, false);
+    }
+    request->mWithHTTP = false;
+    const F32 priority = 100.f + (request->mIsPriority ? 1.f : 0.f);
+    LL_INFOS("OpenSimAssets") << "Wearable asset transfer fallback; type=" << S32(atype) << LL_ENDL;
+    channel->requestTransfer(source, target, priority);
+    return true; // Transfer completion owns pending-download callbacks now.
+}
+
 void LLViewerAssetStorage::assetRequestCoro(
     const LLUUID uuid,
     LLAssetType::EType atype,
@@ -447,10 +485,13 @@ void LLViewerAssetStorage::assetRequestCoro(
 {
     LLScopedIncrement coro_count_boost(sAssetCoroCount); // static counter since corotine can outlive LLViewerAssetStorage
 
+    const LLUUID request_agent = gAgent.getID();
+    const LLUUID request_session = gAgent.getSessionID();
+
     S32 result_code = LL_ERR_NOERR;
     LLExtStat ext_status = LLExtStat::NONE;
 
-    if (!gAssetStorage)
+    if (gAssetStorage != this)
     {
         LL_WARNS_ONCE("ViewerAsset") << "Asset request fails: asset storage no longer exists" << LL_ENDL;
         return;
@@ -478,7 +519,8 @@ void LLViewerAssetStorage::assetRequestCoro(
             llcoro::suspendUntilEventOnWithTimeout(region_init, timeout_seconds, LLSDMap("timeout", LLSD::Boolean(true)));
             gAgent.removeRegionChangedCallback(region_conn);
             region_conn.disconnect();
-            if (LLApp::isExiting() || !gAssetStorage)
+            if (LLApp::isExiting() || gAssetStorage != this ||
+                gAgent.getID() != request_agent || gAgent.getSessionID() != request_session)
             {
                 return;
             }
@@ -520,7 +562,8 @@ void LLViewerAssetStorage::assetRequestCoro(
         LLSD result = llcoro::suspendUntilEventOnWithTimeout(capsRecv, timeout_seconds, LLSDMap("timeout", LLSD::Boolean(true)));
         caps_conn.disconnect();
 
-        if (LLApp::isExiting() || !gAssetStorage)
+        if (LLApp::isExiting() || gAssetStorage != this ||
+            gAgent.getID() != request_agent || gAgent.getSessionID() != request_session)
         {
             return;
         }
@@ -543,12 +586,18 @@ void LLViewerAssetStorage::assetRequestCoro(
         LL_DEBUGS("ViewerAsset") << "capsRecv got event" << LL_ENDL;
         LL_DEBUGS("ViewerAsset") << "region " << gAgent.getRegion() << " mViewerAssetUrl " << mViewerAssetUrl << LL_ENDL;
     }
-    if (mViewerAssetUrl.empty() && gAgent.getRegion())
+    // Refresh even when nonempty: capability URLs belong to a region/session.
+    if (gAgent.getRegion())
     {
         mViewerAssetUrl = gAgent.getRegion()->getViewerAssetUrl();
     }
+    else
+    {
+        mViewerAssetUrl.clear();
+    }
     if (mViewerAssetUrl.empty())
     {
+        if (startLegacyWearableTransfer(uuid, atype)) return;
         LL_WARNS_ONCE("ViewerAsset") << "asset request fails: caps received but no viewer asset cap found" << LL_ENDL;
         result_code = LL_ERR_NO_CAP;
         ext_status = LLExtStat::NONE;
@@ -566,7 +615,8 @@ void LLViewerAssetStorage::assetRequestCoro(
 
     LLSD result = httpAdapter->getRawAndSuspend(httpRequest, url, httpOpts);
 
-    if (LLApp::isExiting() || !gAssetStorage)
+    if (LLApp::isExiting() || gAssetStorage != this ||
+        gAgent.getID() != request_agent || gAgent.getSessionID() != request_session)
     {
         // Bail out if result arrives after shutdown has been started.
         return;
@@ -579,6 +629,13 @@ void LLViewerAssetStorage::assetRequestCoro(
     LLCore::HttpStatus status = LLCoreHttpUtil::HttpCoroutineAdapter::getStatusFromLLSD(httpResults);
     if (!status)
     {
+        // A missing/expired HTTP asset route must not permanently strand the
+        // required OpenSim hair/eyes assets. Do not retry HTTP permission errors.
+        const bool missing_route = status.isHttpStatus() &&
+            (status.getType() == 404 || status.getType() == 410);
+        if (missing_route && startLegacyWearableTransfer(uuid, atype)) return;
+        LL_WARNS("ViewerAsset") << "Asset HTTP download failed; type=" << S32(atype)
+            << "; status=" << status.toTerseString() << LL_ENDL;
         LL_DEBUGS("ViewerAsset") << "request failed, status " << status.toTerseString() << LL_ENDL;
         result_code = LL_ERR_ASSET_REQUEST_FAILED;
         ext_status = LLExtStat::NONE;
@@ -647,8 +704,8 @@ void LLViewerAssetStorage::assetRequestCoro(
 std::string LLViewerAssetStorage::getAssetURL(const std::string& cap_url, const LLUUID& uuid, LLAssetType::EType atype)
 {
     std::string type_name = LLAssetType::lookup(atype);
-    std::string url = cap_url + "/?" + type_name + "_id=" + uuid.asString();
-    return url;
+    return TasiaAssetCaps::assetURL(cap_url, type_name, uuid.asString(),
+        LLGridManager::getInstance()->isInOpenSim());
 }
 
 void LLViewerAssetStorage::logAssetStorageInfo()

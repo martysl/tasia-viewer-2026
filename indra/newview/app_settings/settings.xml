@@ -2,6 +2,21 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
   <map>
+    <key>TasiaAITranslateEndpoint</key>
+    <map>
+      <key>Comment</key><string>Opt-in AI translation: complete HTTPS OpenAI-compatible chat/completions URL. No default provider is assumed.</string>
+      <key>Persist</key><integer>1</integer><key>Type</key><string>String</string><key>Value</key><string />
+    </map>
+    <key>TasiaAITranslateModel</key>
+    <map>
+      <key>Comment</key><string>AI translation model identifier configured by the user.</string>
+      <key>Persist</key><integer>1</integer><key>Type</key><string>String</string><key>Value</key><string />
+    </map>
+    <key>TasiaAITranslateAPIKey</key>
+    <map>
+      <key>Comment</key><string>Session-only AI translation API key. Never persisted to settings files.</string>
+      <key>Persist</key><integer>0</integer><key>Type</key><string>String</string><key>Value</key><string />
+    </map>
     <key>360QualitySelection</key>
     <map>
       <key>Comment</key>
@@ -686,7 +701,7 @@
       <key>Type</key>
       <string>String</string>
       <key>Value</key>
-        <string>https://lecs-viewer-web-components.s3.amazonaws.com/v3.0/[GRID_LOWERCASE]/vawp/index.html</string>
+        <string>https://startup.tasiaviewer.work/welcomepack/</string>
     </map>
     <!--AvatarBakedTextureUploadTimeout is in use by QA-->
     <key>AvatarBakedTextureUploadTimeout</key>
@@ -18837,9 +18852,9 @@
   <key>TasiaGiphyAPIKey</key>
   <map>
     <key>Comment</key>
-    <string>User override for the GIPHY API key. If empty, the viewer uses the build-time embedded fallback when present.</string>
+    <string>Session-only GIPHY Web SDK key. Not saved to settings or backups.</string>
     <key>Persist</key>
-    <integer>1</integer>
+    <integer>0</integer>
     <key>Type</key>
     <string>String</string>
     <key>Value</key>
@@ -18850,9 +18865,9 @@
   <key>TasiaKlipyAPIKey</key>
   <map>
     <key>Comment</key>
-    <string>User override for the KLIPY API key. If empty, the viewer uses the build-time embedded fallback when present.</string>
+    <string>Session-only KLIPY app key. Not saved to settings or backups.</string>
     <key>Persist</key>
-    <integer>1</integer>
+    <integer>0</integer>
     <key>Type</key>
     <string>String</string>
     <key>Value</key>
@@ -18869,22 +18884,43 @@
     <key>Type</key>
     <string>Boolean</string>
     <key>Value</key>
+    <integer>1</integer>
+    <key>Backup</key>
     <integer>0</integer>
+  </map>
+  <key>TasiaQuicConnectionRetries</key>
+  <map>
+    <key>Comment</key>
+    <string>Number of synchronous QUIC connection-start attempts per new simulator circuit (1-10). Handshake readiness and LLUDP recovery are handled separately.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>S32</string>
+    <key>Value</key>
+    <integer>1</integer>
     <key>Backup</key>
     <integer>0</integer>
   </map>
   <key>TasiaQuicVerifyCert</key>
   <map>
     <key>Comment</key>
-    <string>Enable certificate verification for QUIC connections. Disable to allow connections to grids with self-signed or invalid certificates.</string>
+    <string>Verify QUIC server certificates (recommended). Disable only for trusted test grids with self-signed certificates; this permits impersonation. Restart viewer after changing this setting.</string>
     <key>Persist</key>
     <integer>1</integer>
     <key>Type</key>
     <string>Boolean</string>
     <key>Value</key>
-    <integer>0</integer>
+    <integer>1</integer>
     <key>Backup</key>
     <integer>0</integer>
   </map>
+  <key>TasiaRemoteUserConfigEnabled</key>
+  <map><key>Comment</key><string>Download public grid-scoped cosmetic titles and aliases. No avatar UUID is sent. Disable to use only canonical names.</string><key>Persist</key><integer>1</integer><key>Type</key><string>Boolean</string><key>Value</key><integer>1</integer></map>
+  <key>TasiaRemoteUserConfigURL</key>
+  <map><key>Comment</key><string>HTTPS public cosmetic identity catalog served by the grid itself.</string><key>Persist</key><integer>1</integer><key>Type</key><string>String</string><key>Value</key><string>https://i.let-us.cyou/hg/config.json</string></map>
+  <key>TasiaGridCatalogEnabled</key>
+  <map><key>Comment</key><string>Opt in to public grid catalog additions. Existing and removed grids are never replaced or restored automatically.</string><key>Persist</key><integer>1</integer><key>Type</key><string>Boolean</string><key>Value</key><integer>1</integer></map>
+  <key>TasiaMapGlobe</key>
+  <map><key>Comment</key><string>Show the native rotating 3D grid atlas; disable for the original flat map.</string><key>Persist</key><integer>1</integer><key>Type</key><string>Boolean</string><key>Value</key><integer>1</integer></map>
 </map>
 </llsd>

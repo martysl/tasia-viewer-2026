@@ -63,6 +63,22 @@ const F32 MAX_WAIT_ANIM_SECS = 30.f;
 const F32 MAX_WAIT_KEY_SECS = 60.f * 10.f;
 
 // Lightweight constructor.
+bool LLGestureMgr::isGestureText(const std::string& text) const
+{
+    if (text.empty()) return false;
+    for (const auto& entry : mActive)
+    {
+        const LLMultiGesture* gesture = entry.second;
+        if (!gesture) continue;
+        if (text == gesture->mTrigger || text == gesture->mReplaceText) return true;
+        for (LLGestureStep* step : gesture->mSteps)
+            if (step && step->getType() == STEP_CHAT &&
+                text == static_cast<const LLGestureStepChat*>(step)->mChatText) return true;
+    }
+    return false;
+}
+
+// Lightweight constructor.
 // init() does the heavy lifting.
 LLGestureMgr::LLGestureMgr()
 :   mValid(false),
@@ -1576,5 +1592,3 @@ void LLGestureMgr::done()
         notifyObservers();
     }
 }
-
-

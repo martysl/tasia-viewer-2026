@@ -51,6 +51,8 @@
 #include "llviewergenericmessage.h" // send_generic_message
 #include "llviewerparcelmgr.h"
 #include "llviewerregion.h"
+#include "llworld.h"
+#include "llviewernetwork.h"
 
 static LLPanelInjector<LLPanelProfilePicks> t_panel_profile_picks("panel_profile_picks");
 static LLPanelInjector<LLPanelProfilePick> t_panel_profile_pick("panel_profile_pick");
@@ -294,6 +296,18 @@ void LLPanelProfilePicks::callbackDeletePick(const LLSD& notification, const LLS
 
 void LLPanelProfilePicks::processProperties(void* data, EAvatarProcessorType type)
 {
+    if (APT_PICKS == type && data && LLGridManager::getInstance()->isInOpenSim() &&
+        gAgent.getRegionCapability("AgentProfile").empty())
+    {
+        const auto& picks = *static_cast<const LLAvatarPicks*>(data);
+        if (getAvatarId() != picks.target_id) return;
+
+        LLAvatarData profile_data;
+        profile_data.avatar_id = picks.target_id;
+        profile_data.picks_list = picks.picks_list;
+        processProperties(&profile_data);
+        return;
+    }
     if (APT_PROPERTIES == type)
     {
         LLAvatarData* avatar_picks = static_cast<LLAvatarData*>(data);
@@ -463,8 +477,15 @@ void LLPanelProfilePicks::updateData()
     if (!getStarted() && avatar_id.notNull())
     {
         setIsLoading();
-
-        LLAvatarPropertiesProcessor::getInstance()->sendAvatarPropertiesRequest(avatar_id);
+        if (LLGridManager::getInstance()->isInOpenSim() &&
+            gAgent.getRegionCapability("AgentProfile").empty())
+        {
+            LLAvatarPropertiesProcessor::getInstance()->sendAvatarPicksRequest(avatar_id);
+        }
+        else
+        {
+            LLAvatarPropertiesProcessor::getInstance()->sendAvatarPropertiesRequest(avatar_id);
+        }
     }
     if (!getIsLoaded())
     {
@@ -1008,8 +1029,19 @@ std::string LLPanelProfilePick::createLocationText(const std::string& owner_name
 
     if (!pos_global.isNull())
     {
-        S32 region_x = ll_round((F32)pos_global.mdV[VX]) % REGION_WIDTH_UNITS;
-        S32 region_y = ll_round((F32)pos_global.mdV[VY]) % REGION_WIDTH_UNITS;
+        S32 region_x;
+        S32 region_y;
+        if (LLViewerRegion* region = LLWorld::getInstance()->getRegionFromPosGlobal(pos_global))
+        {
+            const LLVector3 local_pos = region->getPosRegionFromGlobal(pos_global);
+            region_x = ll_round(local_pos.mV[VX]);
+            region_y = ll_round(local_pos.mV[VY]);
+        }
+        else
+        {
+            region_x = ll_round((F32)pos_global.mdV[VX]) % REGION_WIDTH_UNITS;
+            region_y = ll_round((F32)pos_global.mdV[VY]) % REGION_WIDTH_UNITS;
+        }
         S32 region_z = ll_round((F32)pos_global.mdV[VZ]);
         location_text.append(llformat(" (%d, %d, %d)", region_x, region_y, region_z));
     }
@@ -1025,4 +1057,3 @@ void LLPanelProfilePick::updateTabLabel(const std::string& title)
         parent->setCurrentTabName(title);
     }
 }
-

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater
   name="debug_console"
-  title="S24 Console"
+  title="Tasia Console"
   can_resize="true"
   can_minimize="true"
   can_close="true"

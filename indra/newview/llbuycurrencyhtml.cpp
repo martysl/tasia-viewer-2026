@@ -36,6 +36,7 @@
 #include "llstatusbar.h"
 #include "llcorehttputil.h"
 #include "llcoros.h"
+#include "llviewernetwork.h"
 
 // support for secondlife:///app/buycurrencyhtml/{ACTION}/{NEXT_ACTION}/{RETURN_CODE} SLapps
 class LLBuyCurrencyHTMLHandler :
@@ -112,6 +113,7 @@ static void checkFeatureFlag_coro(std::string check_url)
 // static
 void LLBuyCurrencyHTML::checkFeatureFlag()
 {
+    if (LLGridManager::getInstance()->isInOpenSim()) { sWebFloaterEnabled = false; return; }
     std::string check_url = LLFloaterBuyCurrencyHTML::buildURL();
     LLCoros::instance().launch("checkFeatureFlag_coro",
         [check_url]() { checkFeatureFlag_coro(check_url); });
@@ -124,7 +126,7 @@ void LLBuyCurrencyHTML::checkFeatureFlag()
 // the case where the amount is not requested.
 void LLBuyCurrencyHTML::openCurrencyFloater()
 {
-    if (gSavedSettings.getBOOL("BuyCurrencyHTML") && sWebFloaterEnabled)
+    if (LLGridManager::getInstance()->isInSecondLife() && gSavedSettings.getBOOL("BuyCurrencyHTML") && sWebFloaterEnabled)
     {
         LLBuyCurrencyHTML::showDialog();
     }
@@ -142,7 +144,7 @@ void LLBuyCurrencyHTML::openCurrencyFloater()
 // the case where the amount and a string to display are requested.
 void LLBuyCurrencyHTML::openCurrencyFloater( const std::string& message, S32 sum )
 {
-    if (gSavedSettings.getBOOL("BuyCurrencyHTML") && sWebFloaterEnabled)
+    if (LLGridManager::getInstance()->isInSecondLife() && gSavedSettings.getBOOL("BuyCurrencyHTML") && sWebFloaterEnabled)
     {
         LLBuyCurrencyHTML::showDialog(sum - gStatusBar->getBalance());
         LLFloaterBuyCurrencyHTML* floater = dynamic_cast<LLFloaterBuyCurrencyHTML*>(LLFloaterReg::getInstance("buy_currency_html"));

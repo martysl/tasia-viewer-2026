@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-<floater can_close="false" can_minimize="false" can_resize="false" height="125" layout="topleft" name="mp3_batch_progress" title="MP3 Batch Upload" width="390">
-  <text follows="left|top|right" height="22" left="18" name="status_text" top="24" width="354">Preparing MP3 conversion…</text>
-  <progress_bar follows="left|top|right" height="20" left="18" name="progress_bar" top="55" width="354" />
-  <text follows="left|top|right" height="20" left="18" name="progress_count" top="84" width="354">0 / 0</text>
+<floater name="mp3_batch_progress" title="Tasia MP3 Upload" width="380" height="175"
+ can_close="false" can_minimize="false" can_resize="false" layout="topleft">
+ <text name="status_text" left="16" top="24" width="348" height="35" word_wrap="true" />
+ <progress_bar name="progress_bar" left="16" top="65" width="348" height="20" />
+ <text name="progress_count" left="16" top="95" width="348" height="20" />
+ <button name="cancel" label="Cancel remaining parts" left="80" top="130" width="220" height="24">
+  <button.commit_callback function="File.CancelMP3BatchSound" />
+ </button>
 </floater>

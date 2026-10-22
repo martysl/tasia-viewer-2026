@@ -275,6 +275,53 @@ LLDir_Win32::LLDir_Win32()
 
 	mSkinBaseDir = add(mAppRODataDir, "skins");
 
+	// Resolve from the executable, never the shortcut's working directory.
+	// Do this before the first cache directory is created (also in SLPlugin).
+	const auto legacy_portable = add(mExecutableDir, "portable-data");
+	const bool has_legacy_portable = LLFile::isdir(legacy_portable);
+	if (LLFile::isfile(add(mExecutableDir, "TasiaViewer.portable")) || has_legacy_portable)
+	{
+		// Keep older portable profiles discoverable; never migrate automatically.
+		mPortableDataDir = has_legacy_portable ? legacy_portable : add(mExecutableDir, "TasiaViewerData");
+		if (has_legacy_portable && LLFile::isdir(add(mExecutableDir, "TasiaViewerData")))
+		{
+			MessageBoxW(nullptr, L"Both portable-data and TasiaViewerData exist. Keep only the intended profile beside this application before starting; no data has been moved.",
+				L"Tasia Viewer portable", MB_OK | MB_ICONERROR);
+			ExitProcess(ERROR_INVALID_DATA);
+		}
+		for (const auto& path : {mPortableDataDir,
+			add(mPortableDataDir, "cache"), add(mPortableDataDir, "temp"),
+			add(mPortableDataDir, "chat_logs")})
+		{
+			LLFile::mkdir(path);
+			if (!LLFile::isdir(path))
+			{
+				MessageBoxW(nullptr, L"Cannot create TasiaViewerData beside the application. Move the portable folder to a writable location.",
+					L"Tasia Viewer portable", MB_OK | MB_ICONERROR);
+				ExitProcess(ERROR_ACCESS_DENIED);
+			}
+		}
+		// Check actual write access without truncating any pre-existing file.
+		const auto probe = ll_convert_string_to_wide(add(mPortableDataDir,
+			".write-test-" + std::to_string(GetCurrentProcessId())));
+		HANDLE file = CreateFileW(probe.c_str(), GENERIC_WRITE, 0, nullptr,
+			CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr);
+		if (file == INVALID_HANDLE_VALUE)
+		{
+			MessageBoxW(nullptr, L"TasiaViewerData is not writable. Portable mode will not fall back to AppData.",
+				L"Tasia Viewer portable", MB_OK | MB_ICONERROR);
+			ExitProcess(ERROR_ACCESS_DENIED);
+		}
+		CloseHandle(file);
+		mOSUserDir = mPortableDataDir;
+		mOSCacheDir = mPortableDataDir;
+		mTempDir = add(mPortableDataDir, "temp");
+		// Child converters and CEF inherit the portable temporary directory.
+		const auto temp = ll_convert_string_to_wide(mTempDir);
+		_wputenv_s(L"TEMP", temp.c_str());
+		_wputenv_s(L"TMP", temp.c_str());
+	}
+
 	// Build the default cache directory
 	mDefaultCacheDir = buildSLOSCacheDir();
 	
@@ -304,12 +351,16 @@ void LLDir_Win32::initAppDirs(const std::string &app_name,
 		mSkinBaseDir = add(mAppRODataDir, "skins");
 	}
 	mAppName = app_name;
-	mOSUserAppDir = add(mOSUserDir, app_name);
+	mOSUserAppDir = isPortable() ? mPortableDataDir : add(mOSUserDir, app_name);
 
 	int res = LLFile::mkdir(mOSUserAppDir);
 	if (res == -1)
 	{
 		LL_WARNS() << "Couldn't create app user dir " << mOSUserAppDir << LL_ENDL;
+		if (isPortable())
+		{
+			LL_ERRS() << "Portable data directory unavailable; refusing AppData fallback" << LL_ENDL;
+		}
 		LL_WARNS() << "Default to base dir" << mOSUserDir << LL_ENDL;
 		mOSUserAppDir = mOSUserDir;
 	}
@@ -449,5 +500,3 @@ DWORD GetDllVersion(LPCTSTR lpszDllName)
 #endif
 
 #endif
-
-

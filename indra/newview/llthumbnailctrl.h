@@ -67,6 +67,7 @@ public:
     void setVisible(bool visible) override;
 
     virtual void setValue(const LLSD& value ) override;
+    void setTexture(LLViewerFetchedTexture* texture, bool init_immediately = true);
     void setInitImmediately(bool val) { mInitImmediately = val; }
     void clearTexture();
 

@@ -90,6 +90,7 @@ LLQuicConnection::LLQuicConnection(std::shared_ptr<LLQuicConfiguration> configur
 
 LLQuicConnection::~LLQuicConnection()
 {
+    mClosing.store(true, std::memory_order_release);
     if (mHandle)
     {
         const State s = mState.load(std::memory_order_acquire);
@@ -98,6 +99,29 @@ LLQuicConnection::~LLQuicConnection()
             close();
         }
     }
+    // Stop every callback while its queues/mutexes are still alive. In the
+    // default member destruction order these were destroyed before ConnectionClose.
+    mStream.reset();
+    std::vector<std::unique_ptr<LLQuicStream>> peers;
+    {
+        std::lock_guard<std::mutex> lock(mPeerStreamsMutex);
+        peers.swap(mPeerStreams);
+    }
+    peers.clear();
+    mHandle.reset();
+}
+
+void LLQuicConnection::enqueueFrame(std::vector<uint8_t> frame)
+{
+    std::lock_guard<std::mutex> lock(mRxMutex);
+    if (frame.size() < 6 || frame.size() > 65535 || mRxQueue.size() >= 1024 ||
+        mRxBytes + frame.size() > 4 * 1024 * 1024)
+    {
+        mState.store(State::FAILED, std::memory_order_release);
+        return;
+    }
+    mRxBytes += frame.size();
+    mRxQueue.push_back(std::move(frame));
 }
 
 bool LLQuicConnection::connect(const std::string& host, U16 port)
@@ -143,8 +167,7 @@ bool LLQuicConnection::connect(const std::string& host, U16 port)
         mHandle.get(),
         [this](std::vector<uint8_t> frame)
         {
-            std::lock_guard<std::mutex> lock(mRxMutex);
-            mRxQueue.push_back(std::move(frame));
+            enqueueFrame(std::move(frame));
         });
     if (!mStream)
     {
@@ -217,12 +240,29 @@ bool LLQuicConnection::sendPacket(const U8* data, S32 size, bool reliable)
 
 bool LLQuicConnection::receivePacket(std::vector<uint8_t>& out)
 {
+    // Close completed peer streams outside the collection lock and outside
+    // MsQuic callbacks; otherwise short-lived server streams accumulate forever.
+    std::vector<std::unique_ptr<LLQuicStream>> completed;
+    {
+        std::lock_guard<std::mutex> lock(mPeerStreamsMutex);
+        for (auto it = mPeerStreams.begin(); it != mPeerStreams.end();)
+        {
+            if ((*it)->isShutdown())
+            {
+                completed.push_back(std::move(*it));
+                it = mPeerStreams.erase(it);
+            }
+            else ++it;
+        }
+    }
+    completed.clear();
     std::lock_guard<std::mutex> lock(mRxMutex);
     if (mRxQueue.empty())
     {
         return false;
     }
     out = std::move(mRxQueue.front());
+    mRxBytes -= out.size();
     mRxQueue.pop_front();
     return true;
 }
@@ -355,7 +395,8 @@ void LLQuicConnection::onConnectionEvent(QUIC_CONNECTION_EVENT* event)
                     rcv.Buffer->Buffer,
                     rcv.Buffer->Buffer + rcv.Buffer->Length);
                 std::lock_guard<std::mutex> lock(mDatagramRxMutex);
-                mDatagramRxQueue.push_back(std::move(bytes));
+                if (mDatagramRxQueue.size() < 1024 && bytes.size() <= 65535)
+                    mDatagramRxQueue.push_back(std::move(bytes));
             }
             break;
         }
@@ -365,7 +406,6 @@ void LLQuicConnection::onConnectionEvent(QUIC_CONNECTION_EVENT* event)
             const auto& ss    = event->DATAGRAM_SEND_STATE_CHANGED;
             const auto  state = ss.State;
             const bool  can_free =
-                state == QUIC_DATAGRAM_SEND_SENT                  ||
                 state == QUIC_DATAGRAM_SEND_LOST_DISCARDED        ||
                 state == QUIC_DATAGRAM_SEND_ACKNOWLEDGED          ||
                 state == QUIC_DATAGRAM_SEND_ACKNOWLEDGED_SPURIOUS ||
@@ -396,13 +436,15 @@ void LLQuicConnection::onConnectionEvent(QUIC_CONNECTION_EVENT* event)
                     stream,
                     [this](std::vector<uint8_t> frame)
                     {
-                        std::lock_guard<std::mutex> lock(mRxMutex);
-                        mRxQueue.push_back(std::move(frame));
+                        enqueueFrame(std::move(frame));
                     });
                 if (adopted)
                 {
                     std::lock_guard<std::mutex> lock(mPeerStreamsMutex);
-                    mPeerStreams.push_back(std::move(adopted));
+                    if (!mClosing.load(std::memory_order_acquire) && mPeerStreams.size() < 1024)
+                        mPeerStreams.push_back(std::move(adopted));
+                    else if (!mClosing.load(std::memory_order_acquire))
+                        mState.store(State::FAILED, std::memory_order_release);
                 }
                 else
                 {

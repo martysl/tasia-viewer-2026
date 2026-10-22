@@ -782,7 +782,7 @@ void LLPluginProcessParent::sendMessage(const LLPluginMessage &message)
     }
 
     std::string buffer = message.generate();
-    LL_DEBUGS("Plugin") << "Sending: " << buffer << LL_ENDL;
+    LL_DEBUGS("Plugin") << "Sending plugin message (payload omitted for privacy)" << LL_ENDL;
     writeMessageRaw(buffer);
 
     // Try to send message immediately.
@@ -1048,7 +1048,7 @@ void LLPluginProcessParent::servicePoll()
 
 void LLPluginProcessParent::receiveMessageRaw(const std::string &message)
 {
-    LL_DEBUGS("Plugin") << "Received: " << message << LL_ENDL;
+    LL_DEBUGS("Plugin") << "Received plugin message (payload omitted for privacy)" << LL_ENDL;
 
     LLPluginMessage parsed;
     if(LLSDParser::PARSE_FAILURE != parsed.parse(message))
@@ -1317,4 +1317,3 @@ bool LLPluginProcessParent::pluginLockedUp()
 	// If the timer is running and has expired, the plugin has locked up.
 	return (mHeartbeat.getStarted() && mHeartbeat.hasExpired());
 }
-

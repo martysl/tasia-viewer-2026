@@ -67,6 +67,7 @@
 #include "lltrans.h"
 #include "llfloaterbuycurrency.h"
 #include "llviewerassetupload.h"
+#include "llmp3batchupload.h"
 
 // linden libraries
 #include "llfilesystem.h"
@@ -1617,6 +1618,12 @@ void start_bulk_folder_upload_after_pick(const std::vector<std::string>& dirs, c
 
 void init_menu_file()
 {
+    LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("File.UploadMP3BatchSound",
+        boost::bind(&start_mp3_batch_sound_upload));
+    LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("File.CancelMP3BatchSound",
+        boost::bind(&cancel_mp3_batch_sound_upload));
+    LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("File.UploadClipboard",
+        [](LLUICtrl*, const LLSD&) { LLFloaterReg::showInstance("upload_clipboard"); });
     view_listener_t::addCommit(new LLFileUploadImage(), "File.UploadImage");
     view_listener_t::addCommit(new LLFileUploadSound(), "File.UploadSound");
     view_listener_t::addCommit(new LLFileUploadAnim(), "File.UploadAnim");

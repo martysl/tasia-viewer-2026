@@ -82,6 +82,8 @@ public:
 	const std::string& getExecutablePathAndName() const;	// Full pathname of the executable
 	const std::string& getAppName() const;			// install directory under progams/ ie "SecondLife"
 	const std::string& getExecutableDir() const;	// Directory where the executable is located
+	bool isPortable() const { return !mPortableDataDir.empty(); }
+	const std::string& getPortableDataDir() const { return mPortableDataDir; }
 	const std::string& getExecutableFilename() const;// Filename of .exe
 	const std::string& getWorkingDir() const; // Current working directory
 	const std::string& getAppRODataDir() const;	// Location of read-only data files
@@ -226,6 +228,7 @@ public:
 	}
 
 protected:
+	std::string mPortableDataDir; // Empty unless executable-adjacent portable marker exists
 	// Does an add() or append() call need a directory delimiter?
 	typedef std::pair<bool, unsigned short> SepOff;
 	SepOff needSep(const std::string& path, const std::string& name) const;

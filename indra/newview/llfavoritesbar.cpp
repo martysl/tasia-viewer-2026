@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_grid_filename.h"
 #include "llfavoritesbar.h"
 
 #include "llfloaterreg.h"
@@ -1780,7 +1781,7 @@ std::string LLFavoritesOrderStorage::getStoredFavoritesFilename(const std::strin
     return (user_dir.empty() ? ""
             : gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS,
                                              "stored_favorites_"
-                                          + grid
+                                          + TasiaGridFilename::component(utf8str_tolower(grid))
                                           + ".xml")
             );
 }

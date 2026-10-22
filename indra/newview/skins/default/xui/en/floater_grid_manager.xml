@@ -1,21 +1,42 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-<floater name="grid_manager" title="MANAGE GRIDS" width="620" height="420"
+<floater name="grid_manager" title="MANAGE GRIDS" width="620" height="710"
  layout="topleft" can_resize="false" can_minimize="false" help_topic="grid_manager">
     <floater.string name="choose_grid">Add a grid, then choose it in the login screen's Grid list.</floater.string>
     <floater.string name="added_grid">Grid saved. Select it in the login screen's Grid list.</floater.string>
     <floater.string name="removed_grid">Grid removed from your saved list.</floater.string>
+    <floater.string name="saved_metadata">Grid URLs saved.</floater.string>
+    <floater.string name="new_endpoint">To change the login endpoint, add a new grid. Saved passwords are never transferred automatically.</floater.string>
+    <floater.string name="catalog_updated">Grid list checked. Existing and removed grids were preserved.</floater.string>
+    <floater.string name="catalog_failed">Grid list disabled, busy, unavailable or invalid. Your grids are unchanged.</floater.string>
+    <floater.string name="discovering">Reading grid information…</floater.string>
+    <floater.string name="discovered">Grid information loaded for review. Click Add or Save URLs to persist it.</floater.string>
+    <floater.string name="discovery_failed">Grid information unavailable or invalid. Your saved URLs are unchanged.</floater.string>
     <text name="uri_label" left="20" top="35" width="580" height="18" layout="topleft">OpenSim login URI (HTTP or HTTPS, including port if needed)</text>
-    <line_editor name="login_uri" left="20" top="58" width="580" height="23"
-     max_length_chars="2048" label="http://grid.example.org:8002/" layout="topleft" />
+    <line_editor name="login_uri" left="20" top="58" width="440" height="23"
+      max_length_chars="2048" label="http://grid.example.org:8002/" layout="topleft" />
+    <button name="discover_grid" label="Get grid info" left="470" top="58" width="130" height="23" layout="topleft" />
     <line_editor name="grid_label" left="20" top="91" width="450" height="23"
      max_length_chars="128" label="Grid name (optional)" layout="topleft" />
     <button name="add_grid" label="Add" left="480" top="91" width="120" height="23" layout="topleft" />
-    <scroll_list name="grid_list" left="20" top="128" width="580" height="180"
+    <scroll_list name="grid_list" left="20" top="128" width="580" height="110"
      draw_heading="true" multi_select="false" layout="topleft">
         <scroll_list.columns name="label" label="Grid name" width="185" />
         <scroll_list.columns name="login_uri" label="Login URI" dynamic_width="true" />
     </scroll_list>
-    <text name="status" left="20" top="320" width="580" height="45" word_wrap="true" layout="topleft" />
-    <button name="remove_grid" label="Remove selected" left="20" top="378" width="150" height="23" layout="topleft" />
-    <button name="close" label="Close" left="480" top="378" width="120" height="23" layout="topleft" />
+    <button name="save_metadata" label="Save URLs for selected grid" left="20" top="250" width="250" height="23" layout="topleft" />
+    <line_editor name="login_page" label="Login / splash page URL" left="20" top="282" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="helper_uri" label="Economy / helper URL" left="20" top="309" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="web_profile_url" label="Web profile URL" left="20" top="336" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="register" label="Account registration URL" left="20" top="363" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="password" label="Password reset URL" left="20" top="390" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="help" label="Help URL" left="20" top="417" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="about" label="About grid URL" left="20" top="444" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="search" label="Search URL" left="20" top="471" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="gatekeeper" label="Hypergrid gatekeeper URL" left="20" top="498" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <check_box name="catalog_enabled" control_name="TasiaGridCatalogEnabled" label="Allow server grid-list additions (never replace my grids)" left="20" top="535" width="440" height="20" layout="topleft" />
+    <button name="update_catalog" label="Check grid list" left="470" top="535" width="130" height="23" layout="topleft" />
+    <check_box name="identity_enabled" control_name="TasiaRemoteUserConfigEnabled" label="Show grid + UUID cosmetic titles / aliases from Tasia config" left="20" top="568" width="580" height="20" layout="topleft" />
+    <text name="status" left="20" top="603" width="580" height="45" word_wrap="true" layout="topleft" />
+    <button name="remove_grid" label="Remove selected" left="20" top="668" width="150" height="23" layout="topleft" />
+    <button name="close" label="Close" left="480" top="668" width="120" height="23" layout="topleft" />
 </floater>

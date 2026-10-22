@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<panel name="tasia_network" label="Tasia - Sieć" layout="topleft" follows="all" width="510" height="420" border="true">
+    <text name="network_heading" left="15" top="15" width="475" height="22" layout="topleft" font="SansSerifBold">Sieć OpenSim i wspólne usługi</text>
+    <check_box name="TasiaQuicEnabled" control_name="TasiaQuicEnabled" label="Włącz QUIC dla gridów OpenSim" left="15" top="50" width="475" height="20" layout="topleft" />
+    <text name="quic_help" left="30" top="78" width="460" height="40" layout="topleft" wrap="true">Symulator musi ogłaszać obsługę QUIC. Second Life korzysta ze zwykłego transportu. Awaryjny powrót do UDP pozostaje dostępny.</text>
+    <check_box name="TasiaQuicVerifyCert" control_name="TasiaQuicVerifyCert" label="Sprawdzaj certyfikaty QUIC/TLS (zalecane)" left="15" top="130" width="475" height="20" layout="topleft" />
+    <text name="cert_help" left="30" top="158" width="460" height="55" layout="topleft" wrap="true">Wyłączaj tylko dla zaufanego grida testowego z własnym certyfikatem. Wyłączenie pozwala podszyć się pod serwer. Po zmianie uruchom viewer ponownie.</text>
+    <check_box name="TasiaGridCatalogEnabled" control_name="TasiaGridCatalogEnabled" label="Dodawaj gridy z katalogu (zachowaj moje wpisy)" left="15" top="230" width="475" height="20" layout="topleft" />
+    <check_box name="TasiaRemoteUserConfigEnabled" control_name="TasiaRemoteUserConfigEnabled" label="Wspólne ustawienia wyglądu tagu i profilu" left="15" top="270" width="475" height="20" layout="topleft" />
+    <check_box name="ImagePipelineUseHTTP" control_name="ImagePipelineUseHTTP" label="Pobieraj tekstury przez HTTP, gdy jest dostępne" left="15" top="310" width="475" height="20" layout="topleft" />
+</panel>

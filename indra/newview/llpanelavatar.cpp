@@ -95,6 +95,8 @@ void LLPanelProfileTab::setLoaded()
     setApplyProgress(false);
 
     mLoadingState = PROFILE_LOADED;
+    LL_INFOS("AvatarProperties") << "Profile tab completion panel=" << getName()
+        << " target=" << (getAvatarId() == gAgentID ? "self" : "other") << LL_ENDL;
 }
 
 void LLPanelProfileTab::setApplyProgress(bool started)

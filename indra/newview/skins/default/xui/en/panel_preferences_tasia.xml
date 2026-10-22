@@ -286,6 +286,31 @@
      OpenSim Connection
     </text>
 
+    <check_box
+     control_name="TasiaQuicEnabled"
+     follows="left|top"
+     height="16"
+     label="Enable QUIC for OpenSim grids"
+     layout="topleft"
+     left="35"
+     top_pad="5"
+     name="TasiaQuicEnabled"
+     width="400" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="50"
+     top_pad="3"
+     name="tasia_quic_enabled_desc"
+     font="SansSerif"
+     width="460">
+     When off, QUIC is disabled and all OpenSim communication uses LLUDP only.
+    </text>
+
     <text
      type="string"
      length="1"
@@ -299,6 +324,53 @@
      width="480">
      Tune how the viewer talks to OpenSim simulators (QUIC, LLUDP and texture fetching).
     </text>
+
+    <check_box
+     control_name="TasiaQuicVerifyCert"
+     follows="left|top"
+     height="16"
+     label="Verify QUIC/TLS server certificates (recommended)"
+     layout="topleft"
+     left="35"
+     top_pad="8"
+     name="TasiaQuicVerifyCert"
+     width="460" />
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="14"
+     layout="topleft"
+     left="50"
+     top_pad="3"
+     name="tasia_quic_cert_desc"
+     font="SansSerif"
+     width="460">
+     Turn off only for a trusted test grid with a self-signed certificate. This permits impersonation. Restart the viewer after changing it.
+    </text>
+
+    <check_box
+     control_name="TasiaGridCatalogEnabled"
+     follows="left|top"
+     height="16"
+     label="Allow server grid-list additions (never replaces my grids)"
+     layout="topleft"
+     left="35"
+     top_pad="8"
+     name="TasiaGridCatalogEnabled"
+     width="460" />
+
+    <check_box
+     control_name="TasiaRemoteUserConfigEnabled"
+     follows="left|top"
+     height="16"
+     label="Show grid + UUID cosmetic titles and aliases from the Tasia config"
+     layout="topleft"
+     left="35"
+     top_pad="6"
+     name="TasiaRemoteUserConfigEnabled"
+     width="460" />
 
     <spinner
      allow_text_entry="true"
@@ -316,17 +388,6 @@
      top_pad="10"
      width="210" />
 
-    <check_box
-     control_name="TasiaQuicFallbackLLUDP"
-     follows="left|top"
-     height="16"
-     label="Fall back to LLUDP if QUIC connection fails"
-     layout="topleft"
-     left="35"
-     top_pad="10"
-     name="TasiaQuicFallbackLLUDP"
-     width="400" />
-
     <text
      type="string"
      length="1"
@@ -338,7 +399,7 @@
      name="tasia_quic_fb_desc"
      font="SansSerif"
      width="460">
-     When off, a failed QUIC teleport shows an error. When on, the viewer retries over LLUDP instead.
+      If QUIC is unavailable or fails, the viewer automatically resumes over LLUDP when the grid permits it.
     </text>
 
     <spinner

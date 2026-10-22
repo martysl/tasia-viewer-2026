@@ -56,6 +56,7 @@
 #include "lltoggleablemenu.h"
 #include "llviewermenu.h"
 #include "llviewerregion.h"
+#include "llworld.h"
 
 // Not yet implemented; need to remove buildPanel() from constructor when we switch
 //static LLRegisterPanelClassWrapper<LLLandmarksPanel> t_landmarks("panel_landmarks");
@@ -1106,9 +1107,20 @@ void LLLandmarksPanel::doCreatePick(LLLandmark* landmark, const LLUUID &item_id)
     LLUUID region_id;
     landmark->getGlobalPos(pos_global);
     landmark->getRegionID(region_id);
-    LLVector3 region_pos((F32)fmod(pos_global.mdV[VX], (F64)REGION_WIDTH_METERS),
-                      (F32)fmod(pos_global.mdV[VY], (F64)REGION_WIDTH_METERS),
-                      (F32)pos_global.mdV[VZ]);
+    LLVector3 region_pos;
+    LLViewerRegion* target_region = LLWorld::getInstance()->getRegionFromID(region_id);
+    if (target_region)
+    {
+        region_pos = target_region->getPosRegionFromGlobal(pos_global);
+    }
+    else
+    {
+        // Preserve the legacy coordinate fallback when the landmark's region
+        // isn't loaded and its origin isn't available in the viewer.
+        region_pos.setVec((F32)fmod(pos_global.mdV[VX], (F64)REGION_WIDTH_METERS),
+                          (F32)fmod(pos_global.mdV[VY], (F64)REGION_WIDTH_METERS),
+                          (F32)pos_global.mdV[VZ]);
+    }
 
     LLSD body;
     std::string url = region->getCapability("RemoteParcelRequest");

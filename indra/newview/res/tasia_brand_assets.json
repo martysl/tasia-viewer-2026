@@ -1,0 +1,289 @@
+{
+  "source": "res/tasia_brand_source.png",
+  "source_sha256": "6aec2c8cf7b04f7b38defcfbfcb3e659cef0697d202b6f534cf06d7eb66d51d5",
+  "source_size": [
+    1024,
+    1024
+  ],
+  "alpha_crop": [
+    31,
+    230,
+    984,
+    766
+  ],
+  "preserves_complete_artwork": true,
+  "outputs": {
+    "skins/default/textures/windows/login_tasia_logo.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/default/textures/windows/login_tasia_logo_horizontal.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/default/textures/windows/login_tasia_logo_small.png": {
+      "size": [
+        256,
+        144
+      ],
+      "sha256": "5c428c42101705c045f7977e6e6b4d8e42224efc9a9f39df2785e545f224e2b2"
+    },
+    "skins/default/textures/windows/startup_logo.png": {
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "aa879bc0a8bd8428fdc3f4d5904e66f0786f3e70b87795ab48f36538809d5939"
+    },
+    "skins/default/textures/icons/tasia_app.png": {
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "a0e04c4e83880dfbceee37a119103a54dccf0b990b0b8ee47d0de754c4fdcf1c"
+    },
+    "skins/default/textures/toolbar_icons/tasia_chat.png": {
+      "size": [
+        48,
+        48
+      ],
+      "sha256": "83c728fbca302daca8cbb14f8e8b249cd6f371e88f349c395dc2451327ff4433"
+    },
+    "skins/default/textures/icons/tasiafeed.png": {
+      "size": [
+        48,
+        48
+      ],
+      "sha256": "83c728fbca302daca8cbb14f8e8b249cd6f371e88f349c395dc2451327ff4433"
+    },
+    "skins/default/textures/windows/login_sl_logo.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/default/textures/windows/login_sl_logo_horizontal.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/default/textures/windows/login_sl_logo_small.png": {
+      "size": [
+        256,
+        144
+      ],
+      "sha256": "5c428c42101705c045f7977e6e6b4d8e42224efc9a9f39df2785e545f224e2b2"
+    },
+    "skins/default/textures/icons/SL_Logo.png": {
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "a0e04c4e83880dfbceee37a119103a54dccf0b990b0b8ee47d0de754c4fdcf1c"
+    },
+    "skins/Flat/textures/windows/login_sl_logo.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/Flat/textures/windows/login_sl_logo_horizontal.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/Flat/textures/windows/login_sl_logo_small.png": {
+      "size": [
+        256,
+        144
+      ],
+      "sha256": "5c428c42101705c045f7977e6e6b4d8e42224efc9a9f39df2785e545f224e2b2"
+    },
+    "skins/Flat/textures/windows/startup_logo.png": {
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "aa879bc0a8bd8428fdc3f4d5904e66f0786f3e70b87795ab48f36538809d5939"
+    },
+    "skins/Flat/textures/icons/SL_Logo.png": {
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "a0e04c4e83880dfbceee37a119103a54dccf0b990b0b8ee47d0de754c4fdcf1c"
+    },
+    "skins/Lysi/textures/windows/login_sl_logo.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/Lysi/textures/windows/login_sl_logo_horizontal.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/Lysi/textures/windows/login_sl_logo_small.png": {
+      "size": [
+        256,
+        144
+      ],
+      "sha256": "5c428c42101705c045f7977e6e6b4d8e42224efc9a9f39df2785e545f224e2b2"
+    },
+    "skins/Lysi/textures/windows/startup_logo.png": {
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "aa879bc0a8bd8428fdc3f4d5904e66f0786f3e70b87795ab48f36538809d5939"
+    },
+    "skins/Lysi/textures/icons/SL_Logo.png": {
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "a0e04c4e83880dfbceee37a119103a54dccf0b990b0b8ee47d0de754c4fdcf1c"
+    },
+    "skins/linden/textures/windows/login_sl_logo.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/linden/textures/windows/login_sl_logo_horizontal.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/linden/textures/windows/login_sl_logo_small.png": {
+      "size": [
+        256,
+        144
+      ],
+      "sha256": "5c428c42101705c045f7977e6e6b4d8e42224efc9a9f39df2785e545f224e2b2"
+    },
+    "skins/linden/textures/windows/startup_logo.png": {
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "aa879bc0a8bd8428fdc3f4d5904e66f0786f3e70b87795ab48f36538809d5939"
+    },
+    "skins/linden/textures/icons/SL_Logo.png": {
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "a0e04c4e83880dfbceee37a119103a54dccf0b990b0b8ee47d0de754c4fdcf1c"
+    },
+    "skins/midnight/textures/windows/login_sl_logo.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/midnight/textures/windows/login_sl_logo_horizontal.png": {
+      "size": [
+        512,
+        288
+      ],
+      "sha256": "e7ea8db2347b687d1e9ba9036c34b7258a3c370db949fa4d19d8d17c45c9ffab"
+    },
+    "skins/midnight/textures/windows/login_sl_logo_small.png": {
+      "size": [
+        256,
+        144
+      ],
+      "sha256": "5c428c42101705c045f7977e6e6b4d8e42224efc9a9f39df2785e545f224e2b2"
+    },
+    "skins/midnight/textures/windows/startup_logo.png": {
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "aa879bc0a8bd8428fdc3f4d5904e66f0786f3e70b87795ab48f36538809d5939"
+    },
+    "skins/midnight/textures/icons/SL_Logo.png": {
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "a0e04c4e83880dfbceee37a119103a54dccf0b990b0b8ee47d0de754c4fdcf1c"
+    },
+    "res/tasia_icon.ico": {
+      "sizes": [
+        [
+          16,
+          16
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          32,
+          32
+        ],
+        [
+          40,
+          40
+        ],
+        [
+          48,
+          48
+        ],
+        [
+          64,
+          64
+        ],
+        [
+          128,
+          128
+        ],
+        [
+          256,
+          256
+        ]
+      ],
+      "sha256": "0f09e2d80ffd5536cef70e710600760168fc765f221e71f5f0161199d8df2c7e"
+    },
+    "skins/default/textures/icons/quic_off.png": {
+      "size": [
+        24,
+        24
+      ],
+      "sha256": "9228de0c3c37d9c5d501dc707081c90372923b7780d522ae495e559a3921201f"
+    },
+    "skins/default/textures/icons/quic_unavailable.png": {
+      "size": [
+        24,
+        24
+      ],
+      "sha256": "7ec03e11611098678507d66fdeca6cd15507ac04d7ddb1fd6462235b87fc52c6"
+    }
+  }
+}

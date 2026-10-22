@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "llviewernetwork.h"
 #include "llagentwearables.h"
 
 #include "llattachmentsmgr.h"
@@ -37,6 +38,7 @@
 #include "llgesturemgr.h"
 #include "llinventorybridge.h"
 #include "llinventoryfunctions.h"
+#include "llinventoryobserver.h"
 #include "llinventorymodelbackgroundfetch.h"
 #include "llinventoryobserver.h"
 #include "llinventorypanel.h"
@@ -51,6 +53,110 @@
 #include "llviewerwearable.h"
 #include "llwearablelist.h"
 #include "llfloaterperms.h"
+#include "llviewernetwork.h"
+#include "lltasia_legacy_wearables.h"
+#include "message.h"
+#include "message_prehash.h"
+
+struct LLTasiaLegacyWearablesLoad
+{
+    struct Entry
+    {
+        U8 type;
+        LLUUID item;
+        LLUUID asset;
+    };
+    U64 generation = 0;
+    std::vector<Entry> entries;
+    std::vector<LLViewerWearable*> wearables;
+    std::size_t remaining = 0;
+    bool failed = false;
+};
+
+namespace
+{
+struct LLTasiaLegacyWearableCallback
+{
+    std::shared_ptr<LLTasiaLegacyWearablesLoad> load;
+    std::size_t index;
+};
+
+class LLTasiaCOFLibraryFetch final : public LLInventoryModel::FetchItemHttpHandler
+{
+public:
+    LLTasiaCOFLibraryFetch(const LLSD& request, U64 generation)
+        : LLInventoryModel::FetchItemHttpHandler(request), mGeneration(generation),
+          mCOF(LLAppearanceMgr::instance().getCOF())
+    {
+        const auto* category = gInventory.getCategory(mCOF);
+        if (category) mCOFVersion = category->getVersion();
+    }
+
+    void onCompleted(LLCore::HttpHandle handle, LLCore::HttpResponse* response) override
+    {
+        // A lookup from a previous login/outfit must not mutate the new inventory.
+        if (!gAgentWearables.isLegacyInitialWearablesCurrent(mGeneration) ||
+            LLAppearanceMgr::instance().getCOF() != mCOF) return;
+        const auto* category = gInventory.getCategory(mCOF);
+        if (!category || !gInventory.isCategoryComplete(mCOF) || category->getVersion() != mCOFVersion) return;
+        LLInventoryModel::FetchItemHttpHandler::onCompleted(handle, response);
+    }
+private:
+    U64 mGeneration;
+    LLUUID mCOF;
+    S32 mCOFVersion = -1;
+};
+
+bool requestLegacyCOFLibraryLinks(const LLInventoryModel::item_array_t& broken, U64 generation)
+{
+    if (!gAgentWearables.isLegacyInitialWearablesCurrent(generation) || !gAgent.getRegion()) return false;
+    const LLUUID library_owner = gInventory.getLibraryOwnerID();
+    if (library_owner.isNull() || library_owner == gAgent.getID()) return false;
+    const std::string cap = gAgent.getRegion()->getCapability("FetchLib2");
+    if (cap.empty()) return false;
+    uuid_vec_t targets;
+    for (const auto& item : broken)
+    {
+        if (item->getActualType() != LLAssetType::AT_LINK) continue;
+        const LLUUID target = item->getLinkedUUID();
+        if (target.isNull() || std::find(targets.begin(), targets.end(), target) != targets.end()) continue;
+        const auto* known = gInventory.getItem(target);
+        if (known && known->isFinished()) continue;
+        targets.push_back(target);
+        if (targets.size() > 256) return false;
+    }
+    if (targets.empty() || targets.size() > 256) return false;
+    LLSD request;
+    request["agent_id"] = gAgent.getID();
+    for (const auto& target : targets)
+    {
+        LLSD item;
+        item["owner_id"] = library_owner; // Advertised by login, not SL's hardcoded owner.
+        item["item_id"] = target;
+        request["items"].append(item);
+    }
+    auto handler = std::make_shared<LLTasiaCOFLibraryFetch>(request, generation);
+    const auto queued = gInventory.requestPost(true, cap, request, handler, "COF Library Item");
+    if (queued == LLCORE_HTTP_HANDLE_INVALID) return false;
+    LL_WARNS("LocalBake") << "COF library target lookup requested; targets=" << targets.size() << LL_ENDL;
+    return true;
+}
+
+bool cofHasWearables(bool incomplete_is_worn = true)
+{
+    LLInventoryModel::cat_array_t categories;
+    LLInventoryModel::item_array_t items;
+    LLFindWearables predicate;
+    const LLUUID cof = LLAppearanceMgr::instance().getCOF();
+    if (cof.isNull()) return incomplete_is_worn;
+    if (!gInventory.isInventoryUsable())
+        return incomplete_is_worn; // An explicit failed fetch makes COF unusable as authority.
+    if (!gInventory.isCategoryComplete(cof))
+        return incomplete_is_worn; // Unknown/incomplete is normally not an empty outfit.
+    gInventory.collectDescendentsIf(cof, categories, items, LLInventoryModel::EXCLUDE_TRASH, predicate);
+    return !items.empty();
+}
+}
 
 LLAgentWearables gAgentWearables;
 
@@ -204,6 +310,21 @@ LLAgentWearables::~LLAgentWearables()
 
 void LLAgentWearables::cleanup()
 {
+    mLegacyBodyPartRecovery = false;
+    mLegacyBodyPartRecoveryAttempted = false;
+    mLegacyCOFLinkFetchAttempted = false;
+    mLegacyCOFLibraryFetchAttempted = false;
+    mLegacyCOFLinkFetchActive = false;
+    mLegacyBodyPartUnresolvedTargets.clear();
+    mLegacyBodyPartMask = 0;
+    ++mLegacyWearablesGeneration;
+    mLegacyWearablesWaiting = false;
+    mLegacyInitialCOFFetchFailed = false;
+    mLegacyWearablesLoad.reset();
+    mLegacyWearablesSession.setNull();
+    mLegacyWearablesAvatar.setNull();
+    mInitialWearablesUpdateReceived = false;
+    mWearablesLoaded = false;
 }
 
 // static
@@ -217,7 +338,416 @@ void LLAgentWearables::initClass()
 void LLAgentWearables::setAvatarObject(LLVOAvatarSelf* avatar)
 {
 	llassert(avatar);
+	cleanup();
 	setAvatarAppearance(avatar);
+}
+
+bool LLAgentWearables::isLegacyInitialWearablesCurrent(U64 generation) const
+{
+    if (mLegacyBodyPartRecovery || mLegacyCOFLinkFetchActive)
+    {
+        const LLUUID cof = LLAppearanceMgr::instance().getCOF();
+        const LLViewerInventoryCategory* category = gInventory.getCategory(cof);
+        if (!category || !gInventory.isCategoryComplete(cof) ||
+            category->getVersion() != mLegacyBodyPartCOFVersion) return false;
+        for (U8 type = 0; type < 4; ++type)
+            if (mLegacyBodyPartRecovery && (mLegacyBodyPartMask & (1u << type)) &&
+                getWearableCount(static_cast<LLWearableType::EType>(type)) != 0) return false;
+    }
+    return generation == mLegacyWearablesGeneration && isAgentAvatarValid() &&
+           LLGridManager::getInstance()->isInOpenSim() && gAgentAvatarp->usesLegacyBakes() &&
+           mAvatarAppearance == gAgentAvatarp.get() &&
+           mLegacyWearablesSession == gAgent.getSessionID() &&
+           mLegacyWearablesAvatar == gAgentAvatarp->getID();
+}
+
+void LLAgentWearables::recoverLegacyBodyPartsFromSimulator()
+{
+    if (mLegacyBodyPartRecoveryAttempted || mLegacyCOFLinkFetchActive || !isAgentAvatarValid() ||
+        !gAgentAvatarp->usesLegacyBakes() || !gAssetStorage || !gMessageSystem ||
+        mLegacyWearablesWaiting || mLegacyWearablesLoad) return;
+    const LLUUID cof = LLAppearanceMgr::instance().getCOF();
+    const LLViewerInventoryCategory* category = gInventory.getCategory(cof);
+    if (!category || !gInventory.isCategoryComplete(cof)) return;
+    U8 missing = 0;
+    for (U8 type = 0; type < 4; ++type)
+        if (!getWearableCount(static_cast<LLWearableType::EType>(type))) missing |= 1u << type;
+    if (!missing) return;
+    mLegacyBodyPartUnresolvedTargets.clear();
+    LLInventoryModel::cat_array_t broken_categories;
+    LLInventoryModel::item_array_t broken_items;
+    LLFindBrokenLinks broken_predicate;
+    gInventory.collectDescendentsIf(cof, broken_categories, broken_items,
+        LLInventoryModel::EXCLUDE_TRASH, broken_predicate);
+    if (!broken_items.empty())
+    {
+        // A complete COF folder does not imply its linked targets were fetched.
+        // Resolve real item metadata once before declaring these links missing.
+        uuid_vec_t targets;
+        for (const auto& item : broken_items)
+        {
+            if (item->getActualType() != LLAssetType::AT_LINK) continue;
+            const LLUUID target = item->getLinkedUUID();
+            if (target.notNull() && std::find(targets.begin(), targets.end(), target) == targets.end())
+                targets.push_back(target);
+        }
+        if (targets.empty() || targets.size() > 256) return;
+        if (mLegacyCOFLinkFetchAttempted)
+        {
+            // Inventory metadata may remain unavailable (for example for a
+            // library item). Only accept real simulator-worn body-part assets
+            // whose item IDs exactly match these unresolved COF link targets.
+            mLegacyBodyPartUnresolvedTargets = targets;
+        }
+        else
+        {
+            mLegacyCOFLinkFetchAttempted = true;
+            mLegacyCOFLinkFetchActive = true;
+            mLegacyBodyPartCOFVersion = category->getVersion();
+            ++mLegacyWearablesGeneration;
+            mLegacyWearablesSession = gAgent.getSessionID();
+            mLegacyWearablesAvatar = gAgentAvatarp->getID();
+            // This observer only issues the standard item fetch here; no observer
+            // pointer is registered or retained by the asynchronous HTTP request.
+            LLInventoryFetchItemsObserver fetcher(targets);
+            fetcher.startFetch();
+            LL_WARNS("LocalBake") << "COF broken-link target fetch requested; targets=" << targets.size() << LL_ENDL;
+            const U64 generation = mLegacyWearablesGeneration;
+            doAfterInterval([generation]() { gAgentWearables.retryLegacyCOFLinkFetch(generation, 0); }, 8.f);
+            return;
+        }
+    }
+    // Never hide a failed COF asset download. Recover only body parts absent
+    // from the complete COF, using real simulator worn-item assets, not defaults.
+    LLInventoryModel::cat_array_t categories;
+    LLInventoryModel::item_array_t items;
+    LLFindWearables predicate;
+    gInventory.collectDescendentsIf(cof, categories, items, LLInventoryModel::EXCLUDE_TRASH, predicate);
+    for (const auto& item : items)
+    {
+        const S32 type = item->getWearableType();
+        if (type >= 0 && type < 4 && (missing & (1u << type)))
+        {
+            LL_WARNS_ONCE("LocalBake") << "Required body part referenced in COF but not loaded; type="
+                << type << LL_ENDL;
+            return;
+        }
+    }
+    mLegacyBodyPartRecoveryAttempted = true;
+    mLegacyBodyPartRecovery = true;
+    mLegacyBodyPartMask = missing;
+    mLegacyBodyPartCOFVersion = category->getVersion();
+    ++mLegacyWearablesGeneration;
+    mLegacyWearablesSession = gAgent.getSessionID();
+    mLegacyWearablesAvatar = gAgentAvatarp->getID();
+    mInitialWearablesUpdateReceived = false;
+    mLegacyWearablesWaiting = true;
+    mLegacyWearablesRequests = 0;
+    LL_WARNS("LocalBake") << "COF missing required body-part references; simulator repair requested; mask="
+        << static_cast<U32>(missing) << LL_ENDL;
+    sendLegacyWearablesRequest();
+}
+
+void LLAgentWearables::retryLegacyCOFLinkFetch(U64 generation, unsigned attempt)
+{
+    if (!mLegacyCOFLinkFetchActive || !isLegacyInitialWearablesCurrent(generation)) return;
+    LLInventoryModel::cat_array_t categories;
+    LLInventoryModel::item_array_t broken;
+    LLFindBrokenLinks predicate;
+    gInventory.collectDescendentsIf(LLAppearanceMgr::instance().getCOF(), categories, broken,
+        LLInventoryModel::EXCLUDE_TRASH, predicate);
+    if (broken.empty())
+    {
+        mLegacyCOFLinkFetchActive = false;
+        LL_WARNS("LocalBake") << "COF link targets resolved; reloading existing outfit" << LL_ENDL;
+        LLAppearanceMgr::instance().updateAppearanceFromCOF(false, false);
+        return;
+    }
+    if (!mLegacyCOFLibraryFetchAttempted)
+    {
+        mLegacyCOFLibraryFetchAttempted = true;
+        // Unknown targets initially went to personal inventory. Try the grid's
+        // read-only library once before interpreting unresolved links as missing.
+        requestLegacyCOFLibraryLinks(broken, generation);
+    }
+    if (attempt >= 3)
+    {
+        mLegacyCOFLinkFetchActive = false;
+        LL_WARNS("LocalBake") << "COF link targets still unavailable after bounded fetch; links preserved; remaining="
+            << broken.size() << LL_ENDL;
+        recoverLegacyBodyPartsFromSimulator();
+        return;
+    }
+    doAfterInterval([generation, attempt]()
+        { gAgentWearables.retryLegacyCOFLinkFetch(generation, attempt + 1); }, 8.f);
+}
+
+bool LLAgentWearables::startLegacyInitialWearables(bool cof_fetch_failed)
+{
+    // Called after COF fetch completion, or with an explicit failed-fetch result.
+    if (!isAgentAvatarValid() || !gAssetStorage || !gAgentAvatarp->usesLegacyBakes()) return false;
+    if (!mLegacyBodyPartRecovery && cofHasWearables(!cof_fetch_failed))
+    {
+        mLegacyInitialCOFFetchFailed = false;
+        LL_INFOS_ONCE("LocalBake") << "Initial outfit uses COF; legacy snapshot fallback not selected" << LL_ENDL;
+        return false;
+    }
+    mLegacyInitialCOFFetchFailed = cof_fetch_failed;
+    if (mLegacyWearablesWaiting || mLegacyWearablesLoad || mWearablesLoaded) return true;
+    ++mLegacyWearablesGeneration;
+    mLegacyWearablesSession = gAgent.getSessionID();
+    mLegacyWearablesAvatar = gAgentAvatarp->getID();
+    mInitialWearablesUpdateReceived = false;
+    mLegacyWearablesWaiting = true;
+    mLegacyWearablesRequests = 0;
+    notifyLoadingStarted();
+    sendLegacyWearablesRequest();
+    return true;
+}
+
+void LLAgentWearables::sendLegacyWearablesRequest()
+{
+    if (!isLegacyInitialWearablesCurrent(mLegacyWearablesGeneration) || !gMessageSystem) return;
+    gMessageSystem->newMessageFast(_PREHASH_AgentWearablesRequest);
+    gMessageSystem->nextBlockFast(_PREHASH_AgentData);
+    gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+    gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+    gAgent.sendReliableMessage();
+    ++mLegacyWearablesRequests;
+    const U64 generation = mLegacyWearablesGeneration;
+    doAfterInterval([generation]() { gAgentWearables.retryLegacyWearablesRequest(generation); }, 8.f);
+}
+
+void LLAgentWearables::retryLegacyWearablesRequest(U64 generation)
+{
+    if (!isLegacyInitialWearablesCurrent(generation) || !mLegacyWearablesWaiting) return;
+    if (!mLegacyBodyPartRecovery && cofHasWearables(!mLegacyInitialCOFFetchFailed))
+    {
+        mLegacyWearablesWaiting = false;
+        mLegacyInitialCOFFetchFailed = false;
+        ++mLegacyWearablesGeneration;
+        LLAppearanceMgr::instance().updateAppearanceFromCOF();
+        return;
+    }
+    if (mLegacyWearablesRequests < 3)
+    {
+        sendLegacyWearablesRequest();
+        return;
+    }
+    mLegacyWearablesWaiting = false;
+    mLegacyInitialCOFFetchFailed = false;
+    ++mLegacyWearablesGeneration;
+    notifyLoadingFinished();
+    LL_WARNS("LocalBake") << "Initial worn-item request timed out; existing outfit preserved" << LL_ENDL;
+}
+
+void LLAgentWearables::processAgentInitialWearablesUpdate(LLMessageSystem* msg, void**)
+{
+    LLAgentWearables& self = gAgentWearables;
+    if (!self.mLegacyWearablesWaiting || mInitialWearablesUpdateReceived ||
+        !self.isLegacyInitialWearablesCurrent(self.mLegacyWearablesGeneration) ||
+        !gAgent.getRegion() || msg->getSender() != gAgent.getRegion()->getHost()) return;
+    LLUUID agent, session;
+    msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AgentID, agent);
+    msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_SessionID, session);
+    if (agent != gAgent.getID() || session != gAgent.getSessionID()) return;
+
+    const S32 blocks = msg->getNumberOfBlocksFast(_PREHASH_WearableData);
+    if (blocks < 4 || blocks > static_cast<S32>(MAX_CLOTHING_LAYERS + LLWearableType::WT_COUNT)) return;
+    auto load = std::make_shared<LLTasiaLegacyWearablesLoad>();
+    load->generation = self.mLegacyWearablesGeneration;
+    for (S32 i = 0; i < blocks; ++i)
+    {
+        LLTasiaLegacyWearablesLoad::Entry entry{};
+        msg->getU8Fast(_PREHASH_WearableData, _PREHASH_WearableType, entry.type, i);
+        msg->getUUIDFast(_PREHASH_WearableData, _PREHASH_ItemID, entry.item, i);
+        msg->getUUIDFast(_PREHASH_WearableData, _PREHASH_AssetID, entry.asset, i);
+        // Some simulators include explicit unworn slots.
+        if (entry.item.isNull() && entry.asset.isNull()) continue;
+        load->entries.push_back(entry);
+    }
+    static_assert(LLWearableType::WT_SHAPE == 0 && LLWearableType::WT_SKIN == 1 &&
+                  LLWearableType::WT_HAIR == 2 && LLWearableType::WT_EYES == 3,
+                   "Legacy body-part validation must follow the wire types");
+    if (self.mLegacyBodyPartRecovery)
+    {
+        std::array<U32, 4> counts{};
+        for (const auto& entry : load->entries) if (entry.type < 4) ++counts[entry.type];
+        LL_WARNS("LocalBake") << "Simulator worn body-part counts; shape=" << counts[0]
+            << "; skin=" << counts[1] << "; hair=" << counts[2] << "; eyes=" << counts[3] << LL_ENDL;
+    }
+    if (!TasiaWearables::validSnapshot(load->entries, LLWearableType::WT_COUNT, MAX_CLOTHING_LAYERS))
+    {
+        const auto details = TasiaWearables::diagnoseSnapshot(load->entries, LLWearableType::WT_COUNT);
+        LL_WARNS_ONCE("LocalBake") << "Rejected incomplete or ambiguous initial worn-item snapshot"
+            << "; entries=" << details.entries << "; repair=" << self.mLegacyBodyPartRecovery
+            << "; repair_mask=" << static_cast<unsigned>(self.mLegacyBodyPartMask)
+            << "; null_items=" << details.null_items << "; null_assets=" << details.null_assets
+            << "; null_body_item_mask=" << details.null_body_item_mask
+            << "; null_body_asset_mask=" << details.null_body_asset_mask
+            << "; invalid_types=" << details.invalid_types << "; duplicate_items=" << details.duplicate_items
+            << "; shared_assets=" << details.shared_assets
+            << "; shape=" << details.body[0] << "; skin=" << details.body[1]
+            << "; hair=" << details.body[2] << "; eyes=" << details.body[3] << LL_ENDL;
+        return;
+    }
+    if (!self.mLegacyBodyPartRecovery && cofHasWearables(!self.mLegacyInitialCOFFetchFailed))
+    {
+        self.mLegacyWearablesWaiting = false;
+        self.mLegacyInitialCOFFetchFailed = false;
+        ++self.mLegacyWearablesGeneration;
+        LLAppearanceMgr::instance().updateAppearanceFromCOF();
+        return;
+    }
+    if (self.mLegacyBodyPartRecovery)
+    {
+        auto& entries = load->entries;
+        entries.erase(std::remove_if(entries.begin(), entries.end(), [&self](const LLTasiaLegacyWearablesLoad::Entry& entry)
+        {
+            return entry.type >= 4 || !(self.mLegacyBodyPartMask & (1u << entry.type));
+        }), entries.end());
+        if (!TasiaWearables::validBodyPartRepair(entries, self.mLegacyBodyPartMask,
+                                                self.mLegacyBodyPartUnresolvedTargets))
+        {
+            self.mLegacyWearablesWaiting = false;
+            self.mLegacyInitialCOFFetchFailed = false;
+            ++self.mLegacyWearablesGeneration;
+            self.mLegacyBodyPartRecovery = false;
+            LL_WARNS("LocalBake") << "Simulator body-part snapshot does not match required COF targets; repair refused" << LL_ENDL;
+            return;
+        }
+        if (!self.mLegacyBodyPartUnresolvedTargets.empty())
+        {
+            LL_WARNS("LocalBake") << "Simulator body-part items match unresolved COF targets; loading real assets; parts="
+                << entries.size() << LL_ENDL;
+        }
+    }
+    mInitialWearablesUpdateReceived = true;
+    self.mLegacyWearablesWaiting = false;
+    self.mLegacyWearablesLoad = load;
+    LL_INFOS_ONCE("LocalBake") << "Initial worn-item snapshot accepted; entries=" << load->entries.size() << LL_ENDL;
+    load->remaining = load->entries.size();
+    load->wearables.resize(load->remaining, nullptr);
+    const U64 generation = load->generation;
+    // Asset callbacks are bounded by the session and a deadline as well as the
+    // asset-storage retry limit. Never create default body parts on failure.
+    doAfterInterval([generation]()
+    {
+        LLAgentWearables& owner = gAgentWearables;
+        if (owner.isLegacyInitialWearablesCurrent(generation) && owner.mLegacyWearablesLoad)
+        {
+            ++owner.mLegacyWearablesGeneration;
+            owner.mLegacyWearablesLoad.reset();
+            owner.mLegacyInitialCOFFetchFailed = false;
+            owner.notifyLoadingFinished();
+            LL_WARNS("LocalBake") << "Initial wearable download deadline exceeded; outfit not replaced" << LL_ENDL;
+        }
+    }, 60.f);
+    for (std::size_t i = 0; i < load->entries.size(); ++i)
+    {
+        const auto& entry = load->entries[i];
+        const auto type = static_cast<LLWearableType::EType>(entry.type);
+        auto* callback = new LLTasiaLegacyWearableCallback{load, i};
+        LLWearableList::instance().getAsset(entry.asset, std::string(), gAgentAvatarp.get(),
+            LLWearableType::getInstance()->getAssetType(type), onLegacyWearableAssetArrived, callback,
+            [generation]() { return gAgentWearables.isLegacyInitialWearablesCurrent(generation); });
+    }
+}
+
+void LLAgentWearables::onLegacyWearableAssetArrived(LLViewerWearable* wearable, void* userdata)
+{
+    std::unique_ptr<LLTasiaLegacyWearableCallback> callback(static_cast<LLTasiaLegacyWearableCallback*>(userdata));
+    LLAgentWearables& self = gAgentWearables;
+    const auto& load = callback->load;
+    if (!self.isLegacyInitialWearablesCurrent(load->generation) || self.mLegacyWearablesLoad != load) return;
+    const auto& entry = load->entries[callback->index];
+    if (!wearable || wearable->getType() != static_cast<LLWearableType::EType>(entry.type) ||
+        wearable->getAssetID() != entry.asset)
+    {
+        load->failed = true;
+    }
+    else
+    {
+        load->wearables[callback->index] = wearable;
+    }
+    if (--load->remaining == 0) self.finishLegacyInitialWearables();
+}
+
+void LLAgentWearables::finishLegacyInitialWearables()
+{
+    const auto load = mLegacyWearablesLoad;
+    if (!load || load->remaining != 0 || !isLegacyInitialWearablesCurrent(load->generation)) return;
+    mLegacyWearablesLoad.reset();
+    ++mLegacyWearablesGeneration;
+    if (!mLegacyBodyPartRecovery && cofHasWearables(!mLegacyInitialCOFFetchFailed))
+    {
+        mLegacyInitialCOFFetchFailed = false;
+        LLAppearanceMgr::instance().updateAppearanceFromCOF();
+        return;
+    }
+    mLegacyInitialCOFFetchFailed = false;
+    if (load->failed)
+    {
+        notifyLoadingFinished();
+        LL_WARNS("LocalBake") << "Initial wearable asset unavailable; outfit not partially applied" << LL_ENDL;
+        return;
+    }
+    if (mLegacyBodyPartRecovery && !TasiaWearables::validBodyPartRepair(
+            load->entries, mLegacyBodyPartMask, mLegacyBodyPartUnresolvedTargets))
+    {
+        notifyLoadingFinished();
+        LL_WARNS("LocalBake") << "Body-part repair target validation failed before commit; outfit preserved" << LL_ENDL;
+        return;
+    }
+    // Validate exactly one of each required body part before committing.
+    std::array<unsigned, 4> body{};
+    for (const auto& entry : load->entries)
+    {
+        if (entry.type < 4) ++body[entry.type];
+    }
+    for (U8 type = 0; type < 4; ++type) if (body[type] !=
+        (mLegacyBodyPartRecovery ? static_cast<unsigned>((mLegacyBodyPartMask >> type) & 1u) : 1u))
+    {
+        LL_WARNS("LocalBake") << "Legacy snapshot missing required body part; aborting commit" << LL_ENDL;
+        notifyLoadingFinished();
+        return;
+    }
+    if ((!mLegacyBodyPartRecovery && load->entries.size() < 4) ||
+        load->entries.empty() || load->entries.size() > 4 + MAX_CLOTHING_LAYERS)
+    {
+        LL_WARNS("LocalBake") << "Legacy snapshot size out of bounds; aborting commit" << LL_ENDL;
+        notifyLoadingFinished();
+        return;
+    }
+    // All assets passed validation. Replace only client-side worn state, with
+    // no inventory creation, COF link edits, autosave or AgentIsNowWearing.
+    if (!mLegacyBodyPartRecovery) mWearableDatas.clear();
+    for (std::size_t i = 0; i < load->entries.size(); ++i)
+    {
+        const auto& entry = load->entries[i];
+        LLViewerWearable* wearable = load->wearables[i];
+        wearable->setItemID(entry.item);
+        if (LLViewerInventoryItem* item = gInventory.getItem(entry.item))
+        {
+            wearable->setPermissions(item->getPermissions());
+        }
+        pushWearable(static_cast<LLWearableType::EType>(entry.type), wearable, false);
+    }
+    for (LLViewerWearable* wearable : load->wearables) LLWearableData::wearableUpdated(wearable, false);
+    mWearablesLoaded = true;
+    gAgentAvatarp->setCompositeUpdatesEnabled(true);
+    gAgentAvatarp->writeWearablesToAvatar();
+    gAgentAvatarp->updateVisualParams();
+    gAgentAvatarp->invalidateAll();
+    gAgentAvatarp->onFirstTEMessageReceived();
+    notifyLoadingFinished();
+    LL_INFOS_ONCE("LocalBake") << "Initial legacy wearables loaded; local bake requested" << LL_ENDL;
+    if (mLegacyBodyPartRecovery)
+    {
+        LL_WARNS("LocalBake") << "Simulator body-part repair applied; mask="
+            << static_cast<U32>(mLegacyBodyPartMask) << LL_ENDL;
+        mLegacyBodyPartRecovery = false;
+    }
 }
 
 /**
@@ -829,6 +1359,12 @@ void LLAgentWearables::createStandardWearables()
 // remove this function once the SH-3455 changesets are universally deployed.
 void LLAgentWearables::sendDummyAgentWearablesUpdate()
 {
+	// Linden's compatibility placeholders are not real inventory items.
+	// OpenSim persists AgentIsNowWearing, so never send dummy IDs there.
+	if (LLGridManager::getInstance()->isInOpenSim())
+	{
+		return;
+	}
 	LL_DEBUGS("Avatar") << "sendAgentWearablesUpdate()" << LL_ENDL;
 
 	// Send the AgentIsNowWearing
@@ -964,7 +1500,7 @@ void LLAgentWearables::removeWearableFinal(const LLWearableType::EType type, boo
 			if (old_wearable)
 			{
 				eraseWearable(old_wearable);
-				old_wearable->removeFromAvatar();
+				old_wearable->removeFromAvatar(true);
 			}
 		}
 		clearWearableType(type);
@@ -976,7 +1512,7 @@ void LLAgentWearables::removeWearableFinal(const LLWearableType::EType type, boo
 		if (old_wearable)
 		{
 			eraseWearable(old_wearable);
-			old_wearable->removeFromAvatar();
+			old_wearable->removeFromAvatar(true);
 		}
 	}
 
@@ -987,6 +1523,16 @@ void LLAgentWearables::removeWearableFinal(const LLWearableType::EType type, boo
 void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& items,
 	const std::vector< LLViewerWearable* >& wearables)
 {
+    // A newer COF outfit supersedes any asynchronous missing-part repair.
+    if (mLegacyBodyPartRecovery || mLegacyCOFLinkFetchActive || mLegacyInitialCOFFetchFailed)
+    {
+        ++mLegacyWearablesGeneration;
+        mLegacyWearablesWaiting = false;
+        mLegacyWearablesLoad.reset();
+        mLegacyBodyPartRecovery = false;
+        mLegacyCOFLinkFetchActive = false;
+        mLegacyInitialCOFFetchFailed = false;
+    }
 	LL_INFOS() << "setWearableOutfit() start" << LL_ENDL;
 
 	auto count = wearables.size();
@@ -1054,6 +1600,7 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 	{
 		LL_DEBUGS("Avatar") << "no changes, bailing out" << LL_ENDL;
 		notifyLoadingFinished();
+		recoverLegacyBodyPartsFromSimulator();
 		return;
 	}
 
@@ -1112,6 +1659,7 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 	{
 		LL_DEBUGS("Avatar") << "inventory updated, wearable assets not changed, bailing out" << LL_ENDL;
 		notifyLoadingFinished();
+		recoverLegacyBodyPartsFromSimulator();
 		return;
 	}
 
@@ -1144,6 +1692,7 @@ void LLAgentWearables::setWearableOutfit(const LLInventoryItem::item_array_t& it
 	gAgentAvatarp->updateVisualParams();
 
 	gAgentAvatarp->dumpAvatarTEs("setWearableOutfit");
+	recoverLegacyBodyPartsFromSimulator();
 
 	LL_DEBUGS("Avatar") << "setWearableOutfit() end" << LL_ENDL;
 }
@@ -1471,7 +2020,10 @@ bool LLAgentWearables::canWearableBeRemoved(const LLViewerWearable* wearable) co
 	return !(((type == LLWearableType::WT_SHAPE) || (type == LLWearableType::WT_SKIN) || (type == LLWearableType::WT_HAIR) || (type == LLWearableType::WT_EYES))
 		&& (getWearableCount(type) <= 1));
 }
-void LLAgentWearables::animateAllWearableParams(F32 delta)
+// <FS:Ansariel> [Legacy Bake]
+//void LLAgentWearables::animateAllWearableParams(F32 delta)
+void LLAgentWearables::animateAllWearableParams(F32 delta, bool upload_bake)
+// </FS:Ansariel> [Legacy Bake]
 {
 	for (S32 type = 0; type < LLWearableType::WT_COUNT; ++type)
 	{
@@ -1481,7 +2033,10 @@ void LLAgentWearables::animateAllWearableParams(F32 delta)
 			llassert(wearable);
 			if (wearable)
 			{
-				wearable->animateParams(delta);
+				// <FS:Ansariel> [Legacy Bake]
+                //wearable->animateParams(delta);
+                wearable->animateParams(delta, upload_bake);
+                // </FS:Ansariel> [Legacy Bake]
 			}
 		}
 	}

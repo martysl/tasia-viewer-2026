@@ -1,0 +1,10 @@
+body { margin: 12px; color: #eee; background: #20232a; font: 14px sans-serif; }
+form { display: flex; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; background: #20232a; padding: 4px 0; z-index: 1; }
+input { flex: 1; min-width: 90px; } input, select, button { padding: 7px; color: #eee; background: #353a46; border: 1px solid #697386; border-radius: 4px; }
+button { cursor: pointer; } button:disabled { opacity: .5; cursor: wait; }
+#status { min-height: 18px; } #attribution { color: #c7d2eb; }
+#results { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+article { min-width: 0; background: #303542; border-radius: 5px; padding: 6px; }
+img, video { display: block; width: 100%; height: 160px; object-fit: contain; }
+article p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+article button { width: 100%; } #more { display: block; margin: 16px auto; } #more[hidden] { display: none; }

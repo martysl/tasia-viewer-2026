@@ -48,6 +48,8 @@
 #include "lltrans.h"
 #include "lluiconstants.h"
 #include "llviewermessage.h"
+#include "llviewerregion.h"
+#include "llworld.h"
 #include "lluictrlfactory.h"
 
 #include "llgroupactions.h"
@@ -231,8 +233,20 @@ void LLFloaterLandHoldings::processPlacesReply(LLMessageSystem* msg, void**)
             self->mActualArea += actual_area;
             self->mBillableArea += billable_area;
 
-            S32 region_x = ll_round(global_x) % REGION_WIDTH_UNITS;
-            S32 region_y = ll_round(global_y) % REGION_WIDTH_UNITS;
+            S32 region_x;
+            S32 region_y;
+            LLVector3d global_pos(global_x, global_y, 0.0);
+            if (LLViewerRegion* region = LLWorld::getInstance()->getRegionFromPosGlobal(global_pos))
+            {
+                const LLVector3 local_pos = region->getPosRegionFromGlobal(global_pos);
+                region_x = ll_round(local_pos.mV[VX]);
+                region_y = ll_round(local_pos.mV[VY]);
+            }
+            else
+            {
+                region_x = ll_round(global_x) % REGION_WIDTH_UNITS;
+                region_y = ll_round(global_y) % REGION_WIDTH_UNITS;
+            }
 
             std::string location;
             location = llformat("%s (%d, %d)", sim_name.c_str(), region_x, region_y);

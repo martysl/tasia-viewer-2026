@@ -68,6 +68,9 @@ void LLVersionInfo::initSingleton()
     // functions. We should refrain from calling methods until this object is
     // fully constructed; such calls don't really belong in the constructor.
 
+    // Migrate the old cached build-channel default without renaming user data.
+    if (mWorkingChannelName == "Kirstens S24" || mWorkingChannelName == "Kirstens S24 DX")
+        mWorkingChannelName = "Tasia Viewer DX";
     // cache the version string
     version = stringize(getShortVersion(), ".", getBuild());
 }

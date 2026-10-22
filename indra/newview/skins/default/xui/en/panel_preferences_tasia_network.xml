@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<panel name="tasia_network" label="Tasia - Network" layout="topleft" follows="all" width="510" height="420" border="true">
+    <text name="network_heading" left="15" top="15" width="475" height="22" layout="topleft" font="SansSerifBold">OpenSim network and shared services</text>
+    <check_box name="TasiaQuicEnabled" control_name="TasiaQuicEnabled" label="Enable QUIC for OpenSim grids" left="15" top="50" width="475" height="20" layout="topleft" />
+    <text name="quic_help" left="30" top="78" width="460" height="40" layout="topleft" wrap="true">Requires QUIC support advertised by the simulator. Second Life uses its normal transport. UDP recovery remains available.</text>
+    <check_box name="TasiaQuicVerifyCert" control_name="TasiaQuicVerifyCert" label="Verify QUIC/TLS certificates (recommended)" left="15" top="130" width="475" height="20" layout="topleft" />
+    <text name="cert_help" left="30" top="158" width="460" height="55" layout="topleft" wrap="true">Disable only for a trusted test grid with a self-signed certificate. Disabling verification permits impersonation. Restart the viewer after changing this option.</text>
+    <check_box name="TasiaGridCatalogEnabled" control_name="TasiaGridCatalogEnabled" label="Allow grid catalog additions (preserve my grids)" left="15" top="230" width="475" height="20" layout="topleft" />
+    <check_box name="TasiaRemoteUserConfigEnabled" control_name="TasiaRemoteUserConfigEnabled" label="Use shared nametag and profile cosmetics" left="15" top="270" width="475" height="20" layout="topleft" />
+    <check_box name="ImagePipelineUseHTTP" control_name="ImagePipelineUseHTTP" label="Fetch textures over HTTP when available" left="15" top="310" width="475" height="20" layout="topleft" />
+</panel>

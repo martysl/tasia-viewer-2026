@@ -84,6 +84,9 @@ public:
     // Sends a request to the server.
     void displayParcelInfo(const LLUUID& region_id,
                            const LLVector3d& pos_global);
+    void displayParcelInfo(const LLUUID& region_id,
+                           const U64 region_handle,
+                           const LLVector3d& pos_global);
 
     /*virtual*/ void setErrorStatus(S32 status, const std::string& reason);
 

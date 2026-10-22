@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_user_config.h"
 
 #include "llappviewer.h"
 
@@ -4019,6 +4020,7 @@ void LLAppViewer::abortQuit()
 
 void LLAppViewer::migrateCacheDirectory()
 {
+	if (gDirUtilp->isPortable()) return; // No automatic migration or old-cache deletion.
 	if (gSavedSettings.getBOOL("MigrateCacheDirectory"))
 	{
 		gSavedSettings.setBOOL("MigrateCacheDirectory", false);
@@ -4094,6 +4096,14 @@ U32 LLAppViewer::getObjectCacheVersion()
 
 bool LLAppViewer::initCache()
 {
+	if (gDirUtilp->isPortable())
+	{
+		// Reset copied absolute paths BEFORE the cache move/purge logic can act.
+		for (const auto* name : {"CacheLocation", "NewCacheLocation",
+			"CacheLocationTopFolder", "NewCacheLocationTopFolder"})
+			gSavedSettings.setString(name, "");
+		gSavedSettings.setBOOL("MigrateCacheDirectory", false);
+	}
 	mPurgeCache = false;
 	bool read_only = mSecondInstance;
 	LLAppViewer::getTextureCache()->setReadOnly(read_only);
@@ -5456,6 +5466,9 @@ static F32 CheckMessagesMaxTime = CHECK_MESSAGES_DEFAULT_MAX_TIME;
 
 void LLAppViewer::idleNetwork()
 {
+    if (!gDisconnected) LLTasiaUserConfig::requestOnce();
+    if (gMessageSystem && !gSavedSettings.getBOOL("TasiaQuicEnabled"))
+        gMessageSystem->fallbackQuicCircuits();
 	gObjectList.mNumNewObjects = 0;
 	S32 total_decoded = 0;
 

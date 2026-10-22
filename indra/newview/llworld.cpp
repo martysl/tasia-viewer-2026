@@ -25,6 +25,8 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_quic.h"
+#include "lltasia_region_compat.h"
 
 #include "llworld.h"
 #include "llrender.h"
@@ -61,6 +63,7 @@
 #include <deque>
 #include <queue>
 #include <map>
+#include <cmath>
 #include <cstring>
 
 
@@ -141,8 +144,18 @@ void LLWorld::resetClass()
 }
 
 
-LLViewerRegion* LLWorld::addRegion(const U64 &region_handle, const LLHost &host)
+LLViewerRegion* LLWorld::addRegion(const U64 &region_handle, const LLHost &host,
+                                 U32 region_size_x, U32 region_size_y)
 {
+    const bool opensim = LLGridManager::getInstance()->isInOpenSim();
+    const bool supplied_size = region_size_x != 0 || region_size_y != 0;
+    const U32 region_width = LLTasiaRegion::regionWidth(opensim, region_size_x, region_size_y);
+    if (opensim && supplied_size && !LLTasiaRegion::supportedDimensions(region_size_x, region_size_y))
+    {
+        LL_WARNS("OpenSimRegion") << "Unsupported advertised region dimensions "
+            << region_size_x << "x" << region_size_y
+            << "; square power-of-two sizes 256..4096 are supported" << LL_ENDL;
+    }
     LL_INFOS() << "Add region with handle: " << region_handle << " on host " << host << LL_ENDL;
     LLViewerRegion *regionp = getRegionFromHandle(region_handle);
     std::string seedUrl;
@@ -152,6 +165,16 @@ LLViewerRegion* LLWorld::addRegion(const U64 &region_handle, const LLHost &host)
         // region already exists!
         if (host == old_host && regionp->isAlive())
         {
+            // A dimensionless duplicate must not shrink a known varregion.
+            // Do not remove a live region here: removeRegion() disconnects if
+            // it is the agent's region. Late size renegotiation needs its own
+            // terrain/object migration and is not safe to fake in place.
+            if (opensim && supplied_size && regionp->getWidth() != region_width)
+            {
+                LL_WARNS("OpenSimRegion") << "Ignoring conflicting late region dimensions; "
+                    << "existing width " << regionp->getWidth()
+                    << ", advertised width " << region_width << LL_ENDL;
+            }
             // This is a duplicate for the same host and it's alive, don't bother.
             LL_INFOS() << "Region already exists and is alive, using existing region" << LL_ENDL;
             return regionp;
@@ -194,12 +217,18 @@ LLViewerRegion* LLWorld::addRegion(const U64 &region_handle, const LLHost &host)
 
     regionp = new LLViewerRegion(region_handle,
                                     host,
-                                    mWidth,
+                                    region_width,
                                     WORLD_PATCH_SIZE,
-                                    getRegionWidthInMeters() );
+                                    region_width * mScale );
     if (!regionp)
     {
         LL_ERRS() << "Unable to create new region!" << LL_ENDL;
+    }
+    if (opensim)
+    {
+        // LL_INFOS is compiled out in this base; ONCE remains active.
+        LL_INFOS_ONCE("OpenSimRegion") << "First OpenSim region allocation: "
+            << region_width << "m, " << region_width << " terrain grid points per edge" << LL_ENDL;
     }
 
     if ( !seedUrl.empty() )
@@ -221,7 +250,7 @@ LLViewerRegion* LLWorld::addRegion(const U64 &region_handle, const LLHost &host)
     F32 region_y = 0.f;
     U64 adj_handle = 0;
 
-    F32 width = getRegionWidthInMeters();
+    F32 width = regionp->getWidth();
 
     LLViewerRegion *neighborp;
     from_region_handle(region_handle, &region_x, &region_y);
@@ -235,9 +264,88 @@ LLViewerRegion* LLWorld::addRegion(const U64 &region_handle, const LLHost &host)
         to_region_handle(adj_x, adj_y, &adj_handle);
 
         neighborp = getRegionFromHandle(adj_handle);
-        if (neighborp)
+        // LLSurface's seam connector assumes equal patch counts. Never index
+        // a smaller neighbor with a larger region's patch stride.
+        if (neighborp && neighborp->getWidth() == regionp->getWidth())
         {
             regionp->connectNeighbor(neighborp, dir);
+        }
+    }
+
+    // Mixed-width regions can share only part of an edge, including multiple
+    // smaller regions along one larger side. Match those patches by their
+    // shared world-coordinate span; never assume equal patch-array strides.
+    const LLVector3d& origin = regionp->getOriginGlobal();
+    const F64 left = origin.mdV[VX];
+    const F64 bottom = origin.mdV[VY];
+    const F64 right = left + width;
+    const F64 top = bottom + width;
+    const F64 patch_size = regionp->getLand().getMetersPerGrid() *
+                           regionp->getLand().getGridsPerPatchEdge();
+
+    for (LLViewerRegion* candidate : mActiveRegionList)
+    {
+        if (!candidate || candidate == regionp || candidate->getWidth() == width)
+            continue;
+
+        const LLVector3d& candidate_origin = candidate->getOriginGlobal();
+        const F64 candidate_left = candidate_origin.mdV[VX];
+        const F64 candidate_bottom = candidate_origin.mdV[VY];
+        const F64 candidate_right = candidate_left + candidate->getWidth();
+        const F64 candidate_top = candidate_bottom + candidate->getWidth();
+        const F64 candidate_patch_size = candidate->getLand().getMetersPerGrid() *
+                                         candidate->getLand().getGridsPerPatchEdge();
+        if (std::fabs(candidate_patch_size - patch_size) > 0.001)
+        {
+            LL_WARNS("Terrain") << "Skipping mixed-region seam with incompatible patch spacing"
+                << LL_ENDL;
+            continue;
+        }
+
+        U32 this_first = 0, candidate_first = 0, patch_count = 0;
+        if (right == candidate_left && LLTasiaRegion::sharedPatchSpan(
+                bottom, top, candidate_bottom, candidate_top, patch_size,
+                this_first, candidate_first, patch_count))
+        {
+            regionp->getLand().connectNeighborEdge(&candidate->getLand(), EAST,
+                                                   this_first, candidate_first, patch_count);
+        }
+        else if (left == candidate_right && LLTasiaRegion::sharedPatchSpan(
+                     bottom, top, candidate_bottom, candidate_top, patch_size,
+                     this_first, candidate_first, patch_count))
+        {
+            regionp->getLand().connectNeighborEdge(&candidate->getLand(), WEST,
+                                                   this_first, candidate_first, patch_count);
+        }
+        else if (top == candidate_bottom && LLTasiaRegion::sharedPatchSpan(
+                     left, right, candidate_left, candidate_right, patch_size,
+                     this_first, candidate_first, patch_count))
+        {
+            regionp->getLand().connectNeighborEdge(&candidate->getLand(), NORTH,
+                                                   this_first, candidate_first, patch_count);
+        }
+        else if (bottom == candidate_top && LLTasiaRegion::sharedPatchSpan(
+                     left, right, candidate_left, candidate_right, patch_size,
+                     this_first, candidate_first, patch_count))
+        {
+            regionp->getLand().connectNeighborEdge(&candidate->getLand(), SOUTH,
+                                                   this_first, candidate_first, patch_count);
+        }
+        else if (right == candidate_left && top == candidate_bottom)
+        {
+            regionp->getLand().connectNeighborCorner(&candidate->getLand(), NORTHEAST);
+        }
+        else if (left == candidate_right && top == candidate_bottom)
+        {
+            regionp->getLand().connectNeighborCorner(&candidate->getLand(), NORTHWEST);
+        }
+        else if (right == candidate_left && bottom == candidate_top)
+        {
+            regionp->getLand().connectNeighborCorner(&candidate->getLand(), SOUTHEAST);
+        }
+        else if (left == candidate_right && bottom == candidate_top)
+        {
+            regionp->getLand().connectNeighborCorner(&candidate->getLand(), SOUTHWEST);
         }
     }
 
@@ -1124,7 +1232,16 @@ void process_enable_simulator(LLMessageSystem *msg, void **user_data)
 
     // Viewer trusts the simulator.
     msg->enableCircuit(sim, true);
-    LLWorld::getInstance()->addRegion(handle, sim);
+    tasiaEnableEventQuic(msg, sim, "SimulatorInfo");
+    U32 size_x = 0, size_y = 0;
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        if (msg->getSize("SimulatorInfo", "RegionSizeX") > 0)
+            msg->getU32("SimulatorInfo", "RegionSizeX", size_x);
+        if (msg->getSize("SimulatorInfo", "RegionSizeY") > 0)
+            msg->getU32("SimulatorInfo", "RegionSizeY", size_y);
+    }
+    LLWorld::getInstance()->addRegion(handle, sim, size_x, size_y);
 
     // give the simulator a message it can use to get ip and port
     LL_INFOS() << "simulator_enable() Enabling " << sim << " with code " << msg->getOurCircuitCode() << LL_ENDL;

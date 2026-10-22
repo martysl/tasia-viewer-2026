@@ -69,7 +69,8 @@ public:
     // Prepares class to be reused or destroyed
     void resetClass();
 
-    LLViewerRegion* addRegion(const U64 &region_handle, const LLHost &host);
+    LLViewerRegion* addRegion(const U64 &region_handle, const LLHost &host,
+                             U32 region_size_x = 0, U32 region_size_y = 0);
         // safe to call if already present, does the "right thing" if
         // hosts are same, or if hosts are different, etc...
     void            removeRegion(const LLHost &host);

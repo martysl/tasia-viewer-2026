@@ -116,6 +116,7 @@ bool LLQuicGlobal::initialize(bool enabled, const std::string& ca_bundle_path, b
     // Disable certificate verification if requested
     if (!verify_cert)
     {
+        credentials.Flags |= QUIC_CREDENTIAL_FLAG_NO_CERTIFICATE_VALIDATION;
         LL_WARNS("Quic") << "QUIC certificate verification disabled by user setting" << LL_ENDL;
     }
 

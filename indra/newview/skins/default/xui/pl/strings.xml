@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <strings>
+    <string name="Command_TasiaChat_Label">Tasia Chat</string>
+    <string name="Command_TasiaFeed_Label">Tasia Feed</string>
+    <string name="MP3BatchConverting">Konwertuję MP3 na części dźwięku…</string>
+    <string name="MP3BatchUploading">Wysyłam części dźwięku…</string>
+    <string name="ClipboardPreviewOpened">Obraz pobrany. Sprawdź i potwierdź wysłanie w podglądzie.</string>
+    <string name="ClipboardImageMissing">Brak obsługiwanego obrazu, schowek jest zajęty lub obraz jest za duży. Skopiuj obraz lub zrzut ekranu i spróbuj ponownie.</string>
+    <string name="ClipboardPlatformUnsupported">Natywne wysyłanie obrazów ze schowka wymaga obecnie Windows.</string>
+    <string name="Command_TasiaFeed_Tooltip">Otwórz Tasia Feed wewnątrz viewera</string>
+    <string name="Command_TasiaChat_Tooltip">Otwórz stronę Tasia Chat wewnątrz viewera</string>
 	<string name="SUPPORT_SITE">
 		Portal Pomocy Second Life
 	</string>

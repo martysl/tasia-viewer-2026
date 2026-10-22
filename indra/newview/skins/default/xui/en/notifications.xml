@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <notifications>
+  <notification name="TasiaMediaLinkTooLong" type="alertmodal">
+The selected media links do not fit in this chat message. Shorten the draft and select the media again. Nothing was sent or inserted.
+  </notification>
+  <notification name="ConfirmMP3BatchUpload" type="alertmodal">
+Convert and upload [COUNT] sound parts at [UNIT_COST] each, total [TOTAL_COST] in the grid's currency?
+No sound has been uploaded yet. Cancelling later stops remaining parts; completed uploads cannot be refunded.
+    <usetemplate name="okcancelbuttons" yestext="Upload" notext="Cancel" />
+  </notification>
+  <notification name="MP3BatchUnavailable" type="alertmodal">Log in to a region with inventory upload support before uploading MP3.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchNotMP3" type="alertmodal">Select one MP3 file.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchBusy" type="alertmodal">Another MP3 conversion or upload is active.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchFfmpegMissing" type="alertmodal">The bundled tasia-ffmpeg converter is missing. Repair the viewer installation.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchConversionFailed" type="alertmodal">MP3 conversion failed, timed out, or exceeded 512 parts. Nothing was uploaded.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchCostUnavailable" type="alertmodal">The upload price or balance could not be confirmed, or changed. Remaining parts were not uploaded.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchCannotAfford" type="alertmodal">Your balance is insufficient for the complete MP3 upload. Nothing was uploaded.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchCancelled" type="alertmodal">Remaining MP3 parts were cancelled. Any completed sound uploads remain in inventory.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchUploadFailed" type="alertmodal">A sound part failed. Remaining parts were stopped; completed parts remain in inventory.<usetemplate name="okbutton" yestext="OK" /></notification>
+  <notification name="MP3BatchFinished" type="alertmodal">Uploaded [COUNT] MP3 sound parts to inventory.<usetemplate name="okbutton" yestext="OK" /></notification>
     <global name="skipnexttime">
 
 		Don&apos;t show me this again
@@ -13229,5 +13247,8 @@ Check the log file for "ARES FACTORY RESET" messages.
 Next launch will be a completely clean first-run experience.
   </notification>
 
+  <notification name="TasiaAppearanceUploadFailed" type="notifytip">
+    <unique/>
+    Appearance textures could not be uploaded after retries. Check the grid connection before refreshing your appearance again.
+  </notification>
 </notifications>
-

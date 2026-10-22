@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="tasia_media_picker" title="GIF-y / Klipy">
+ <text name="key_label">Klucz API / Web SDK (sesja):</text>
+ <button name="apply_key" label="Zastosuj klucz / Odśwież" />
+</floater>

@@ -69,6 +69,7 @@ public:
     // Used by MusicFilePicker (llfloatermusicplayer.cpp) to hand back
     // picked local file paths on the main thread.
     void addFiles(const std::vector<std::string>& paths);
+    void stopFromMediaControls() { onStop(); }
 
 private:
     void onPlayPause();

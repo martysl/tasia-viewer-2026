@@ -29,6 +29,8 @@
 #define LL_LLCIRCUIT_H
 
 #include <map>
+#include <memory>
+#include <deque>
 #include <vector>
 
 #include "llerror.h"
@@ -39,6 +41,8 @@
 #include "llpacketack.h"
 #include "lluuid.h"
 #include "llthrottle.h"
+
+class LLQuicConnection;
 
 //
 // Constants
@@ -132,6 +136,16 @@ public:
     F64Seconds  getLastPacketInTime() const     { return mLastPacketInTime; }
 
     LLThrottleGroup &getThrottleGroup()     {   return mThrottles; }
+
+    // Main-thread circuit routing. A TLS connection is not yet a ready simulator.
+    void startQuic(std::shared_ptr<LLQuicConnection> connection);
+    bool isQuic() const { return static_cast<bool>(mQuicConnection); }
+    bool isQuicReady() const { return isQuic() && mQuicReady; }
+    bool sendQuicPacket(const U8* data, S32 size, bool reliable, bool bootstrap);
+    void markQuicReady();
+    void serviceQuic();
+    void fallbackQuic();
+    bool receiveQuicPacket(std::vector<U8>& packet);
 
     class less
     {
@@ -279,6 +293,21 @@ protected:
 
     const F32Seconds mHeartbeatInterval;
     const F32Seconds mHeartbeatTimeout;
+
+    struct QuicPacket
+    {
+        std::vector<U8> data;
+        bool reliable;
+    };
+    std::shared_ptr<LLQuicConnection> mQuicConnection;
+    bool mQuicReady = false;
+    F64 mQuicStarted = 0.0;
+    std::deque<QuicPacket> mQuicPending;
+    size_t mQuicPendingBytes = 0;
+    std::vector<U8> mQuicBootstrap;
+    TPACKETID mQuicBootstrapID = 0;
+    std::vector<TPACKETID> mQuicBootstrapIDs;
+    std::vector<TPACKETID> mQuicAcceptedIDs;
 };
 
 
@@ -294,6 +323,8 @@ public:
     // ACCESSORS
     LLCircuitData* findCircuit(const LLHost& host) const;
     bool isCircuitAlive(const LLHost& host) const;
+    bool drainQuicPacket(U8* dest, S32 capacity, S32& size, LLHost& sender);
+    void serviceQuic();
 
     // MANIPULATORS
     LLCircuitData   *addCircuitData(const LLHost &host, TPACKETID in_id);
@@ -342,6 +373,7 @@ protected:
     // optimize the many, many times we call findCircuit. This may be
     // set in otherwise const methods, so it is declared mutable.
     mutable LLCircuitData* mLastCircuit;
+    LLHost mNextQuicDrainKey;
 
 private:
     const F32Seconds mHeartbeatInterval;

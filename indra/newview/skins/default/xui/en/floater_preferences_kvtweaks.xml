@@ -6,7 +6,7 @@
   name="prefs_kvtweaks"
   single_instance="true"
   save_rect="true"
-  title="⚠ S24 ENGINE - ADVANCED TUNING"
+  title="⚠ TASIA ENGINE - ADVANCED TUNING"
   width="640">
 
   <icon
@@ -31,7 +31,7 @@
     width="480"
     font="SansSerifBold"
     text_color="DrYellow">
-    ⚠ S24 ENGINE - EXPERT CONTROLS - MODIFY WITH CAUTION ⚠
+    ⚠ TASIA ENGINE - EXPERT CONTROLS - MODIFY WITH CAUTION ⚠
   </text>
 
   <!-- S24 Engine Guide button -->
@@ -45,7 +45,7 @@
     top="6"
     width="120"
     font="SansSerifBold"
-    tool_tip="Open the S24 Engine Guide (F1)">
+    tool_tip="Open the Tasia Engine Guide (F1)">
     <button.commit_callback
       function="Help.ShowS24EngineGuide" />
   </button>
@@ -1572,7 +1572,7 @@
         width="460"
         font="SansSerifBold"
         text_color="White">
-        Water Material Properties (S24 - Unlock Hardcoded Values)
+        Water Material Properties (Tasia - Unlock Hardcoded Values)
       </text>
 
       <slider
@@ -1961,7 +1961,7 @@
         width="460"
         font="SansSerifBold"
         text_color="White">
-        Night Sky (S24 - Stars, Nebulas &amp; Shooting Stars)
+        Night Sky (Tasia - Stars, Nebulas &amp; Shooting Stars)
       </text>
 
       <combo_box
@@ -2167,7 +2167,7 @@
         width="460"
         font="SansSerifBold"
         text_color="White">
-        Cloud Layers (S24 - 2.5D Depth)
+        Cloud Layers (Tasia - 2.5D Depth)
       </text>
 
       <text
@@ -2475,7 +2475,7 @@
         width="460"
         font="SansSerifBold"
         text_color="White">
-        Dynamic Cascade Shadow System (S24)
+        Dynamic Cascade Shadow System (Tasia)
       </text>
 
       <check_box
@@ -2722,19 +2722,19 @@
         width="460"
         font="SansSerifBold"
         text_color="White">
-        S24 Hardware Light Slots (6 Available)
+        Tasia Hardware Light Slots (6 Available)
       </text>
 
       <check_box
         control_name="RenderLocalLightFrustumCulling"
         height="20"
         initial_value="false"
-        label="⚡ Enable S24 HardLight Mode (Camera-Priority)"
+        label="⚡ Enable Tasia HardLight Mode (Camera-Priority)"
         layout="topleft"
         left="20"
         top_pad="10"
         name="s24_hardlight_mode"
-        tool_tip="S24 - Reserves hardware light slots for lights closest to camera and in view. Dramatically improves avatar lighting stability in complex scenes. OFF = Traditional LL behavior (selected lights bypass distance, distant lights can steal slots)."
+        tool_tip="Tasia - Reserves hardware light slots for lights closest to camera and in view. Dramatically improves avatar lighting stability in complex scenes. OFF = Traditional LL behavior (selected lights bypass distance, distant lights can steal slots)."
         width="460" />
 
       <text
@@ -2972,7 +2972,7 @@
         max_val="64"
         min_val="0"
         name="texture_fetch_threads"
-        tool_tip="Number of concurrent HTTP threads for texture downloads. 0=auto-scale (16), 1-64=manual override. S24: Raised from 16→64 max for modern systems"
+        tool_tip="Number of concurrent HTTP threads for texture downloads. 0=auto-scale (16), 1-64=manual override. Tasia: Raised from 16→64 max for modern systems"
         top_pad="10"
         width="310" />
 
@@ -3117,7 +3117,7 @@
         max_val="50000"
         min_val="500"
         name="max_bandwidth"
-        tool_tip="S24: Maximum network bandwidth in kbps. Raised from 10 Mbps to 50 Mbps for modern fiber connections (1.6Gbps+). Recommend 20000-40000 for fast connections."
+        tool_tip="Tasia: Maximum network bandwidth in kbps. Raised from 10 Mbps to 50 Mbps for modern fiber connections (1.6Gbps+). Recommend 20000-40000 for fast connections."
         top_pad="10"
         width="350" />
 
@@ -4619,13 +4619,13 @@
       <button
         follows="left|top"
         height="28"
-        label="Reset KVTweaks to Defaults"
+        label="Reset Tasia Engine to Defaults"
         layout="topleft"
         left="20"
         name="reset_kvtweaks_btn"
         top_pad="8"
         width="220"
-        tool_tip="Reset all KVTweaks settings to factory defaults (immediate effect)" />
+        tool_tip="Reset all Tasia Engine settings to factory defaults (immediate effect)" />
 
       <text
         type="string"
@@ -5512,4 +5512,3 @@
     width="614"/>
 
   </floater>
-

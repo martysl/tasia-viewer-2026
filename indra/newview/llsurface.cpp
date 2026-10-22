@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include <algorithm>
 
 #include "llsurface.h"
 
@@ -312,13 +313,40 @@ void LLSurface::getNeighboringRegionsStatus( std::vector<S32>& regions )
     }
 }
 
+void LLSurface::trackNeighbor(LLSurface* neighborp, U32 direction)
+{
+    if (!neighborp || direction >= 8)
+        return;
+
+    auto add_connection = [](LLSurface* surfacep, LLSurface* otherp, U32 other_direction)
+    {
+        auto found = std::find_if(surfacep->mNeighborConnections.begin(),
+                                  surfacep->mNeighborConnections.end(),
+            [otherp, other_direction](const NeighborConnection& connection)
+            {
+                return connection.mSurface == otherp &&
+                       connection.mDirection == other_direction;
+            });
+        if (found == surfacep->mNeighborConnections.end())
+        {
+            surfacep->mNeighborConnections.push_back({ otherp, other_direction });
+        }
+        if (!surfacep->mNeighbors[other_direction])
+        {
+            surfacep->mNeighbors[other_direction] = otherp;
+        }
+    };
+
+    add_connection(this, neighborp, direction);
+    add_connection(neighborp, this, gDirOpposite[direction]);
+}
+
 void LLSurface::connectNeighbor(LLSurface *neighborp, U32 direction)
 {
     S32 i;
     LLSurfacePatch *patchp, *neighbor_patchp;
 
-    mNeighbors[direction] = neighborp;
-    neighborp->mNeighbors[gDirOpposite[direction]] = this;
+    trackNeighbor(neighborp, direction);
 
     // Connect patches
     if (NORTHEAST == direction)
@@ -498,14 +526,237 @@ void LLSurface::connectNeighbor(LLSurface *neighborp, U32 direction)
     }
 }
 
+void LLSurface::connectNeighborEdge(LLSurface* neighborp, U32 direction,
+                                    U32 this_first_patch, U32 neighbor_first_patch,
+                                    U32 patch_count)
+{
+    const bool cardinal = direction == EAST || direction == WEST ||
+                          direction == NORTH || direction == SOUTH;
+    if (!neighborp || !cardinal || patch_count == 0 ||
+        this_first_patch > U32(mPatchesPerEdge) ||
+        patch_count > U32(mPatchesPerEdge) - this_first_patch ||
+        neighbor_first_patch > U32(neighborp->mPatchesPerEdge) ||
+        patch_count > U32(neighborp->mPatchesPerEdge) - neighbor_first_patch)
+    {
+        LL_WARNS("Terrain") << "Rejecting invalid partial terrain neighbor span" << LL_ENDL;
+        return;
+    }
+
+    bool connected_any = false;
+    auto connect_patch = [&](LLSurfacePatch* patchp, LLSurfacePatch* neighbor_patchp, U32 patch_direction)
+    {
+        const U32 opposite = gDirOpposite[patch_direction];
+        LLSurfacePatch* existing = patchp->getNeighborPatch(patch_direction);
+        LLSurfacePatch* reciprocal = neighbor_patchp->getNeighborPatch(opposite);
+        if ((existing && existing != neighbor_patchp) ||
+            (reciprocal && reciprocal != patchp))
+        {
+            LL_WARNS("Terrain") << "Skipping overlapping terrain patch neighbor" << LL_ENDL;
+            return false;
+        }
+        connected_any = true;
+        if (!existing)
+        {
+            patchp->connectNeighbor(neighbor_patchp, patch_direction);
+            neighbor_patchp->connectNeighbor(patchp, opposite);
+        }
+        return true;
+    };
+
+    for (U32 offset = 0; offset < patch_count; ++offset)
+    {
+        const U32 this_index = this_first_patch + offset;
+        const U32 neighbor_index = neighbor_first_patch + offset;
+        LLSurfacePatch* patchp = nullptr;
+        LLSurfacePatch* neighbor_patchp = nullptr;
+
+        if (direction == EAST)
+        {
+            patchp = getPatch(mPatchesPerEdge - 1, this_index);
+            neighbor_patchp = neighborp->getPatch(0, neighbor_index);
+        }
+        else if (direction == WEST)
+        {
+            patchp = getPatch(0, this_index);
+            neighbor_patchp = neighborp->getPatch(neighborp->mPatchesPerEdge - 1, neighbor_index);
+        }
+        else if (direction == NORTH)
+        {
+            patchp = getPatch(this_index, mPatchesPerEdge - 1);
+            neighbor_patchp = neighborp->getPatch(neighbor_index, 0);
+        }
+        else // SOUTH
+        {
+            patchp = getPatch(this_index, 0);
+            neighbor_patchp = neighborp->getPatch(neighbor_index, neighborp->mPatchesPerEdge - 1);
+        }
+
+        if (!connect_patch(patchp, neighbor_patchp, direction))
+            continue;
+
+        if (direction == EAST)
+        {
+            patchp->updateEastEdge();
+            patchp->dirtyZ();
+            if (neighbor_index + 1 < U32(neighborp->mPatchesPerEdge))
+                connect_patch(patchp, neighborp->getPatch(0, neighbor_index + 1), NORTHEAST);
+            if (neighbor_index > 0)
+                connect_patch(patchp, neighborp->getPatch(0, neighbor_index - 1), SOUTHEAST);
+        }
+        else if (direction == WEST)
+        {
+            neighbor_patchp->updateEastEdge();
+            neighbor_patchp->dirtyZ();
+            if (neighbor_index + 1 < U32(neighborp->mPatchesPerEdge))
+                connect_patch(patchp, neighborp->getPatch(neighborp->mPatchesPerEdge - 1, neighbor_index + 1), NORTHWEST);
+            if (neighbor_index > 0)
+                connect_patch(patchp, neighborp->getPatch(neighborp->mPatchesPerEdge - 1, neighbor_index - 1), SOUTHWEST);
+        }
+        else if (direction == NORTH)
+        {
+            patchp->updateNorthEdge();
+            patchp->dirtyZ();
+            if (neighbor_index + 1 < U32(neighborp->mPatchesPerEdge))
+                connect_patch(patchp, neighborp->getPatch(neighbor_index + 1, 0), NORTHEAST);
+            if (neighbor_index > 0)
+                connect_patch(patchp, neighborp->getPatch(neighbor_index - 1, 0), NORTHWEST);
+        }
+        else // SOUTH
+        {
+            neighbor_patchp->updateNorthEdge();
+            neighbor_patchp->dirtyZ();
+            if (neighbor_index + 1 < U32(neighborp->mPatchesPerEdge))
+                connect_patch(patchp, neighborp->getPatch(neighbor_index + 1, neighborp->mPatchesPerEdge - 1), SOUTHEAST);
+            if (neighbor_index > 0)
+                connect_patch(patchp, neighborp->getPatch(neighbor_index - 1, neighborp->mPatchesPerEdge - 1), SOUTHWEST);
+        }
+    }
+
+    // If this surface extends beyond either end of the shared span, its next
+    // boundary patch touches the neighbor's first/last patch only at a corner.
+    // The normal per-patch loop above can only create diagonals within the
+    // candidate surface, so explicitly connect these mosaic-junction corners.
+    if (direction == EAST)
+    {
+        if (this_first_patch > 0)
+            connect_patch(getPatch(mPatchesPerEdge - 1, this_first_patch - 1),
+                          neighborp->getPatch(0, neighbor_first_patch), NORTHEAST);
+        if (this_first_patch + patch_count < U32(mPatchesPerEdge))
+            connect_patch(getPatch(mPatchesPerEdge - 1, this_first_patch + patch_count),
+                          neighborp->getPatch(0, neighbor_first_patch + patch_count - 1), SOUTHEAST);
+    }
+    else if (direction == WEST)
+    {
+        if (this_first_patch > 0)
+            connect_patch(getPatch(0, this_first_patch - 1),
+                          neighborp->getPatch(neighborp->mPatchesPerEdge - 1, neighbor_first_patch), NORTHWEST);
+        if (this_first_patch + patch_count < U32(mPatchesPerEdge))
+            connect_patch(getPatch(0, this_first_patch + patch_count),
+                          neighborp->getPatch(neighborp->mPatchesPerEdge - 1,
+                                              neighbor_first_patch + patch_count - 1), SOUTHWEST);
+    }
+    else if (direction == NORTH)
+    {
+        if (this_first_patch > 0)
+            connect_patch(getPatch(this_first_patch - 1, mPatchesPerEdge - 1),
+                          neighborp->getPatch(neighbor_first_patch, 0), NORTHEAST);
+        if (this_first_patch + patch_count < U32(mPatchesPerEdge))
+            connect_patch(getPatch(this_first_patch + patch_count, mPatchesPerEdge - 1),
+                          neighborp->getPatch(neighbor_first_patch + patch_count - 1, 0), NORTHWEST);
+    }
+    else // SOUTH
+    {
+        if (this_first_patch > 0)
+            connect_patch(getPatch(this_first_patch - 1, 0),
+                          neighborp->getPatch(neighbor_first_patch,
+                                              neighborp->mPatchesPerEdge - 1), SOUTHEAST);
+        if (this_first_patch + patch_count < U32(mPatchesPerEdge))
+            connect_patch(getPatch(this_first_patch + patch_count, 0),
+                          neighborp->getPatch(neighbor_first_patch + patch_count - 1,
+                                              neighborp->mPatchesPerEdge - 1), SOUTHWEST);
+    }
+
+    if (connected_any)
+        trackNeighbor(neighborp, direction);
+}
+
+void LLSurface::connectNeighborCorner(LLSurface* neighborp, U32 direction)
+{
+    const bool diagonal = direction == NORTHEAST || direction == NORTHWEST ||
+                          direction == SOUTHEAST || direction == SOUTHWEST;
+    if (!neighborp || !diagonal)
+    {
+        LL_WARNS("Terrain") << "Rejecting invalid terrain corner neighbor" << LL_ENDL;
+        return;
+    }
+
+    S32 this_x = 0, this_y = 0, neighbor_x = 0, neighbor_y = 0;
+    if (direction == NORTHEAST)
+    {
+        this_x = mPatchesPerEdge - 1;
+        this_y = mPatchesPerEdge - 1;
+    }
+    else if (direction == NORTHWEST)
+    {
+        this_y = mPatchesPerEdge - 1;
+        neighbor_x = neighborp->mPatchesPerEdge - 1;
+    }
+    else if (direction == SOUTHEAST)
+    {
+        this_x = mPatchesPerEdge - 1;
+        neighbor_y = neighborp->mPatchesPerEdge - 1;
+    }
+    else // SOUTHWEST
+    {
+        neighbor_x = neighborp->mPatchesPerEdge - 1;
+        neighbor_y = neighborp->mPatchesPerEdge - 1;
+    }
+
+    LLSurfacePatch* patchp = getPatch(this_x, this_y);
+    LLSurfacePatch* neighbor_patchp = neighborp->getPatch(neighbor_x, neighbor_y);
+    const U32 opposite = gDirOpposite[direction];
+    LLSurfacePatch* existing = patchp->getNeighborPatch(direction);
+    LLSurfacePatch* reciprocal = neighbor_patchp->getNeighborPatch(opposite);
+    if ((!existing || existing == neighbor_patchp) &&
+        (!reciprocal || reciprocal == patchp))
+    {
+        if (!existing || !reciprocal)
+        {
+            patchp->connectNeighbor(neighbor_patchp, direction);
+            neighbor_patchp->connectNeighbor(patchp, opposite);
+        }
+        trackNeighbor(neighborp, direction);
+    }
+    else
+    {
+        LL_WARNS("Terrain") << "Skipping conflicting terrain corner neighbor" << LL_ENDL;
+    }
+}
+
 void LLSurface::disconnectNeighbor(LLSurface *surfacep)
 {
     S32 i;
+    mNeighborConnections.erase(
+        std::remove_if(mNeighborConnections.begin(), mNeighborConnections.end(),
+            [surfacep](const NeighborConnection& connection)
+            {
+                return connection.mSurface == surfacep;
+            }),
+        mNeighborConnections.end());
+
     for (i = 0; i < 8; i++)
     {
         if (surfacep == mNeighbors[i])
         {
             mNeighbors[i] = nullptr;
+            for (const NeighborConnection& connection : mNeighborConnections)
+            {
+                if (connection.mDirection == U32(i))
+                {
+                    mNeighbors[i] = connection.mSurface;
+                    break;
+                }
+            }
         }
     }
 
@@ -519,14 +770,20 @@ void LLSurface::disconnectNeighbor(LLSurface *surfacep)
 
 void LLSurface::disconnectAllNeighbors()
 {
-    S32 i;
-    for (i = 0; i < 8; i++)
+    std::vector<LLSurface*> neighbors;
+    for (const NeighborConnection& connection : mNeighborConnections)
     {
-        if (mNeighbors[i])
+        if (connection.mSurface &&
+            std::find(neighbors.begin(), neighbors.end(), connection.mSurface) == neighbors.end())
         {
-            mNeighbors[i]->disconnectNeighbor(this);
-            mNeighbors[i] = nullptr;
+            neighbors.push_back(connection.mSurface);
         }
+    }
+
+    for (LLSurface* neighborp : neighbors)
+    {
+        disconnectNeighbor(neighborp);
+        neighborp->disconnectNeighbor(this);
     }
 }
 
@@ -660,14 +917,14 @@ void LLSurface::decompressDCTPatch(LLBitPack &bitpack, LLGroupHeader *gopp, bool
 
     while (1)
     {
-        decode_patch_header(bitpack, &ph);
+        decode_patch_header(bitpack, &ph, b_large_patch);
         if (ph.quant_wbits == END_OF_PATCHES)
         {
             break;
         }
 
-        i = ph.patchids >> 5;
-        j = ph.patchids & 0x1F;
+        i = b_large_patch ? ph.patchids >> 16 : ph.patchids >> 5;
+        j = b_large_patch ? ph.patchids & 0xFFFF : ph.patchids & 0x1F;
 
         if ((i >= mPatchesPerEdge) || (j >= mPatchesPerEdge))
         {
@@ -1171,4 +1428,3 @@ F32 LLSurface::getWaterHeight() const
         return DEFAULT_WATER_HEIGHT;
     }
 }
-

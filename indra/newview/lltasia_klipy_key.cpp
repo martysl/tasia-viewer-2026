@@ -49,7 +49,8 @@ std::string getConfiguredAPIKey()
         return key;
     }
 
-    return getEmbeddedAPIKey();
+    auto env = LLStringUtil::getoptenv("TASIA_KLIPY_KEY");
+    return env ? *env : std::string();
 }
 
 bool hasConfiguredAPIKey()

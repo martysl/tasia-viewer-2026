@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel name="panel_profile" label="Profil">
+	<string name="partner_text" value="Partner: [LINK]" />
+	<string name="partner_name_loading" value="..." />
 	<string name="date_format" value="Urodziny: [day,datetime,slt] [mth,datetime,slt] [year,datetime,slt]" />
 	<string name="CaptionTextAcctInfo">
 Konto: [ACCTTYPE]

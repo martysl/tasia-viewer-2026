@@ -32,6 +32,10 @@
 			</layout_panel>
 			<layout_panel name="chat_layout_panel">
 				<layout_stack name="input_panels">
+					<layout_panel name="input_editor_layout_panel">
+						<button name="giphy_picker_btn" tool_tip="GIPHY Web SDK: GIF-y, naklejki, emoji i klipy" />
+						<button name="klipy_picker_btn" tool_tip="KLIPY: GIF-y i klipy" />
+					</layout_panel>
 					<layout_panel name="input_button_layout_panel">
 						<button name="minz_btn" tool_tip="Pokaż/ukryj panel wiadomości" />
 					</layout_panel>

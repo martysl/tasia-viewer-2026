@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel border="true" follows="left|top|right|bottom" height="438"
-label="S24 prefs" layout="topleft" left="102" name="Display panel"
+ label="Tasia prefs" layout="topleft" left="102" name="Display panel"
 top="1" width="517">
 
   <check_box control_name="UseDesaturation" height="16"

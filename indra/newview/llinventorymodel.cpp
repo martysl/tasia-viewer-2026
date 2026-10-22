@@ -25,6 +25,7 @@
  */
 
 #include "llviewerprecompiledheaders.h"
+#include "lltasia_grid_filename.h"
 
 #include <typeinfo>
 #include <random>
@@ -2357,7 +2358,7 @@ std::string LLInventoryModel::getInvCacheAddres(const LLUUID& owner_id)
         // Add controls against directory traversal or problematic pathname lengths
         // if your viewer uses grid names from an untrusted source.
         const std::string& grid_id_str = LLGridManager::getInstance()->getGridId();
-        const std::string& grid_id_lower = utf8str_tolower(grid_id_str);
+        const std::string grid_id_lower = TasiaGridFilename::component(utf8str_tolower(grid_id_str));
         inventory_addr = llformat(GRID_CACHE_FORMAT_STRING, path.c_str(), grid_id_lower.c_str());
     }
     return inventory_addr;
@@ -3760,9 +3761,73 @@ void LLInventoryModel::registerCallbacks(LLMessageSystem* msg)
                         processSaveAssetIntoInventory,
                         NULL);
     msg->setHandlerFuncFast(_PREHASH_BulkUpdateInventory,
-                            processBulkUpdateInventory,
-                            NULL);
+                             processBulkUpdateInventory,
+                             NULL);
     msg->setHandlerFunc("MoveInventoryItem", processMoveInventoryItem);
+    msg->setHandlerFunc("InventoryDescendents", processInventoryDescendents);
+    msg->setHandlerFunc("FetchInventoryReply", processFetchInventoryReply);
+}
+
+// Legacy OpenSim response to FetchInventory. The legacy item packet has fewer
+// fields than modern HTTP/AIS responses, so use the existing conservative merge.
+void LLInventoryModel::processFetchInventoryReply(LLMessageSystem* msg, void**)
+{
+    if (!LLGridManager::getInstance()->isInOpenSim()) return;
+    LLUUID agent_id;
+    msg->getUUID("AgentData", "AgentID", agent_id);
+    if (agent_id != gAgent.getID())
+    {
+        LL_WARNS(LOG_INV) << "Ignoring legacy FetchInventoryReply for another agent" << LL_ENDL;
+        return;
+    }
+    gInventory.messageUpdateCore(msg, false);
+}
+
+// Legacy OpenSim response to FetchInventoryDescendents.
+void LLInventoryModel::processInventoryDescendents(LLMessageSystem* msg, void**)
+{
+    if (!LLGridManager::getInstance()->isInOpenSim()) return;
+    LLUUID agent_id;
+    msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AgentID, agent_id);
+    if (agent_id != gAgent.getID())
+    {
+        LL_WARNS(LOG_INV) << "Ignoring InventoryDescendents for another agent" << LL_ENDL;
+        return;
+    }
+
+    LLUUID parent_id;
+    LLUUID owner_id;
+    S32 version = -1;
+    S32 descendents = -1;
+    msg->getUUID("AgentData", "FolderID", parent_id);
+    msg->getUUID("AgentData", "OwnerID", owner_id);
+    msg->getS32("AgentData", "Version", version);
+    msg->getS32("AgentData", "Descendents", descendents);
+    if (parent_id.isNull() || version < 0 || descendents < 0) return;
+
+    const S32 folder_count = msg->getNumberOfBlocksFast(_PREHASH_FolderData);
+    LLPointer<LLViewerInventoryCategory> category = new LLViewerInventoryCategory(owner_id);
+    for (S32 i = 0; i < folder_count; ++i)
+    {
+        category->unpackMessage(msg, _PREHASH_FolderData, i);
+        gInventory.updateCategory(category);
+    }
+
+    const S32 item_count = msg->getNumberOfBlocksFast(_PREHASH_ItemData);
+    LLPointer<LLViewerInventoryItem> item = new LLViewerInventoryItem;
+    for (S32 i = 0; i < item_count; ++i)
+    {
+        item->unpackMessage(msg, _PREHASH_ItemData, i);
+        if (!gInventory.getItem(item->getUUID())) gInventory.updateItem(item);
+    }
+
+    if (LLViewerInventoryCategory* parent = gInventory.getCategory(parent_id))
+    {
+        parent->setVersion(version);
+        parent->setDescendentCount(descendents);
+        gInventory.addChangedMask(LLInventoryObserver::INTERNAL, parent->getUUID());
+    }
+    gInventory.notifyObservers();
 }
 
 
@@ -5293,4 +5358,3 @@ void LLInventoryModel::FetchItemHttpHandler::processFailure(const char * const r
                       << LLCoreHttpUtil::responseToString(response) << "]" << LL_ENDL;
     gInventory.notifyObservers();
 }
-

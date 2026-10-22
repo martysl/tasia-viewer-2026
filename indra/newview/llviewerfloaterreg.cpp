@@ -69,6 +69,7 @@
 #include "llfloaterdisplayname.h"
 #include "llfloatereditextdaycycle.h"
 #include "llfloateremojipicker.h"
+#include "llfloatertasiamediapicker.h"
 #include "llfloaterenvironmentadjust.h"
 #include "llfloaterexperienceprofile.h"
 #include "llfloaterexperiences.h"
@@ -88,6 +89,7 @@
 #include "llfloaterhoverheight.h"
 #include "llfloaterhud.h"
 #include "llfloaterimagepreview.h"
+#include "llfloateruploadclipboard.h"
 #include "llfloaterimsession.h"
 #include "llfloaterinspect.h"
 #include "llfloaterinventorysettings.h"
@@ -236,6 +238,8 @@ public:
                 "upload_model",
                 "upload_script",
                 "upload_sound",
+                "upload_clipboard",
+                "mp3_batch_progress",
                 "bulk_upload",
                 "legacy_search"
             };
@@ -288,6 +292,8 @@ public:
                 "upload_model",
                 "upload_script",
                 "upload_sound",
+                "upload_clipboard",
+                "mp3_batch_progress",
                 "bulk_upload",
                 "slapp_test",
                 "legacy_search"
@@ -373,6 +379,7 @@ void LLViewerFloaterReg::registerFloaters()
     LLFloaterReg::add("destinations", "floater_destinations.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterDestinations>);
 
     LLFloaterReg::add("emoji_picker", "floater_emoji_picker.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterEmojiPicker>);
+    LLFloaterReg::add("tasia_media_picker", "floater_tasia_media_picker.xml", &LLFloaterReg::build<LLFloaterTasiaMediaPicker>);
     LLFloaterReg::add("emoji_complete", "floater_emoji_complete.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterEmojiComplete>);
 
     LLFloaterReg::add("env_fixed_environmentent_water", "floater_fixedenvironment.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterFixedEnvironmentWater>);
@@ -526,6 +533,8 @@ void LLViewerFloaterReg::registerFloaters()
     LLFloaterReg::add("upload_anim_bvh", "floater_animation_bvh_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterBvhPreview>, "upload");
     LLFloaterReg::add("upload_anim_anim", "floater_animation_anim_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterAnimPreview>, "upload");
     LLFloaterReg::add("upload_image", "floater_image_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterImagePreview>, "upload");
+    LLFloaterReg::add("upload_clipboard", "floater_upload_clipboard.xml", &LLFloaterReg::build<LLFloaterUploadClipboard>, "upload");
+    LLFloaterReg::add("mp3_batch_progress", "floater_mp3_batch_progress.xml", &LLFloaterReg::build<LLFloater>, "upload");
     LLFloaterReg::add("upload_model", "floater_model_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterModelPreview>, "upload");
     LLFloaterReg::add("upload_script", "floater_script_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterScriptPreview>, "upload");
     LLFloaterReg::add("upload_sound", "floater_sound_preview.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSoundPreview>, "upload");

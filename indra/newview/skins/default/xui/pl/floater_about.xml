@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="floater_about" title="O [CAPITALIZED_APP_NAME]">
+  <tab_container name="about_tab">
+    <panel name="support_panel" label="Informacje">
+      <button name="copy_btn" label="Kopiuj do schowka" />
+    </panel>
+    <panel name="credits_panel" label="Podziękowania">
+      <text_editor name="credits" parse_urls="true">
+Tasia Viewer DX
+Advanced Multiverse Viewer by Tasia and Marty
+Dla Second Life, OpenSim i zgodnych wirtualnych światów.
+
+Szczególne podziękowania dla Kirstenlee Cinquetti (Kirsten) za Kirstens Viewer i jego natywny renderer DirectX 11, które stanowią fundament Tasia Viewer DX.
+
+[https://github.com/Kirstenlee/Kirstensviewer Kirstens Viewer — kod źródłowy]
+[https://sourceforge.net/projects/kirstensviewers/ Kirstens Viewer — projekt i wydania]
+
+Informacje o autorach pierwotnego kodu i prawach autorskich zależności zachowano w zakładce Licencje.
+      </text_editor>
+    </panel>
+    <panel name="licenses_panel" label="Licencje" />
+  </tab_container>
+</floater>

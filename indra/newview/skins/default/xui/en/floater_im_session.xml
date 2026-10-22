@@ -298,10 +298,14 @@
                          tab_group="3"
                          bottom="-3"
                          left_pad="5"
-                         right="-30"
+                          right="-98"
                          wrap="true" />
-                        <button
-                         name="emoji_recent_panel_toggle_btn"
+                         <button name="giphy_picker_btn" label="GIF" tool_tip="GIPHY Web SDK: GIFs, stickers, emoji and clips"
+                          follows="right|bottom" bottom="-2" right="-65" width="31" height="25" />
+                         <button name="klipy_picker_btn" label="K" tool_tip="KLIPY GIFs and clips"
+                          follows="right|bottom" bottom="-2" right="-32" width="31" height="25" />
+                         <button
+                          name="emoji_recent_panel_toggle_btn"
                          tool_tip="Shows/hides recent emojis"
                          follows="right|bottom"
                          font="EmojiLarge"

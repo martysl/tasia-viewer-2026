@@ -241,7 +241,7 @@ private:
     LLSearchEditor*         mLocationEditor = nullptr;
     LLUICtrl*               mTeleportCoordSpinX = nullptr;
     LLUICtrl*               mTeleportCoordSpinY = nullptr;
-    LLUICtrl*               mTeleportCoordSpinZ = nullptr;
+    LLSpinCtrl*             mTeleportCoordSpinZ = nullptr;
 
     LLSliderCtrl*           mZoomSlider = nullptr;
 
@@ -278,4 +278,3 @@ private:
 };
 
 #endif
-

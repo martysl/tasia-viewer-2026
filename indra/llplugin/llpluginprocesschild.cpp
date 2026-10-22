@@ -322,7 +322,7 @@ void LLPluginProcessChild::sendMessageToPlugin(const LLPluginMessage &message)
 	{
 		std::string buffer = message.generate();
 
-		LL_DEBUGS("Plugin") << "Sending to plugin: " << buffer << LL_ENDL;
+		LL_DEBUGS("Plugin") << "Sending to plugin (payload omitted for privacy)" << LL_ENDL;
 		LLTimer elapsed;
 
 		mInstance->sendMessage(buffer);
@@ -339,7 +339,7 @@ void LLPluginProcessChild::sendMessageToParent(const LLPluginMessage &message)
 {
 	std::string buffer = message.generate();
 
-	LL_DEBUGS("Plugin") << "Sending to parent: " << buffer << LL_ENDL;
+	LL_DEBUGS("Plugin") << "Sending to parent (payload omitted for privacy)" << LL_ENDL;
 
 	writeMessageRaw(buffer);
 }
@@ -348,7 +348,7 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 {
 	// Incoming message from the TCP Socket
 
-	LL_DEBUGS("Plugin") << "Received from parent: " << message << LL_ENDL;
+	LL_DEBUGS("Plugin") << "Received from parent (payload omitted for privacy)" << LL_ENDL;
 
 	// Decode this message
 	LLPluginMessage parsed;
@@ -487,7 +487,7 @@ void LLPluginProcessChild::receiveMessageRaw(const std::string &message)
 /* virtual */
 void LLPluginProcessChild::receivePluginMessage(const std::string &message)
 {
-	LL_DEBUGS("Plugin") << "Received from plugin: " << message << LL_ENDL;
+	LL_DEBUGS("Plugin") << "Received from plugin (payload omitted for privacy)" << LL_ENDL;
 
 	if (mBlockingRequest)
 	{
@@ -570,7 +570,7 @@ void LLPluginProcessChild::receivePluginMessage(const std::string &message)
 
 	if (passMessage)
 	{
-		LL_DEBUGS("Plugin") << "Passing through to parent: " << message << LL_ENDL;
+		LL_DEBUGS("Plugin") << "Passing through to parent (payload omitted for privacy)" << LL_ENDL;
 		writeMessageRaw(message);
 	}
 

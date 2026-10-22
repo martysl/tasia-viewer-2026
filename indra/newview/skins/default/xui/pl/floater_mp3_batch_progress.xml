@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater name="mp3_batch_progress" title="Tasia — wysyłanie MP3">
+ <button name="cancel" label="Anuluj pozostałe części" />
+</floater>

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://api.giphy.com https://api.klipy.com; img-src https://*.giphy.com https://*.klipy.com data:; media-src https://*.giphy.com https://*.klipy.com; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Tasia media picker</title><link rel="stylesheet" href="picker.css"></head>
+<body>
+<form id="search"><select id="kind" aria-label="Content type"></select>
+<input id="query" maxlength="128" aria-label="Search"><button id="searchButton">Search</button>
+<button type="button" id="trending">Trending</button></form>
+<p id="status" role="status">Loading…</p>
+<p id="attribution">Powered by GIPHY / KLIPY</p>
+<main id="results"></main>
+<button id="more" hidden>More</button>
+<script src="picker.bundle.js"></script></body></html>

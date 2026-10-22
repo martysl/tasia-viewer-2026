@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-<floater name="worldmap" title="MAPA ŚWIATA">
+<floater name="worldmap" title="TASIA — ODKRYWAJ ŚWIATY">
+    <string name="tasia_travel">[GRID] — Podróżuj z Tasia Viewer</string>
+    <check_box name="tasia_globe_toggle" label="Globus 3D" />
+    <text name="tasia_map_hint">3D: przeciągnij, aby obrócić · kółko: zoom · wybierz region i kliknij Teleportuj. Atlas wirtualnego gridu.</text>
 	<panel name="layout_panel_1">
 		<text name="events_label">
 			Legenda

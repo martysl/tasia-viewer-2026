@@ -35,6 +35,7 @@ class LLTextBox;
 
 struct TasiaGiphyPreview
 {
+    std::string provider = "GIPHY";
     std::string id;
     std::string page_url;
     std::string media_url;

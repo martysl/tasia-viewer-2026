@@ -25,8 +25,14 @@
 */
 
 #include "llviewerprecompiledheaders.h"
+#include "llvieweraudio.h"
+#include "llaudioengine.h"
 
 #include "llstatusbar.h"
+#include "lltasia_transport_status.h"
+#include "llquicglobal.h"
+#include "llviewernetwork.h"
+#include "lliconctrl.h"
 
 // viewer includes
 #include "llagent.h"
@@ -35,6 +41,8 @@
 #include "llcommandhandler.h"
 #include "llfirstuse.h"
 #include "llviewercontrol.h"
+#include <utility>
+#include <vector>
 #include "llfloaterbuycurrency.h"
 #include "llbuycurrencyhtml.h"
 #include "llpanelnearbymedia.h"
@@ -242,6 +250,11 @@ bool LLStatusBar::postBuild()
     mPanelPresetsCameraPulldown->setFollows(FOLLOWS_TOP|FOLLOWS_RIGHT);
     mPanelPresetsCameraPulldown->setVisible(false);
 
+    // The bar is anchored to the right edge and laid out right-to-left, so a
+    // fixed width silently pushed the leftmost items off-screen. Size the bar
+    // to its actual content instead, so every control stays reachable.
+    reshapeToFitContent();
+
     mPanelPresetsPulldown = new LLPanelPresetsPulldown();
     addChild(mPanelPresetsPulldown);
     mPanelPresetsPulldown->setFollows(FOLLOWS_TOP|FOLLOWS_RIGHT);
@@ -274,6 +287,7 @@ bool LLStatusBar::postBuild()
     {
         updateMenuSearchPosition();
     }
+    reshapeToFitContent();
 
     return true;
 }
@@ -281,6 +295,26 @@ bool LLStatusBar::postBuild()
 // Per-frame updates of visibility
 void LLStatusBar::refresh()
 {
+    auto* quic_icon = getChild<LLIconCtrl>("quic_status");
+    const auto transport = tasiaTransportStatus(!gDisconnected && gAgent.getRegion(),
+        LLGridManager::getInstance()->isSystemGrid(),
+        gSavedSettings.getBOOL("TasiaQuicEnabled"), LLQuicGlobal::instance().isInitialized(),
+        gAgent.getRegion() && gMessageSystem &&
+            gMessageSystem->isCircuitQuicReady(gAgent.getRegion()->getHost()));
+    const char* description = "quic_disconnected";
+    switch (transport)
+    {
+    case TasiaTransportStatus::SecondLife: description = "quic_secondlife"; break;
+    case TasiaTransportStatus::Disabled: description = "quic_disabled"; break;
+    case TasiaTransportStatus::Unavailable: description = "quic_unavailable"; break;
+    case TasiaTransportStatus::NotRouted: description = "quic_not_routed"; break;
+    case TasiaTransportStatus::Active: description = "quic_active"; break;
+    default: break;
+    }
+    quic_icon->setValue(transport == TasiaTransportStatus::Active ? "Tasia_QUIC_On" :
+        (transport == TasiaTransportStatus::Unavailable || transport == TasiaTransportStatus::NotRouted
+        ? "Tasia_QUIC_Unavailable" : "Tasia_QUIC_Off"));
+    quic_icon->setToolTip(getString(description));
     static LLCachedControl<bool> show_net_stats(gSavedSettings, "ShowNetStats", false);
     bool net_stats_visible = show_net_stats;
 
@@ -345,18 +379,19 @@ void LLStatusBar::refresh()
 
     // Disable media toggle if there's no media, parcel media, and no parcel audio
     // (or if media is disabled)
-    bool button_enabled = (gSavedSettings.getBOOL("AudioStreamingMusic")||gSavedSettings.getBOOL("AudioStreamingMedia")) &&
-                          (media_inst->hasInWorldMedia() || media_inst->hasParcelMedia() || media_inst->hasParcelAudio());
+    bool any_media_playing = (media_inst->isAnyMediaPlaying() ||
+        media_inst->isParcelMediaPlaying() || (gAudiop &&
+        gAudiop->isInternetStreamPlaying() == LLAudioEngine::AUDIO_PLAYING));
+    bool button_enabled = any_media_playing || ((gSavedSettings.getBOOL("AudioStreamingMusic")||gSavedSettings.getBOOL("AudioStreamingMedia")) &&
+                          (media_inst->hasInWorldMedia() || media_inst->hasParcelMedia() || media_inst->hasParcelAudio()));
     mMediaToggle->setEnabled(button_enabled);
     // Note the "sense" of the toggle is opposite whether media is playing or not
-    bool any_media_playing = (media_inst->isAnyMediaPlaying() ||
-                              media_inst->isParcelMediaPlaying() ||
-                              media_inst->isParcelAudioPlaying());
     mMediaToggle->setValue(!any_media_playing);
 }
 
 void LLStatusBar::setVisibleForMouselook(bool visible)
 {
+    getChildView("quic_status")->setVisible(visible);
     mTextTime->setVisible(visible);
     getChild<LLUICtrl>("balance_bg")->setVisible(visible);
     mBoxBalance->setVisible(visible);
@@ -409,6 +444,7 @@ void LLStatusBar::setBalance(S32 balance)
     {
         updateMenuSearchPosition();
     }
+    reshapeToFitContent();
 
     if (mBalance && (fabs((F32)(mBalance - balance)) > gSavedSettings.getF32("UISndMoneyChangeThreshold")))
     {
@@ -525,6 +561,7 @@ void LLStatusBar::onClickBuyCurrency()
 
 void LLStatusBar::onClickShop()
 {
+    if (LLGridManager::getInstance()->getMarketplaceURL().empty()) return;
     LLFloaterReg::showInstanceOrBringToFront("marketplace");
     if (LLFloaterMarketplace* marketplace = LLFloaterReg::getTypedInstance<LLFloaterMarketplace>("marketplace"))
     {
@@ -748,6 +785,53 @@ void LLStatusBar::updateMenuSearchVisibility(const LLSD& data)
     else
     {
         updateMenuSearchPosition();
+    }
+    reshapeToFitContent();
+}
+
+void LLStatusBar::reshapeToFitContent()
+{
+    // Child rectangles are LOCAL to the bar; getRect() is in parent space.
+    // Normalize the children as well as the enclosing right-anchored rectangle.
+    // Merely changing our width leaves the controls at their old local x values.
+    const LLRect current = getRect();
+    const LLView::child_list_t* children = getChildList();
+    if (!children) return;
+    std::vector<std::pair<LLView*, LLRect>> child_rects;
+    child_rects.reserve(children->size());
+    S32 leftmost = 0;
+    S32 rightmost = 0;
+    bool found = false;
+    for (LLView* child : *children)
+    {
+        if (!child) continue;
+        const LLRect rect = child->getRect();
+        child_rects.emplace_back(child, rect);
+        if (!child->getVisible()) continue;
+        if (rect.getWidth() <= 0) continue;
+        leftmost = found ? llmin(leftmost, rect.mLeft) : rect.mLeft;
+        rightmost = found ? llmax(rightmost, rect.mRight) : rect.mRight;
+        found = true;
+    }
+    if (!found) return;
+    const S32 padding = 4;
+    const S32 width = llmax(rightmost - leftmost + padding * 2, 400);
+    const S32 shift = width - padding - rightmost;
+    LLRect rect = current;
+    rect.mLeft = current.mRight - width;
+    setRect(rect);
+    if (shift != 0 || rect.getWidth() != current.getWidth())
+    {
+        // setRect() reshapes right-anchored children automatically. Restore
+        // their original local geometry plus our one intentional content-fit
+        // shift, including hidden controls that may later become visible.
+        for (auto& entry : child_rects)
+        {
+            LLRect child_rect = entry.second;
+            child_rect.mLeft += shift;
+            child_rect.mRight += shift;
+            entry.first->setRect(child_rect);
+        }
     }
 }
 

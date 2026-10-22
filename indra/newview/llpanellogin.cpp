@@ -78,19 +78,65 @@ LLPanelLogin *LLPanelLogin::sInstance = NULL;
 bool LLPanelLogin::sCapslockDidNotification = false;
 bool LLPanelLogin::sCredentialSet = false;
 
+#include "lltasia_login_store.h"
+#include "llfilepicker.h"
+#include "llviewermenufile.h"
+
 // Helper functions
+
+namespace
+{
+std::string loginDatabasePath()
+{
+    return gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "login_accounts.sqlite3");
+}
+
+LLPointer<LLCredential> sqlCredential(const std::string& user_key)
+{
+    const std::string grid = LLGridManager::getInstance()->getGrid();
+    std::vector<TasiaLoginStore::Account> accounts;
+    if (!TasiaLoginStore::list(loginDatabasePath(), grid, accounts)) return nullptr;
+    for (const auto& account : accounts)
+    {
+        if (account.user != user_key) continue;
+        LLSD identifier;
+        std::istringstream input(account.identifier);
+        if (LLSDSerialize::fromXML(identifier, input) <= 0 || !identifier.isMap()) return nullptr;
+        LLSD auth;
+        std::string password;
+        if (TasiaLoginStore::password(loginDatabasePath(), grid, user_key, password) && !password.empty())
+        {
+            auth["type"] = CRED_AUTHENTICATOR_TYPE_HASH;
+            auth["algorithm"] = "md5";
+            LLMD5 pass(reinterpret_cast<const U8*>(password.c_str()));
+            char digest[33];
+            pass.hex_digest(digest);
+            auth["secret"] = digest;
+            std::fill(password.begin(), password.end(), '\0');
+        }
+        return gSecAPIHandler->createCredential(grid, identifier, auth);
+    }
+    return nullptr;
+}
+}
 
 LLPointer<LLCredential> load_user_credentials(std::string &user_key)
 {
+    auto sql = sqlCredential(user_key);
+    if (sql.notNull() && sql->getAuthenticator().has("secret")) return sql;
     if (gSecAPIHandler->hasCredentialMap("login_list", LLGridManager::getInstance()->getGrid()))
     {
         // user_key should be of "name Resident" format
-        return gSecAPIHandler->loadFromCredentialMap("login_list", LLGridManager::getInstance()->getGrid(), user_key);
+        auto credential = gSecAPIHandler->loadFromCredentialMap("login_list", LLGridManager::getInstance()->getGrid(), user_key);
+        return credential.notNull() && credential->getIdentifier().isMap() ? credential : sql;
     }
     else
     {
         // legacy (or legacy^2, since it also tries to load from settings)
-        return gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
+        // Global legacy settings must never supply an SL password to a custom grid.
+        if (!LLGridManager::getInstance()->isSystemGrid()) return sql;
+        auto credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
+        return credential.notNull() && credential->userID() == user_key ? credential : sql;
     }
 }
 
@@ -208,6 +254,7 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
     setBackgroundOpaque(true);
 
     mPasswordModified = false;
+    mPasswordVisible = false;
 
     sInstance = this;
 
@@ -224,6 +271,22 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
     password_edit->setKeystrokeCallback(onPassKey, this);
     // STEAM-14: When user presses Enter with this field in focus, initiate login
     password_edit->setCommitCallback(boost::bind(&LLPanelLogin::onClickConnect, false));
+
+    // Toggle password visibility button
+    LLButton* toggle_pwd_btn = findChild<LLButton>("toggle_password_visibility");
+    if (toggle_pwd_btn)
+    {
+        toggle_pwd_btn->setCommitCallback(boost::bind(&LLPanelLogin::onTogglePasswordVisibility, this));
+        mPasswordVisible = false;
+    }
+    if (auto* button = findChild<LLButton>("import_login_accounts"))
+    {
+        button->setCommitCallback([](LLUICtrl*, const LLSD&)
+        {
+            LLFilePickerReplyThread::startPicker(boost::bind(&LLPanelLogin::onImportLoginAccounts, _1),
+                                                LLFilePicker::FFLOAD_ALL, false);
+        });
+    }
 
     childSetAction("connect_btn", onClickConnect, this);
     childSetAction("sign_btn", onClickSignUp, this);
@@ -509,6 +572,7 @@ void LLPanelLogin::show(const LLRect &rect,
     if (!LLPanelLogin::sInstance)
     {
         new LLPanelLogin(rect, callback, callback_data);
+        LLGridManager::getInstance()->requestGridCatalog();
     }
 
     if( !gFocusMgr.getKeyboardFocus() )
@@ -569,7 +633,9 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential)
         return;
     }
     sCredentialSet = true;
-    LL_INFOS("Credentials") << "Setting login fields to " << *credential << LL_ENDL;
+    sInstance->hidePassword();
+    sInstance->mPasswordModified = false;
+    LL_DEBUGS("Credentials") << "Updating login fields" << LL_ENDL;
 
     LLSD identifier = credential.notNull() ? credential->getIdentifier() : LLSD();
 
@@ -605,7 +671,16 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential)
     // a filler to get some stars
     LLSD authenticator = credential.notNull() ? credential->getAuthenticator() : LLSD();
     LL_INFOS("Credentials") << "Setting authenticator field " << authenticator["type"].asString() << LL_ENDL;
-    if(authenticator.isMap() &&
+    std::string saved_password;
+    if (credential.notNull() && TasiaLoginStore::password(loginDatabasePath(),
+        LLGridManager::getInstance()->getGrid(), credential->userID(), saved_password) && !saved_password.empty())
+    {
+        sInstance->getChild<LLUICtrl>("password_edit")->setValue(saved_password);
+        sInstance->mPasswordLength = static_cast<unsigned int>(saved_password.size());
+        sInstance->mPasswordModified = true; // Real text, not the legacy MD5 filler.
+        std::fill(saved_password.begin(), saved_password.end(), '\0');
+    }
+    else if(authenticator.isMap() &&
        authenticator.has("secret") &&
        (authenticator["secret"].asString().size() > 0))
     {
@@ -624,6 +699,13 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential)
         sInstance->getChild<LLUICtrl>("password_edit")->setValue(std::string());
         sInstance->mPasswordLength = 0;
     }
+    if (identifier.isMap() && identifier.has("type"))
+    {
+        sInstance->getChild<LLUICtrl>("remember_name")->setValue(true);
+        sInstance->getChild<LLUICtrl>("remember_password")->setValue(sInstance->mPasswordLength != 0);
+        sInstance->getChild<LLUICtrl>("remember_password")->setEnabled(true);
+    }
+    sInstance->updateLoginButtons();
 }
 
 // static
@@ -875,10 +957,9 @@ void LLPanelLogin::loadLoginPage()
 {
     if (!sInstance) return;
 
-    LLURI login_page = LLURI(LLGridManager::getInstance()->getLoginPage());
-    LLSD params(login_page.queryMap());
-
-    LL_DEBUGS("AppInit") << "login_page: " << login_page << LL_ENDL;
+    // The product welcome page is independent of a grid's login/splash URL.
+    // Grid authentication endpoints remain managed by LLGridManager.
+    LLURI login_page("https://startup.tasiaviewer.work/");
 
     // allow users (testers really) to specify a different login content URL
     std::string force_login_url = gSavedSettings.getString("ForceLoginURL");
@@ -886,6 +967,7 @@ void LLPanelLogin::loadLoginPage()
     {
         login_page = LLURI(force_login_url);
     }
+    LLSD params(login_page.queryMap());
 
     // Language
     params["lang"] = LLUI::getLanguage();
@@ -919,7 +1001,7 @@ void LLPanelLogin::loadLoginPage()
                                      login_page.path(),
                                      params));
 
-    gViewerWindow->setMenuBackgroundColor(false, !LLGridManager::getInstance()->isInProductionGrid());
+    gViewerWindow->setMenuBackgroundColor(false, !LLGridManager::getInstance()->isInSecondLife());
 
     if (sInstance->mWebBrowser)
     {
@@ -1043,7 +1125,11 @@ void LLPanelLogin::onClickForgotPassword(void*)
 {
     if (sInstance )
     {
-        LLWeb::loadURLExternal(sInstance->getString( "forgot_password_url" ));
+        auto* manager = LLGridManager::getInstance();
+        const auto url = manager->isInSecondLife() ? sInstance->getString("forgot_password_url") :
+            manager->getGridInfo(manager->getGrid())["password"].asString();
+        const LLURI uri(url);
+        if (uri.scheme() == "https" || uri.scheme() == "http") LLWeb::loadURLExternal(url);
     }
 }
 
@@ -1052,13 +1138,18 @@ void LLPanelLogin::onClickSignUp(void*)
 {
     if (sInstance)
     {
-        LLWeb::loadURLExternal(sInstance->getString("sign_up_url"));
+        auto* manager = LLGridManager::getInstance();
+        const auto url = manager->isInSecondLife() ? sInstance->getString("sign_up_url") :
+            manager->getGridInfo(manager->getGrid())["register"].asString();
+        const LLURI uri(url);
+        if (uri.scheme() == "https" || uri.scheme() == "http") LLWeb::loadURLExternal(url);
     }
 }
 
 // static
 void LLPanelLogin::onUserNameTextEnty(void*)
 {
+    sInstance->hidePassword();
     sInstance->mPasswordModified = true;
     sInstance->getChild<LLUICtrl>("password_edit")->setValue(std::string());
     sInstance->mPasswordLength = 0;
@@ -1071,13 +1162,11 @@ void LLPanelLogin::onUserListCommit(void*)
     if (sInstance)
     {
         LLComboBox* username_combo(sInstance->getChild<LLComboBox>("username_combo"));
-        static S32 ind = -1;
-        if (ind != username_combo->getCurrentIndex())
+        if (username_combo->getCurrentIndex() != -1)
         {
             std::string user_key = username_combo->getSelectedValue();
-            LLPointer<LLCredential> cred = gSecAPIHandler->loadFromCredentialMap("login_list", LLGridManager::getInstance()->getGrid(), user_key);
+            LLPointer<LLCredential> cred = load_user_credentials(user_key);
             setFields(cred);
-            sInstance->mPasswordModified = false;
         }
         else
         {
@@ -1131,6 +1220,12 @@ void LLPanelLogin::onRememberPasswordCheck(void*)
 
         std::string grid(LLGridManager::getInstance()->getGridId());
         std::string user_id(cred->userID());
+        if (!remember_password && !TasiaLoginStore::clearPassword(loginDatabasePath(), cred->getGrid(), user_id))
+        {
+            LLSD args;
+            args["MESSAGE"] = sInstance->getString("accounts_save_failed");
+            LLNotificationsUtil::add("GenericAlertOK", args);
+        }
     }
 }
 
@@ -1148,6 +1243,86 @@ void LLPanelLogin::onPassKey(LLLineEditor* caller, void* user_data)
     LLLineEditor* password_edit(self->getChild<LLLineEditor>("password_edit"));
     self->mPasswordLength = static_cast<unsigned int>(password_edit->getText().length());
     self->updateLoginButtons();
+}
+
+// static
+void LLPanelLogin::onTogglePasswordVisibility(void*)
+{
+    if (sInstance)
+    {
+        if (!sInstance->mPasswordModified)
+        {
+            LLSD args;
+            args["MESSAGE"] = sInstance->getString("password_hash_only");
+            LLNotificationsUtil::add("GenericAlertOK", args);
+            return;
+        }
+        sInstance->mPasswordVisible = !sInstance->mPasswordVisible;
+        sInstance->mPasswordRevealTimer.reset();
+        LLLineEditor* password_edit = sInstance->getChild<LLLineEditor>("password_edit");
+        if (password_edit)
+        {
+            password_edit->setDrawAsterixes(!sInstance->mPasswordVisible);
+        }
+        LLButton* toggle_btn = sInstance->getChild<LLButton>("toggle_password_visibility");
+        if (toggle_btn)
+        {
+            toggle_btn->setLabel(sInstance->getString(sInstance->mPasswordVisible ? "password_hide" : "password_show"));
+        }
+    }
+}
+
+void LLPanelLogin::hidePassword()
+{
+    mPasswordVisible = false;
+    getChild<LLLineEditor>("password_edit")->setDrawAsterixes(true);
+    if (auto* button = findChild<LLButton>("toggle_password_visibility"))
+        button->setLabel(getString("password_show"));
+}
+
+// Called only after the server accepts authentication, while the login panel still exists.
+void LLPanelLogin::saveLoginAccount(LLPointer<LLCredential> credential, bool remember_user, bool remember_password)
+{
+    if (!sInstance || credential.isNull()) return;
+    const std::string path = loginDatabasePath();
+    const std::string grid = credential->getGrid();
+    if (!remember_user)
+    {
+        if (!TasiaLoginStore::erase(path, grid, credential->userID()))
+            LL_WARNS("Credentials") << "Could not remove SQLite account" << LL_ENDL;
+        return;
+    }
+    std::ostringstream identifier;
+    LLSDSerialize::toXML(credential->getIdentifier(), identifier);
+    TasiaLoginStore::Account account{grid, credential->userID(), getUserName(credential), identifier.str()};
+    std::string password;
+    const std::string* value = nullptr;
+    if (!remember_password) value = &password; // Explicitly remove any existing encrypted password.
+    else if (sInstance->mPasswordModified)
+    {
+        password = sInstance->getChild<LLLineEditor>("password_edit")->getText();
+        value = &password;
+    }
+    bool ok = TasiaLoginStore::save(path, account, value);
+    std::fill(password.begin(), password.end(), '\0');
+    if (!ok)
+    {
+        LLSD args;
+        args["MESSAGE"] = sInstance->getString("accounts_save_failed");
+        LLNotificationsUtil::add("GenericAlertOK", args);
+    }
+    sInstance->hidePassword();
+}
+
+void LLPanelLogin::onImportLoginAccounts(const std::vector<std::string>& filenames)
+{
+    if (!sInstance || filenames.empty()) return;
+    int count = 0;
+    bool ok = TasiaLoginStore::importDatabase(loginDatabasePath(), filenames.front(), count);
+    LLSD args;
+    args["MESSAGE"] = sInstance->getString(ok ? "accounts_imported" : "accounts_import_failed");
+    LLNotificationsUtil::add("GenericAlertOK", args);
+    if (ok) resetFields();
 }
 
 
@@ -1176,47 +1351,18 @@ void LLPanelLogin::updateServer()
     {
         try
         {
-            // if they've selected another grid, we should load the credentials
-            // for that grid and set them to the UI. But if there were any modifications to
-            // fields, modifications should carry over.
-            // Not sure if it should carry over password but it worked like this before login changes
-            // Example: you started typing in and found that your are under wrong grid,
-            // you switch yet don't lose anything
-            if (sInstance->areCredentialFieldsDirty())
-            {
-                // save modified creds
-                LLComboBox* user_combo = sInstance->getChild<LLComboBox>("username_combo");
-                LLLineEditor* pswd_edit = sInstance->getChild<LLLineEditor>("password_edit");
-                std::string username = user_combo->getSimple();
-                LLStringUtil::trim(username);
-                std::string password = pswd_edit->getValue().asString();
-
-                // populate dropbox and setFields
-                // Note: following call is related to initializeLoginInfo()
-                LLPointer<LLCredential> credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
-                sInstance->populateUserList(credential);
-
-                // restore creds
-                user_combo->setTextEntry(username);
-                pswd_edit->setValue(password);
-                sInstance->mUsernameLength = static_cast<unsigned int>(username.length());
-                sInstance->mPasswordLength = static_cast<unsigned int>(password.length());
-            }
-            else
-            {
-                // populate dropbox and setFields
-                // Note: following call is related to initializeLoginInfo()
-                LLPointer<LLCredential> credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
-                sInstance->populateUserList(credential);
-            }
+            // Never carry one grid's visible or saved password into another grid.
+            LLPointer<LLCredential> credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
+            sInstance->populateUserList(credential);
 
             // update the login panel links
             bool system_grid = LLGridManager::getInstance()->isSystemGrid();
 
             // Want to vanish not only create_new_account_btn, but also the
             // title text over it, so turn on/off the whole layout_panel element.
-            sInstance->getChild<LLLayoutPanel>("links")->setVisible(system_grid);
-            sInstance->getChildView("forgot_password_text")->setVisible(system_grid);
+            const auto info = LLGridManager::getInstance()->getGridInfo(LLGridManager::getInstance()->getGrid());
+            sInstance->getChild<LLLayoutPanel>("links")->setVisible(system_grid || !info["register"].asString().empty());
+            sInstance->getChildView("forgot_password_text")->setVisible(system_grid || !info["password"].asString().empty());
 
             // grid changed so show new splash screen (possibly)
             loadLoginPage();
@@ -1248,6 +1394,11 @@ void LLPanelLogin::updateLoginButtons()
 
 void LLPanelLogin::populateUserList(LLPointer<LLCredential> credential)
 {
+    hidePassword();
+    mPasswordModified = false;
+    if (!LLGridManager::getInstance()->isSystemGrid() &&
+        !gSecAPIHandler->hasCredentialMap("login_list", LLGridManager::getInstance()->getGrid()))
+        credential = nullptr; // Ignore global legacy fallback on new custom grids.
     LLComboBox* user_combo = getChild<LLComboBox>("username_combo");
     user_combo->removeall();
     user_combo->clear();
@@ -1304,6 +1455,39 @@ void LLPanelLogin::populateUserList(LLPointer<LLCredential> credential)
             updateLoginButtons();
         }
     }
+    // Merge SQL accounts with the legacy protected-store list without removing old accounts.
+    std::vector<TasiaLoginStore::Account> accounts;
+    if (TasiaLoginStore::list(loginDatabasePath(), LLGridManager::getInstance()->getGrid(), accounts))
+    {
+        const LLSD selected = user_combo->getSelectedValue();
+        for (const auto& account : accounts)
+        {
+            if (!user_combo->setSelectedByValue(LLSD(account.user), true))
+                user_combo->add(account.label, account.user, ADD_BOTTOM, true);
+            // Keep imported accounts visible to the existing Remembered Usernames / Forget UI.
+            auto existing = gSecAPIHandler->loadFromCredentialMap("login_list", account.grid, account.user);
+            if (existing.isNull() || !existing->getIdentifier().isMap())
+            {
+                LLSD identifier;
+                std::istringstream input(account.identifier);
+                if (LLSDSerialize::fromXML(identifier, input) > 0 && identifier.isMap())
+                {
+                    auto metadata = gSecAPIHandler->createCredential(account.grid, identifier, LLSD());
+                    gSecAPIHandler->addToCredentialMap("login_list", metadata, false);
+                }
+            }
+        }
+        if (!selected.asString().empty()) user_combo->setSelectedByValue(selected, true);
+        else if (credential.notNull() && user_combo->setSelectedByValue(LLSD(credential->userID()), true))
+            setFields(credential);
+        else if (!accounts.empty())
+        {
+            std::string key = accounts.front().user;
+            user_combo->setSelectedByValue(LLSD(key), true);
+            setFields(load_user_credentials(key));
+        }
+    }
+    updateLoginButtons();
 }
 
 
@@ -1435,6 +1619,7 @@ void LLPanelLogin::collapseGridPanel(bool collapse)
 
 void LLPanelLogin::draw()
 {
+    if (mPasswordVisible && mPasswordRevealTimer.getElapsedTimeF32() > 15.f) hidePassword();
     LLPanel::draw();
 
     // Workaround for the black screen issue (see #5607)

@@ -49,6 +49,7 @@
 #include "llviewertexturelist.h"
 #include "llviewertexture.h"
 #include "llviewerregion.h"
+#include "llviewernetwork.h"
 #include "llviewerstats.h"
 #include "llviewerstatsrecorder.h"
 #include "llviewerthrottle.h"
@@ -66,6 +67,7 @@
 #include "bufferstream.h"
 #include "llcorehttputil.h"
 #include "llhttpretrypolicy.h"
+#include "lltasia_asset_caps.h"
 
 LLTrace::CountStatHandle<F64> LLTextureFetch::sCacheHit("texture_cache_hit");
 LLTrace::CountStatHandle<F64> LLTextureFetch::sCacheAttempt("texture_cache_attempt");
@@ -1438,7 +1440,8 @@ bool LLTextureFetchWorker::doWork(S32 param)
 					{
 						LL_DEBUGS(LOG_TXT) << "Trying to fetch a texture of non-default type by UUID. This probably won't work!" << LL_ENDL;
 					}
-					setUrl(http_url + "/?texture_id=" + mID.asString().c_str());
+					setUrl(TasiaAssetCaps::assetURL(http_url, "texture", mID.asString(),
+						LLGridManager::getInstance()->isInOpenSim()));
 					LL_DEBUGS(LOG_TXT) << "Texture URL: " << mUrl << LL_ENDL;
 					mWriteToCacheState = CAN_WRITE; //because this texture has a fixed texture id.
 					mCanUseCapability = true;
@@ -2398,6 +2401,21 @@ S32 LLTextureFetchWorker::callbackHttpGet(LLCore::HttpResponse* response,
 		LLCore::BufferArray* body(response->getBody());
 		data_size = body ? static_cast<S32>(body->size()) : 0;
 
+		// Diagnostic (temporary): a texture that arrives with an empty body is
+		// handed to the decoder and fails with an empty reason string, which
+		// tells us nothing. Record the shape of the response instead. No URL,
+		// no UUID, no host - response metadata only.
+		if (data_size == 0)
+		{
+			LL_WARNS("OpenSimTexFetch") << "empty HTTP body: status="
+				<< response->getStatus().getStatus()
+				<< " type=" << response->getStatus().getType()
+				<< " content-type=[" << response->getContentType() << "]"
+				<< " message=[" << response->getStatus().getMessage() << "]"
+				<< " fttype=" << mFTType << " discard=" << mRequestedDiscard
+				<< LL_ENDL;
+		}
+
 		if (data_size > 0)
 		{
 			// *TODO: set the formatted image data here directly to avoid the copy
@@ -2466,6 +2484,15 @@ S32 LLTextureFetchWorker::callbackHttpGet(LLCore::HttpResponse* response,
 	}
 	else
 	{
+		// Diagnostic (temporary): an outright HTTP failure is currently
+		// swallowed silently here. Record status and content type only.
+		LL_WARNS("OpenSimTexFetch") << "HTTP request failed: status="
+			<< response->getStatus().getStatus()
+			<< " type=" << response->getStatus().getType()
+			<< " content-type=[" << response->getContentType() << "]"
+			<< " message=[" << response->getStatus().getMessage() << "]"
+			<< " fttype=" << mFTType << " discard=" << mRequestedDiscard
+			<< LL_ENDL;
 		mRequestedSize = -1; // error
 	}
 
@@ -3938,4 +3965,3 @@ void LLTextureFetchTester::updateStats(const std::map<S32, F32> state_timers, co
 	mSkippedStatesTime = skipped_states_time;
 	outputTestResults();
 }
-

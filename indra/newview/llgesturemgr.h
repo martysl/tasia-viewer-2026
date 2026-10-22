@@ -145,6 +145,8 @@ public:
     void changed(U32 mask) override;
 
     bool matchPrefix(const std::string& in_str, std::string* out_str);
+    // Exact matches against locally known gesture triggers/replacements/chat steps.
+    bool isGestureText(const std::string& text) const;
 
     // Copy item ids into the vector
     void getItemIDs(uuid_vec_t* ids);

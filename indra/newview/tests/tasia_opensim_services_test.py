@@ -1,0 +1,317 @@
+#!/usr/bin/env python3
+"""OpenSim service compatibility: profile, currency, marketplace, grid list.
+
+Production-source contract tests plus a compiled legacy-profile mapping check.
+No live grid, HTTP service or GUI claim is made here.
+"""
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+import unittest
+import xml.etree.ElementTree as ET
+from tasia_portable_branding_test import method
+
+ROOT = Path(__file__).resolve().parents[3]
+NV = ROOT/'indra/newview'
+
+
+def compile_run(source):
+    with tempfile.TemporaryDirectory(dir='/tmp/opencode',prefix='opensim-svc-') as tmp:
+        cpp, exe = Path(tmp)/'test.cpp', Path(tmp)/'test'
+        cpp.write_text(source)
+        subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror',
+                        '-fsanitize=address,undefined',str(cpp),'-o',str(exe)],check=True)
+        subprocess.run([str(exe)],check=True)
+
+
+class OpenSimServices(unittest.TestCase):
+    def test_remote_profile_customization_is_rendered_safely(self):
+        profile = (NV/'llpanelprofile.cpp').read_text()
+        avatar = (NV/'llvoavatar.cpp').read_text()
+        thumbnail = (NV/'llthumbnailctrl.cpp').read_text()
+        self.assertIn('tasia_user.getNametagTitle()', avatar)
+        rank_line = avatar.index('addNameTagLine(tasia_title, name_tag_color')
+        self.assertLess(avatar.index('addNameTagLine(LLTasiaUserConfig::renderUsername'), rank_line)
+        self.assertLess(avatar.index('addNameTagLine(tasia_user.cosmetic_username'), rank_line)
+        self.assertIn('tasia_user.has_tag_color) name_tag_color = tasia_user.tag_color', avatar)
+        self.assertIn('user.profile_text', profile)
+        self.assertIn('user.tooltip', profile)
+        self.assertIn('user.badge_icon', profile)
+        self.assertIn('options->setFollowRedirects(false)', profile)
+        self.assertIn('options->setBodyLimit(TASIA_PROFILE_BADGE_MAX_BYTES)', profile)
+        self.assertIn('headers->append(std::string(HTTP_OUT_HEADER_ACCEPT)', profile)
+        self.assertIn('LLCore::HttpStatus(HTTP_OK)', profile)
+        self.assertIn('setTexture(LLViewerFetchedTexture* texture', thumbnail)
+        xml = ET.parse(NV/'skins/default/xui/en/panel_profile_secondlife.xml').getroot()
+        names = {node.attrib.get('name') for node in xml.iter()}
+        self.assertTrue({'tasia_profile_badge_layout', 'tasia_profile_badge_icon',
+                         'tasia_profile_badge_fallback', 'account_info'} <= names)
+
+    def test_legacy_profile_mapping_copies_only_present_fields(self):
+        header = (NV/'lltasia_profile_compat.h').read_text()
+        fields = header[header.index('inline LLAvatarData tasiaLegacyProfileFields('):]
+        fixture = r'''
+#include <cassert>
+#include <list>
+#include <string>
+#include <utility>
+using U8=unsigned char;using U32=unsigned;using U64=unsigned long long;
+struct LLUUID{std::string s;bool isNull()const{return s.empty();}bool operator==(const LLUUID& o)const{return s==o.s;}};
+struct LLDate{};
+struct LLAvatarData
+{
+    struct LLGroupData { U64 group_powers; bool accept_notices; std::string group_title;
+                         LLUUID group_id; std::string group_name; LLUUID group_insignia_id; };
+    LLUUID      agent_id; LLUUID avatar_id; LLUUID image_id; LLUUID fl_image_id; LLUUID partner_id;
+    std::string about_text; std::string fl_about_text; LLDate born_on; std::string profile_url;
+    U8 caption_index; std::string caption_text; std::string customer_type; U32 flags;
+    bool hide_age = false; std::string notes;
+    typedef std::list<LLGroupData> group_list_t; group_list_t group_list;
+    typedef std::pair<LLUUID, std::string> pick_data_t; typedef std::list<pick_data_t> picks_list_t; picks_list_t picks_list;
+};
+struct LLAvatarLegacyData
+{
+    LLUUID agent_id; LLUUID avatar_id; LLUUID image_id; LLUUID fl_image_id; LLUUID partner_id;
+    std::string about_text; std::string fl_about_text; LLDate born_on; std::string profile_url;
+    U8 caption_index; std::string caption_text; std::string customer_type; U32 flags;
+};
+''' + fields + r'''
+int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
+ assert(full.group_list.empty()&&full.picks_list.empty()&&full.notes.empty()); }
+'''
+        compile_run(fixture)
+
+    def test_profile_request_falls_back_to_legacy_on_opensim(self):
+        source = (NV/'llavatarpropertiesprocessor.cpp').read_text()
+        send = method(source,'void LLAvatarPropertiesProcessor::sendRequest(')
+        self.assertIn('isInOpenSim()', send)
+        self.assertIn('sendAvatarLegacyPropertiesRequest(avatar_id)', send)
+        self.assertIn('route=AgentProfile-HTTP', send)
+        self.assertIn('route=legacy-UDP reason=AgentProfile-cap-absent', send)
+        coro = method(source,'void LLAvatarPropertiesProcessor::requestAvatarPropertiesCoro(')
+        self.assertIn('isInOpenSim()', coro)
+        self.assertIn('sendAvatarLegacyPropertiesRequest(avatar_id)', coro)
+        self.assertIn('gAgent.getSessionID() != session', coro)
+        self.assertIn('Profile AgentProfile-HTTP result status=', coro)
+        self.assertIn('Profile AgentProfile-HTTP parsed groups=', coro)
+        processor = (NV/'llavatarpropertiesprocessor.cpp').read_text()
+        legacy_reply = method(processor,'void LLAvatarPropertiesProcessor::processAvatarLegacyPropertiesReply(')
+        self.assertIn('reply=AvatarPropertiesReply', legacy_reply)
+        panel_base = (NV/'llpanelavatar.cpp').read_text()
+        self.assertIn('Profile tab completion panel=', panel_base)
+        panel = (NV/'llpanelprofile.cpp').read_text()
+        profile = method(panel,'void LLPanelProfile::updateData(')
+        self.assertIn('Profile floater loading started', profile)
+        self.assertIn('APT_PROPERTIES_LEGACY', panel)
+        self.assertIn('tasiaLegacyProfileFields', panel)
+        picks = (NV/'llpanelprofilepicks.cpp').read_text()
+        picks_handler = method(picks,'void LLPanelProfilePicks::processProperties(')
+        self.assertIn('APT_PICKS', picks_handler)
+        self.assertIn('profile_data.picks_list = picks.picks_list', picks_handler)
+        picks_update = method(picks,'void LLPanelProfilePicks::updateData(')
+        self.assertIn('sendAvatarPicksRequest(avatar_id)', picks_update)
+        notes_handler = method(panel,'void LLPanelProfileNotes::processProperties(')
+        self.assertIn('APT_NOTES', notes_handler)
+        self.assertIn('profile_data.notes = notes.notes', notes_handler)
+        self.assertIn('setLoaded()', method(panel,'void LLPanelProfileNotes::processProperties(const LLAvatarData*'))
+        notes_update = method(panel,'void LLPanelProfileNotes::updateData(')
+        self.assertIn('sendAvatarNotesRequest(avatar_id)', notes_update)
+        self.assertIn('sendNotes(getAvatarId(), mCurrentNotes)', panel)
+        self.assertNotIn('mPanelPicks->setIsLoading()', method(panel,'void LLPanelProfile::updateData('))
+        self.assertNotIn('mPanelNotes->setIsLoading()', method(panel,'void LLPanelProfile::updateData('))
+
+    def test_opensim_legacy_profile_reply_family_is_consumed(self):
+        processor = (NV/'llavatarpropertiesprocessor.cpp').read_text()
+        cases = {
+            'processAvatarNotesReply': ('APT_NOTES', 'removePendingRequest', 'notifyObservers'),
+            'processAvatarPicksReply': ('APT_PICKS', 'PickID', 'PickName', 'notifyObservers'),
+            'processAvatarGroupsReply': ('APT_GROUPS', 'GroupTitle', 'GroupID', 'notifyObservers'),
+        }
+        for name, markers in cases.items():
+            handler = method(processor, f'void LLAvatarPropertiesProcessor::{name}(')
+            for marker in markers:
+                self.assertIn(marker, handler, (name, marker))
+
+        profile = (NV/'llpanelprofile.cpp').read_text()
+        second_life = method(profile,'void LLPanelProfileSecondLife::processProperties(')
+        self.assertIn('APT_GROUPS', second_life)
+        self.assertIn('groups.group_list', second_life)
+
+        startup = (NV/'llstartup.cpp').read_text()
+        for message in ('AvatarPropertiesReply', 'AvatarInterestsReply', 'AvatarGroupsReply',
+                        'AvatarNotesReply', 'AvatarPicksReply', 'AvatarClassifiedReply'):
+            self.assertIn(f'setHandlerFunc("{message}"', startup)
+
+        aggregate = method((NV/'llpanelprofileclassifieds.cpp').read_text(),
+                           'void LLPanelProfileClassifieds::processProperties(')
+        self.assertNotIn('APT_CLASSIFIED_INFO', aggregate)
+
+    def test_own_profile_refreshes_after_remote_identity_catalog(self):
+        source = (NV/'lltasia_user_config.cpp').read_text()
+        callback = method(source,'void LLTasiaUserConfig::requestOnce()')
+        self.assertIn('applyConfig(LlsdFromJson(json), source_grid)', callback)
+        self.assertIn('findTypedInstance<LLFloaterProfile>', callback)
+        self.assertIn('self_profile->refreshName()', callback)
+
+    def test_music_stop_is_in_avatar_menu_without_changing_status_bar(self):
+        source = (NV/'llviewermenu.cpp').read_text()
+        handler = method(source,'class LLAudioStopMusic : public view_listener_t')
+        self.assertIn('setParcelAudioStoppedByUser(true)', handler)
+        self.assertIn('stopInternetStreamWithAutoFade()', handler)
+        self.assertIn('player->stopFromMediaControls()', handler)
+        self.assertIn('"Audio.StopMusic"', source)
+        menu = (NV/'skins/default/xui/en/menu_viewer.xml').read_text()
+        self.assertIn('label="Stop Music"', menu)
+        self.assertIn('function="Audio.StopMusic"', menu)
+        self.assertIn('name="Stop Music"', (NV/'skins/default/xui/pl/menu_viewer.xml').read_text())
+
+    def test_currency_never_reuses_another_grid_helper(self):
+        source = (NV/'llcurrencyuimanager.cpp').read_text()
+        start = method(source,'void LLCurrencyUIManager::Impl::startTransaction(')
+        self.assertNotIn('static std::string transactionURI', start)
+        self.assertIn('getCurrencyHelperURI()', start)
+        self.assertIn('transactionURI.empty()', start)
+        network = (NV/'llviewernetwork.cpp').read_text()
+        helper = method(network,'std::string LLGridManager::getCurrencyHelperURI(')
+        self.assertIn('currency.php', helper)
+        self.assertIn('gridURL(', helper)
+        buy = (NV/'llbuycurrencyhtml.cpp').read_text()
+        self.assertIn('isInOpenSim()', buy)
+        self.assertIn('isInSecondLife()', buy)
+
+    def test_marketplace_uses_grid_endpoint(self):
+        network = (NV/'llviewernetwork.cpp').read_text()
+        market = method(network,'std::string LLGridManager::getMarketplaceURL(')
+        self.assertIn('isInSecondLife()', market)
+        self.assertIn('marketplace.i.let-us.cyou', market)
+        market_floater = (NV/'llfloatermarketplace.cpp').read_text()
+        self.assertIn('getMarketplaceURL()', market_floater)
+        self.assertNotIn('gSavedSettings.getString("MarketplaceURL")', market_floater)
+        menu = (NV/'llviewermenu.cpp').read_text()
+        self.assertIn('getMarketplaceURL()', menu)
+
+    def test_complete_bundled_grid_list(self):
+        defaults = NV/'app_settings/tasia_default_grids.xml'
+        root = ET.parse(defaults).getroot()[0]
+        keys = [node.text for node in root if node.tag == 'key']
+        self.assertGreaterEqual(len(keys), 30, 'Bundled grid list must contain the full set')
+        for required in ('i.let-us.cyou:8002','not.let-us.cyou:8002','login.osgrid.org',
+                         'login.misfitzgrid.com:8002','hypergrid.org:8002','localhost:9000',
+                         'os.tasia.work.gd:22000'):
+            self.assertIn(required, keys)
+        self.assertNotIn('util.agni.lindenlab.com', keys)  # built-in Second Life grids stay built in
+        # Every entry must carry an explicit login URI; none is inferred.
+        for entry in root:
+            if entry.tag != 'map':
+                continue
+            values = {}
+            children = list(entry)
+            index = 0
+            while index + 1 < len(children):
+                if children[index].tag == 'key':
+                    values[children[index].text] = children[index+1]
+                index += 2
+            uris = [node.text for node in values.get('loginuri', []) if node.tag == 'string']
+            self.assertTrue(uris, 'Every bundled grid needs an explicit login URI')
+
+    def test_bundled_defaults_are_loaded_for_every_profile(self):
+        network = (NV/'llviewernetwork.cpp').read_text()
+        self.assertIn('importGridCatalog(xml, error, false)', network)
+        self.assertIn('tasia_default_grids.xml', network)
+        catalog = method(network,'void LLGridManager::requestGridCatalog(')
+        self.assertIn('https://api.tasiaviewer.work/viewer/config/grid.xml', catalog)
+        self.assertIn('sourceGridForUrl', (NV/'lltasia_user_config.cpp').read_text())
+
+    def test_identity_catalog_scopes_by_source_grid(self):
+        source = (NV/'lltasia_user_config.cpp').read_text()
+        self.assertIn('sourceGridForUrl', source)
+        self.assertIn('applyConfig(LlsdFromJson(json), source_grid)', source)
+        self.assertIn('https://i.let-us.cyou/hg/config.json', (NV/'app_settings/settings.xml').read_text())
+
+    def test_friendly_grid_names_resolve(self):
+        network = (NV/'llviewernetwork.cpp').read_text()
+        resolver = method(network,'std::string LLGridManager::resolveGridKey(')
+        self.assertIn('MAINGRID', resolver)
+        self.assertIn('BETAGRID', resolver)
+        self.assertIn('secondlife.com', resolver)
+        self.assertIn('getGrid(host)', resolver)
+        self.assertIn('resolveGridKey', (NV/'lltasia_user_config.cpp').read_text())
+        header = (NV/'llviewernetwork.h').read_text()
+        self.assertIn('std::string resolveGridKey(', header)
+        # getGrid() is non-const, so the resolver must not be declared const.
+        self.assertNotIn('resolveGridKey(const std::string& grid) const', header)
+        self.assertIn('LLSD::map_const_iterator', method(network,'std::string LLGridManager::resolveGridKey('))
+        # A friendly name must never be stored as the lookup key directly.
+        identity = (NV/'lltasia_user_config.cpp').read_text()
+        self.assertIn('resolveEntryGrid(getCleanString(item, "grid", 255))', identity)
+
+    def test_polish_status_bar_is_complete(self):
+        # The Polish status bar used to be a reduced stub: no volume button, no
+        # preset icons, no menu search and no QUIC indicator.
+        def controls(path):
+            names = set()
+            for node in ET.parse(path).getroot().iter():
+                if node.get('name'):
+                    names.add(node.get('name'))
+            return names
+        english = controls(NV/'skins/default/xui/en/panel_status_bar.xml')
+        polish = controls(NV/'skins/default/xui/pl/panel_status_bar.xml')
+        self.assertTrue(english <= polish, 'Polish status bar is missing controls')
+        for required in ('quic_status', 'volume_btn', 'presets_icon_camera', 'media_toggle_btn'):
+            self.assertIn(required, polish)
+
+    def test_quic_settings_are_reachable_in_preferences(self):
+        # The panel file alone is not enough: it must be registered as a tab,
+        # otherwise none of the QUIC/TLS settings can be seen or changed.
+        for language, label in (('en', 'Tasia - Network'), ('pl', 'Tasia - Sieć')):
+            tabs = ET.parse(NV/f'skins/default/xui/{language}/floater_preferences.xml').getroot()
+            registered = [panel.get('filename') for panel in tabs.iter('panel')
+                         if panel.get('filename')]
+            self.assertIn('panel_preferences_tasia_network.xml', registered,
+                          f'{language}: Tasia preferences tab is not registered')
+            self.assertEqual(registered.count('panel_preferences_tasia_network.xml'), 1,
+                             f'{language}: the Tasia tab is registered more than once')
+            labels = [panel.get('label') for panel in tabs.iter('panel')]
+            self.assertIn(label, labels)
+            # It must be the first tab, so it can never sit below the fold.
+            self.assertEqual(registered[0], 'panel_preferences_tasia_network.xml',
+                             f'{language}: the network tab is not first')
+            panel_path = NV/f'skins/default/xui/{language}/panel_preferences_tasia_network.xml'
+            panel = panel_path.read_text()
+            root = ET.parse(panel_path).getroot()
+            for child in root:
+                self.assertLessEqual(int(child.get('top', 0)) + int(child.get('height', 0)), 420)
+            self.assertNotIn('Pref.TasiaAnim', panel)
+            settings_root = ET.parse(NV/'app_settings/settings.xml').getroot().find('map')
+            defined = {node.text for node in settings_root if node.tag == 'key'}
+            for filename in ('panel_preferences_tasia_network.xml', 'panel_preferences_tasia_media.xml'):
+                for node in ET.parse(NV/f'skins/default/xui/{language}/{filename}').getroot().iter():
+                    if node.get('control_name'):
+                        self.assertIn(node.get('control_name'), defined)
+            for control in ('TasiaQuicEnabled', 'TasiaQuicVerifyCert', 'TasiaGridCatalogEnabled',
+                            'TasiaRemoteUserConfigEnabled'):
+                self.assertIn(control, panel)
+        # QUIC must be on by default for fresh profiles; the fallback covers failure.
+        settings = (NV/'app_settings/settings.xml').read_text()
+        block = settings.split('<key>TasiaQuicEnabled</key>')[1].split('</map>')[0]
+        self.assertIn('<key>Value</key>\n    <integer>1</integer>', block)
+
+    def test_status_bar_sizes_itself_to_content(self):
+        source = (NV/'llstatusbar.cpp').read_text()
+        self.assertIn('reshapeToFitContent', source)
+        # LLView has no getNextSibling(); the child list must be used.
+        self.assertNotIn('getNextSibling()', source)
+        self.assertIn('getChildList()', source)
+        header = (NV/'llstatusbar.h').read_text()
+        self.assertIn('void reshapeToFitContent();', header)
+        # The extra stop button must not remain in the crowded bar.
+        for language in ('en','pl'):
+            panel = (NV/f'skins/default/xui/{language}/panel_status_bar.xml').read_text()
+            self.assertNotIn('stop_stream_btn', panel)
+        media = (NV/'llviewermedia.cpp').read_text()
+        self.assertIn('stopFromMediaControls()', media)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

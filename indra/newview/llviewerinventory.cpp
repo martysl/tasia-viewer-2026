@@ -53,6 +53,7 @@
 
 #include "llviewerassettype.h"
 #include "llviewerregion.h"
+#include "llviewernetwork.h"
 #include "llviewerobjectlist.h"
 #include "llpreviewgesture.h"
 #include "llviewerwindow.h"
@@ -494,6 +495,19 @@ void LLViewerInventoryItem::fetchFromServer(void) const
                 LLCore::HttpHandler::ptr_t handler = std::make_shared<LLInventoryModel::FetchItemHttpHandler>(body);
                 gInventory.requestPost(true, url, body, handler, "Inventory Item");
             }
+            else if (LLGridManager::getInstance()->isInOpenSim())
+            {
+                // Legacy OpenSim regions may have neither AIS nor FetchInventory2.
+                LLMessageSystem* msg = gMessageSystem;
+                msg->newMessage("FetchInventory");
+                msg->nextBlock("AgentData");
+                msg->addUUID("AgentID", gAgent.getID());
+                msg->addUUID("SessionID", gAgent.getSessionID());
+                msg->nextBlock("InventoryData");
+                msg->addUUID("OwnerID", mPermissions.getOwner());
+                msg->addUUID("ItemID", mUUID);
+                gAgent.sendReliableMessage();
+            }
         }
     }
 }
@@ -723,6 +737,23 @@ bool LLViewerInventoryCategory::fetch(S32 expiry_seconds)
         if (!url.empty() || AISAPI::isAvailable())
         {
             LLInventoryModelBackgroundFetch::instance().start(mUUID, false);
+        }
+        else if (LLGridManager::getInstance()->isInOpenSim())
+        {
+            // Legacy OpenSim regions return folder contents via InventoryDescendents.
+            const U32 sort_order = gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER) & 0x1;
+            LLMessageSystem* msg = gMessageSystem;
+            msg->newMessage("FetchInventoryDescendents");
+            msg->nextBlock("AgentData");
+            msg->addUUID("AgentID", gAgent.getID());
+            msg->addUUID("SessionID", gAgent.getSessionID());
+            msg->nextBlock("InventoryData");
+            msg->addUUID("FolderID", mUUID);
+            msg->addUUID("OwnerID", mOwnerID);
+            msg->addS32("SortOrder", sort_order);
+            msg->addBOOL("FetchFolders", false);
+            msg->addBOOL("FetchItems", true);
+            gAgent.sendReliableMessage();
         }
         return true;
     }

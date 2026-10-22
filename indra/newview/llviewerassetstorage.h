@@ -82,6 +82,8 @@ protected:
 
     void capsRecvForRegion(const LLUUID& region_id, std::string pumpname);
 
+    bool startLegacyWearableTransfer(const LLUUID& uuid, LLAssetType::EType atype);
+
     void assetRequestCoro(const LLUUID uuid,
                           LLAssetType::EType atype,
                           LLGetAssetCallback callback,

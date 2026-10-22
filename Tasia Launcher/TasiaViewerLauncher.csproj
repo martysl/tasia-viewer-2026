@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>TasiaViewerLauncher</AssemblyName>
+    <RootNamespace>TasiaViewerLauncher</RootNamespace>
+    <Product>Tasia Viewer Launcher</Product>
+    <Company>Tasia</Company>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <ApplicationIcon>..\indra\newview\res\tasia_icon.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishSingleFile>false</PublishSingleFile>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <DebugType>embedded</DebugType>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\space-banner.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The headless self test lives in its own console project so the
+         shipping launcher has no extra entry point. -->
+    <Compile Remove="SelfTest\**" />
+  </ItemGroup>
+</Project>

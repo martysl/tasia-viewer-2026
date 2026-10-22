@@ -6,7 +6,7 @@
  height="180"
  layout="topleft"
  name="upload_clipboard"
- title="Upload from Clipboard"
+ title="Tasia — Upload from Clipboard"
  width="360">
     <text
      follows="left|top|right"
@@ -17,7 +17,7 @@
      top="22"
      width="324"
      word_wrap="true">
-Paste a PNG/JPEG image from your system clipboard, then review it in the normal upload preview.
+Paste a copied image or screenshot, then review and confirm it in the normal upload preview.
     </text>
     <text
      follows="left|top|right"
@@ -28,7 +28,7 @@ Paste a PNG/JPEG image from your system clipboard, then review it in the normal 
      top="76"
      width="324"
      word_wrap="true">
-Tip: press Ctrl+V here, or click Paste. Linux requires wl-clipboard or xclip.
+Press Ctrl+V here, or click Paste. Native Windows clipboard; no external helper needed.
     </text>
     <button
      follows="left|bottom"
