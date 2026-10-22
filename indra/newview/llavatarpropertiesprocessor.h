@@ -33,6 +33,8 @@
 #include <list>
 #include <map>
 
+class LLSD;
+
 // For Flags in AvatarPropertiesReply
 const U32 AVATAR_ALLOW_PUBLISH          = 0x1 << 0; // whether profile is externally visible or not
 const U32 AVATAR_MATURE_PUBLISH         = 0x1 << 1; // profile is "mature"
@@ -232,6 +234,9 @@ public:
     // suppressed while waiting for a response from the network.
     void sendAvatarPropertiesRequest(const LLUUID& avatar_id);
     void sendAvatarLegacyPropertiesRequest(const LLUUID& avatar_id);
+    // Send a partial self-profile edit through the legacy full-record packet.
+    // Requires a cached AvatarPropertiesReply so untouched fields are preserved.
+    bool sendLegacyAvatarPropertiesUpdate(const LLSD& changes);
     void sendAvatarTexturesRequest(const LLUUID& avatar_id);
     void sendAvatarClassifiedsRequest(const LLUUID& avatar_id);
     void sendAvatarPicksRequest(const LLUUID& avatar_id);
@@ -320,6 +325,10 @@ protected:
     // Map avatar_id+request_type -> U32 timestamp in seconds
     typedef std::map< std::pair<LLUUID, EAvatarProcessorType>, U32> timestamp_map_t;
     timestamp_map_t mRequestTimestamps;
+
+    LLAvatarLegacyData mLegacySelfProfile;
+    LLUUID mLegacySelfProfileSessionID;
+    bool mHasLegacySelfProfile { false };
 
     // Is returned by isHideAgeSupportedByServer()
     bool mIsHideAgeSupportedByServer { false };

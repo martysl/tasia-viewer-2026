@@ -121,6 +121,37 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         self.assertNotIn('mPanelPicks->setIsLoading()', method(panel,'void LLPanelProfile::updateData('))
         self.assertNotIn('mPanelNotes->setIsLoading()', method(panel,'void LLPanelProfile::updateData('))
 
+    def test_legacy_self_profile_updates_preserve_full_record(self):
+        processor_source = (NV/'llavatarpropertiesprocessor.cpp').read_text()
+        sender = method(processor_source,
+                        'bool LLAvatarPropertiesProcessor::sendLegacyAvatarPropertiesUpdate(')
+        for guard in ('isInOpenSim()', 'getRegionCapability("AgentProfile").empty()',
+                      'mHasLegacySelfProfile', 'mLegacySelfProfile.avatar_id != gAgent.getID()',
+                      'mLegacySelfProfileSessionID != gAgent.getSessionID()'):
+            self.assertIn(guard, sender)
+        for field in ('profile_url', 'image_id', 'fl_image_id', 'about_text',
+                      'fl_about_text', 'allow_publish'):
+            self.assertIn(f'"{field}"', sender)
+        for packet_field in ('_PREHASH_ImageID', '_PREHASH_FLImageID',
+                             '_PREHASH_AboutText', '_PREHASH_FLAboutText',
+                             '_PREHASH_AllowPublish', '_PREHASH_MaturePublish',
+                             '_PREHASH_ProfileURL'):
+            self.assertIn(packet_field, sender)
+        legacy_reply = method(processor_source,
+                              'void LLAvatarPropertiesProcessor::processAvatarLegacyPropertiesReply(')
+        self.assertIn('avatar_data.agent_id == gAgentID && avatar_data.avatar_id == gAgentID', legacy_reply)
+        self.assertIn('mLegacySelfProfile = avatar_data', legacy_reply)
+
+        profile = (NV/'llpanelprofile.cpp').read_text()
+        legacy_helper = method(profile, 'static bool saveLegacyProfileField(')
+        self.assertIn('avatar_id != gAgent.getID()', legacy_helper)
+        for legacy_field in ('about_text', 'image_id', 'allow_publish',
+                             'fl_about_text', 'fl_image_id'):
+            self.assertIn(f'getAvatarId(), "{legacy_field}"', profile)
+        # hide_age is absent from AvatarPropertiesUpdate and must not be sent
+        # through this legacy fallback.
+        self.assertNotIn('saveLegacyProfileField("hide_age"', profile)
+
     def test_opensim_legacy_profile_reply_family_is_consumed(self):
         processor = (NV/'llavatarpropertiesprocessor.cpp').read_text()
         cases = {

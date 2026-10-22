@@ -210,6 +210,60 @@ void LLAvatarPropertiesProcessor::sendAvatarLegacyPropertiesRequest(const LLUUID
     sendRequest(avatar_id, APT_PROPERTIES_LEGACY, "AvatarPropertiesRequest");
 }
 
+bool LLAvatarPropertiesProcessor::sendLegacyAvatarPropertiesUpdate(const LLSD& changes)
+{
+    if (!gAgent.isInitialized() || !LLGridManager::getInstance()->isInOpenSim() ||
+        !gAgent.getRegion() || !gAgent.getRegionCapability("AgentProfile").empty() ||
+        !mHasLegacySelfProfile || mLegacySelfProfile.avatar_id != gAgent.getID() ||
+        mLegacySelfProfileSessionID != gAgent.getSessionID() ||
+        !changes.isMap() || changes.size() == 0)
+    {
+        LL_WARNS("AvatarProperties") << "Legacy profile update unavailable; keeping profile edit unsent" << LL_ENDL;
+        return false;
+    }
+
+    // Validate before mutating the cached server record.
+    for (const std::string& key : changes.getKeys())
+    {
+        if (key != "profile_url" && key != "image_id" && key != "fl_image_id" &&
+            key != "about_text" && key != "fl_about_text" && key != "allow_publish")
+        {
+            LL_WARNS("AvatarProperties") << "Unsupported legacy profile field; update not sent" << LL_ENDL;
+            return false;
+        }
+    }
+
+    // AvatarPropertiesUpdate carries the complete legacy profile record.
+    // Merge only explicitly supplied keys into the last server reply.
+    for (const std::string& key : changes.getKeys())
+    {
+        if (key == "profile_url") mLegacySelfProfile.profile_url = changes[key].asString();
+        else if (key == "image_id") mLegacySelfProfile.image_id = changes[key].asUUID();
+        else if (key == "fl_image_id") mLegacySelfProfile.fl_image_id = changes[key].asUUID();
+        else if (key == "about_text") mLegacySelfProfile.about_text = changes[key].asString();
+        else if (key == "fl_about_text") mLegacySelfProfile.fl_about_text = changes[key].asString();
+        else if (changes[key].asBoolean()) mLegacySelfProfile.flags |= AVATAR_ALLOW_PUBLISH;
+        else mLegacySelfProfile.flags &= ~AVATAR_ALLOW_PUBLISH;
+    }
+
+    LL_INFOS("AvatarProperties") << "Profile update route=AvatarPropertiesUpdate-UDP target=self" << LL_ENDL;
+    LLMessageSystem* msg = gMessageSystem;
+    msg->newMessageFast(_PREHASH_AvatarPropertiesUpdate);
+    msg->nextBlockFast(_PREHASH_AgentData);
+    msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+    msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+    msg->nextBlockFast(_PREHASH_PropertiesData);
+    msg->addUUIDFast(_PREHASH_ImageID, mLegacySelfProfile.image_id);
+    msg->addUUIDFast(_PREHASH_FLImageID, mLegacySelfProfile.fl_image_id);
+    msg->addStringFast(_PREHASH_AboutText, mLegacySelfProfile.about_text);
+    msg->addStringFast(_PREHASH_FLAboutText, mLegacySelfProfile.fl_about_text);
+    msg->addBOOL(_PREHASH_AllowPublish, (mLegacySelfProfile.flags & AVATAR_ALLOW_PUBLISH) != 0);
+    msg->addBOOL(_PREHASH_MaturePublish, false);
+    msg->addString(_PREHASH_ProfileURL, mLegacySelfProfile.profile_url);
+    gAgent.sendReliableMessage();
+    return true;
+}
+
 void LLAvatarPropertiesProcessor::sendAvatarTexturesRequest(const LLUUID& avatar_id)
 {
     sendGenericRequest(avatar_id, APT_TEXTURES, "avatartexturesrequest");
@@ -479,6 +533,12 @@ void LLAvatarPropertiesProcessor::processAvatarLegacyPropertiesReply(LLMessageSy
         msg->getString(_PREHASH_PropertiesData, _PREHASH_CharterMember, avatar_data.caption_text);
     }
     LLAvatarPropertiesProcessor* self = getInstance();
+    if (avatar_data.agent_id == gAgentID && avatar_data.avatar_id == gAgentID)
+    {
+        self->mLegacySelfProfile = avatar_data;
+        self->mLegacySelfProfileSessionID = gAgent.getSessionID();
+        self->mHasLegacySelfProfile = true;
+    }
     // Request processed, no longer pending
     self->removePendingRequest(avatar_data.avatar_id, APT_PROPERTIES_LEGACY);
     LL_INFOS("AvatarProperties") << "Profile legacy-UDP reply=AvatarPropertiesReply target="

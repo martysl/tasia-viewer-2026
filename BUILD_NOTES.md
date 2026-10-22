@@ -4003,3 +4003,39 @@ earlier candidate-log entry and labels it as Mom-reported plus read-only log
 evidence; fixture results and missing Windows/live validation are explicit. This
 review is therefore recorded as limited documentation feedback, not independent
 runtime or source verification.
+
+### Phase 4 OpenSim legacy self-profile edits (2026-10-22)
+
+Restored the old reference's no-`AgentProfile` self-profile update behavior for
+about text, profile image, first-life text/image and publish state. The legacy
+packet is a complete record, so the processor now merges a supported partial edit
+into the last self `AvatarPropertiesReply` snapshot, checks that the snapshot is
+from the active session, and sends all fields including the untouched profile
+URL and image/text values. Unknown edits are rejected before cache mutation.
+`hide_age` remains cap-only because the legacy update packet has no hide-age
+field. If no snapshot is available, handlers do not clear their dirty state.
+
+Reference packet field mapping was checked in
+`/home/marty/opensim/tasia-viewer-2026/indra/newview/llavatarpropertiesprocessor.cpp`;
+server parsing and update handling were checked in the read-only
+`/home/marty/opensim/telep-npc/OpenSim/Region/ClientStack/Linden/UDP/LLClientView.cs`
+and `.../UserProfileModule.cs`. This verifies source contracts only, not the
+deployed grid.
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_services_test.py PASS (16 tests, including legacy edit contract)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_profile_partner_link_test.py PASS (4 tests)
+git diff --check PASS
+```
+
+No full Windows DX11 build, live OpenSim profile save, or SL runtime regression
+test was available. Tasia Farm review `job_mvjn6q47_52c81ec376` agreed the
+defensive guards, field merge, and full packet are sound; it raised questions about
+field overlap and stale/concurrent updates. The image fields are distinct packet
+members (`ImageID` versus `FLImageID`), and only the matching changed key is
+merged. The send function is synchronous (no coroutine/yield); network replies
+are dispatched by `LLAppViewer::idleNetwork()` and the UI handler sends on the
+same viewer thread, so a reply cannot interleave between validation, merge and
+packet construction. There is no dedicated concurrency stress test, and live
+session behavior remains unverified. The review's concern about missing build
+validation remains valid.

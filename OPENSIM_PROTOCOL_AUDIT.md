@@ -30,7 +30,7 @@ revision.
 | 1 | Legacy inventory fetch/read | Old no-cap `FetchInventory` / `FetchInventoryDescendents` requests and `FetchInventoryReply` / `InventoryDescendents` responses were missing. Current source now sends these only on OpenSim when HTTP/AIS is unavailable and checks reply AgentID. | **Restored in source; 2/2 focused fixture tests pass.** Full build/live request still needed. |
 | 2 | World-map region sizes | Optional `MapBlockReply.Size` and `SizeX/SizeY` are wired through template, prehash, OpenSim-only reply parsing, bounded `LLSimInfo` extents, tracking bounds and map drawing. | **Source fix, focused contracts and Windows Release build pass.** SL and old replies retain 256m defaults. Live SL/OpenSim map checks remain pending; Hypergrid/SLURL audit remains separate. |
 | 3 | Inventory delete/purge | Both protocols define remove/purge messages, and checked server handlers delete items/folders and purge asynchronously. Old viewer sends UDP `RemoveInventoryItem`, `RemoveInventoryFolder`, and `PurgeInventoryDescendents`; active inventory helpers are AIS-only and warn otherwise. The old client mutates local state and fires callbacks optimistically after sending. The checked server's purge handler queues `PurgeFolderAsync` via `FireAndForget`, logs service failure, and sends no application-level completion reply. | **Verified miss; deliberately not ported.** A fresh empty listing is a possible observation, not yet a safe completion signal: the async purge has no ack, legacy replies have no request ID, and current reply handling does not reconcile absent cached children. Do not delete the parent on a timeout, malformed/stale reply, or unresolved callback failure. See confirmation contract below; server/version semantics and reply correlation remain blockers. |
-| 4 | Legacy profile UDP | Current source now decodes supported Groups/Picks/Notes replies and requests Picks/Notes on OpenSim when `AgentProfile` is absent. Unsupported standalone groups request and unsafe full-record profile update were not copied. | **Source port complete; focused tests pass; live tab test pending.** See `plan.md`. |
+| 4 | Legacy profile UDP | Current source decodes supported Groups/Picks/Notes replies and requests Picks/Notes on OpenSim when `AgentProfile` is absent. Self-profile edits now merge one field into the latest self `AvatarPropertiesReply` and send the complete `AvatarPropertiesUpdate` record. | **Source change + focused contract pass; live save/tab test pending.** No `hide_age` fallback because the legacy packet has no such field. |
 | 5 | Wearable assets and appearance | Current source keeps `ViewerAsset` HTTP and adds a guarded OpenSim transfer fallback only for bodypart/clothing when cap is absent or HTTP returns 404/410. Wearable acquisition, local bake/upload and appearance send have source fixtures. AIS outfit fetch now passes completion IDs and refuses a failed/mismatched `FetchCategoryLinks` result before applying a cached/partial outfit. | **Source/fixture coverage; live avatar/bake incomplete.** No stale or partial outfit mutation on the audited AIS error path. Do not broaden to mesh/arbitrary assets or HTTP permission failures without evidence. |
 | 6 | Region dimensions, terrain and parcel data | Login/event-queue region dimensions, extended terrain IDs and larger parcel overlays have OpenSim source handling and focused tests. Checked server `MaximumRegionSize` is 4096m; viewer allocation/map/parcel bounds now match it. | **Mostly implemented; source/live evidence varies.** Square power-of-two regions 256..4096 only; non-square/non-power-of-two rendering and some unequal-size seams remain unsupported/partial. Known terrain/composition arrays at 4096m total about 320MiB before patch/renderer resources; full allocation/crossing stress still needs Windows runtime evidence. |
 
@@ -646,3 +646,39 @@ GPU/grid path. Candidate process is stopped; portable logs/data were preserved.
 No production code changes or cache clearing occurred. Next investigation should
 trace the viewer's current legacy local-bake/composition/texture assignment path;
 do not change the OpenSim server based on these logs.
+
+### 2026-10-22 OpenSim legacy self-profile edit parity
+
+The old reference's `LLPanelProfileSecondLife::apply()` sent a complete
+`AvatarPropertiesUpdate` for the self profile when OpenSim lacked
+`AgentProfile`. The current UI had no equivalent sender: about text, profile
+image, first-life text/image and publish state attempted only the cap helper,
+which returns false without the capability; `hide_age` is also cap-only.
+
+Added `LLAvatarPropertiesProcessor::sendLegacyAvatarPropertiesUpdate()` for
+partial field changes. It is restricted to initialized OpenSim sessions with no
+`AgentProfile`, requires a cached self `AvatarPropertiesReply` from the active
+session, validates supported edit keys before changing the cache, merges only the
+requested field, then sends all packet fields: profile URL, both image IDs, both
+description strings, publish state and `MaturePublish=false`. This preserves
+untouched legacy fields and avoids inventing a profile URL or clearing first-life
+data. UI fallback is wired for self-profile about text, image, first-life text,
+first-life image and publish changes; if the snapshot is unavailable, these save
+handlers leave their dirty state intact. `hide_age` is deliberately not sent in
+the legacy packet because it has no corresponding field.
+
+Checked against reference `llpanelprofile.cpp` / `llavatarpropertiesprocessor.cpp`
+and server `LLClientView.cs::HandlerAvatarPropertiesUpdate` plus
+`UserProfileModule.cs::AvatarPropertiesUpdate`; server-source inspection confirms
+the packet fields are consumed, not live deployment behavior. Offline checks:
+`tasia_opensim_services_test.py` (16 tests) and
+`tasia_profile_partner_link_test.py` (4 tests) pass; `git diff --check` passes.
+No Windows DX11 build, live profile update, or SL regression run was possible.
+Tasia Farm review `job_mvjn6q47_52c81ec376` agreed with the guarded full-record
+merge and requested clarity on image-field overlap and concurrent/stale updates.
+`ImageID` and `FLImageID` are distinct packet fields, and the implementation
+merges only the specified key. The sender is synchronous with no coroutine/yield;
+legacy replies run from the viewer's `idleNetwork()` packet dispatch, so the
+single-threaded viewer cannot interleave a reply during one merge/send call.
+There is no concurrency stress fixture, and the review correctly notes no Windows
+build or live update test.

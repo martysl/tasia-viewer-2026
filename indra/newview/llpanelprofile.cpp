@@ -110,6 +110,14 @@ static const std::string PANEL_PROFILE_VIEW = "panel_profile_view";
 
 static const std::string PROFILE_PROPERTIES_CAP = "AgentProfile";
 static const std::string PROFILE_IMAGE_UPLOAD_CAP = "UploadAgentProfileImage";
+
+static bool saveLegacyProfileField(const LLUUID& avatar_id, const std::string& name, const LLSD& value)
+{
+    if (avatar_id.isNull() || avatar_id != gAgent.getID()) return false;
+    LLSD changes;
+    changes[name] = value;
+    return LLAvatarPropertiesProcessor::getInstance()->sendLegacyAvatarPropertiesUpdate(changes);
+}
 static const U32 TASIA_PROFILE_BADGE_MAX_BYTES = 10 * 1024 * 1024;
 
 static bool tasiaIsBuiltinProfileBadge(const std::string& name)
@@ -1980,9 +1988,14 @@ void LLPanelProfileSecondLife::onShowInSearchCallback()
     if (value == mAllowPublish)
         return;
 
-        mAllowPublish = value;
-    saveAgentUserInfoCoro("allow_publish", value);
+    if (!saveAgentUserInfoCoro("allow_publish", value) &&
+        !saveLegacyProfileField(getAvatarId(), "allow_publish", value))
+    {
+        mShowInSearchCombo->setValue(mAllowPublish ? 1 : 0);
+        return;
     }
+    mAllowPublish = value;
+}
 
 void LLPanelProfileSecondLife::onHideAgeCallback()
     {
@@ -1996,8 +2009,13 @@ void LLPanelProfileSecondLife::onHideAgeCallback()
 
 void LLPanelProfileSecondLife::onSaveDescriptionChanges()
 {
-    mDescriptionText = mDescriptionEdit->getValue().asString();
-    saveAgentUserInfoCoro("sl_about_text", mDescriptionText);
+    const std::string description = mDescriptionEdit->getValue().asString();
+    if (!saveAgentUserInfoCoro("sl_about_text", description) &&
+        !saveLegacyProfileField(getAvatarId(), "about_text", description))
+    {
+        return;
+    }
+    mDescriptionText = description;
 
     mSaveDescriptionChanges->setEnabled(false);
     mDiscardDescriptionChanges->setEnabled(false);
@@ -2144,8 +2162,8 @@ void LLPanelProfileSecondLife::onCommitProfileImage(const LLUUID& id)
             }
         };
 
-    if (!saveAgentUserInfoCoro("sl_image_id", id, callback))
-        return;
+    if (!saveAgentUserInfoCoro("sl_image_id", id, callback) &&
+        !saveLegacyProfileField(getAvatarId(), "image_id", id)) return;
 
     mSecondLifePic->setValue(id);
 
@@ -2516,7 +2534,8 @@ void LLPanelProfileFirstLife::onCommitPhoto(const LLUUID& id)
     if (mPicture->getImageAssetId()  == id)
         return;
 
-    if (!saveAgentUserInfoCoro("fl_image_id", id))
+    if (!saveAgentUserInfoCoro("fl_image_id", id) &&
+        !saveLegacyProfileField(getAvatarId(), "fl_image_id", id))
         return;
 
     mPicture->setValue(id);
@@ -2543,8 +2562,13 @@ void LLPanelProfileFirstLife::onSetDescriptionDirty()
 
 void LLPanelProfileFirstLife::onSaveDescriptionChanges()
 {
-    mCurrentDescription = mDescriptionEdit->getValue().asString();
-    saveAgentUserInfoCoro("fl_about_text", mCurrentDescription);
+    const std::string description = mDescriptionEdit->getValue().asString();
+    if (!saveAgentUserInfoCoro("fl_about_text", description) &&
+        !saveLegacyProfileField(getAvatarId(), "fl_about_text", description))
+    {
+        return;
+    }
+    mCurrentDescription = description;
 
     mSaveChanges->setEnabled(false);
     mDiscardChanges->setEnabled(false);
