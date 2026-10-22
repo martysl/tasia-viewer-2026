@@ -4259,3 +4259,7 @@ boundaries. Follow-up Farm review `job_mvjob864_6f502b43e4` confirmed these poin
 and found no remaining concrete issue based on the supplied evidence. Both Farm
 reviews were summary-based; neither is a full source audit, viewer build, or
 runtime test.
+
+Expanded test/review notes were committed as `aebdbf34305d9712be6b3047106b38473b074e60`
+and pushed without force. `git ls-remote` verified the branch at that SHA before
+this documentation-only evidence update.

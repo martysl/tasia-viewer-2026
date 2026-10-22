@@ -39,9 +39,10 @@ Follow-up commits after that first report:
 | `a51b859` | Trace login/QUIC and `BAKED_HEAD` source paths; update audit/report |
 | `9a6d05f` | Document profile wire/session limits and add source-contract test |
 | `d3e1d6acb3cb05ed8ae826f1c2271a4a6e5f91db` | Preserve caller data in Variable-1 clamp; compile focused production-method fixture |
+| `aebdbf34305d9712be6b3047106b38473b074e60` | Expand Variable-1 boundary fixture; record follow-up review |
 
 The last commit above was pushed without force, and `git ls-remote` verified the
-remote branch at that exact SHA before the current documentation-only review note.
+remote branch at that exact SHA before this documentation-only evidence update.
 
 ## Verified source/test work
 
