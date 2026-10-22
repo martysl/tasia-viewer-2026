@@ -4352,3 +4352,29 @@ were independently reviewed by `ciocia-amber` in
 reviewer noted the 16-byte validation cap and the need to mark other currency
 displays explicitly. This does not replace native/runtime verification.
 GridInfo/economy audit continues after this fix.
+
+### GridInfo currency endpoint configuration (2026-10-22)
+
+Closed the gap between the existing selected-grid `currency_uri` resolver and
+the Grid Manager UI: added the optional full XML-RPC endpoint field in English
+and Polish, included it in load/save, and mapped an explicit `<currency_uri>`
+GridInfo tag. URL validation rejects query components for this endpoint. Standard
+OpenSim `<economy>`/`<helperuri>` discovery remains the configured helper
+fallback; HTTP is still permitted for HTTP-only grids. No Gloebit endpoint or
+behavior was added.
+
+Audited the legacy `fsgridhandler.cpp::gridInfoResponderCB()` against current
+GridInfo fetch/parser and the checked OpenSim server. The current code already
+supports the active URL fields and GridStatus extensions with bounded parsing,
+TLS verification, redirects disabled, and stale-form guards. Legacy `<login>`
+overwrote the selected login URI; current deliberately keeps the operator-entered
+URI. Legacy `DirectoryFee` was parsed but never assigned to the getter's backing
+member (stays zero); `platform` special handling is Aurora-specific, and the
+other stored legacy keys have no identified consumer in this viewer. Those are
+not being represented as functioning parity.
+
+Verification: `PYTHONDONTWRITEBYTECODE=1 python3
+indra/newview/tests/tasia_opensim_services_test.py` PASS (23 tests);
+`git diff --check` PASS. This is source/XML-contract testing only; live GridInfo
+fetch, native build and financial actions were not run. Fresh Farm review of this
+follow-on diff is pending.

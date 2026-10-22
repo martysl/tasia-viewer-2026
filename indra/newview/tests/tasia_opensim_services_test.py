@@ -285,6 +285,8 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         network = (NV/'llviewernetwork.cpp').read_text()
         helper = method(network,'std::string LLGridManager::getCurrencyHelperURI(')
         self.assertIn('currency.php', helper)
+        self.assertIn('mGridList[mGrid]["currency_uri"]', helper)
+        self.assertIn('return gridURL(uri) && uri.find(\'?\') == std::string::npos ? uri : std::string()', helper)
         self.assertIn('gridURL(', helper)
         self.assertIn('currency-base-uri', helper)
         self.assertIn('trusted_host', helper)
@@ -296,6 +298,28 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         self.assertIn('requires_https = helper_uri.scheme() == "https"', helper)
         self.assertIn('requires_https = requires_https || login_uri.scheme() == "https"', helper)
         self.assertIn('trusted_host && (!requires_https || advertised_uri.scheme() == "https")', helper)
+        self.assertIn('uri = getHelperURI()', helper)
+        self.assertIn('if (uri.empty() || !gridURL(uri) || uri.find(\'?\') != std::string::npos) return {}', helper)
+        network_helpers = method(network, 'bool gridURL(')
+        self.assertIn('if (value.empty()) return !login', network_helpers)
+        self.assertIn('uri.scheme() != "http" && uri.scheme() != "https"', network_helpers)
+        self.assertIn('uri.hostName().empty()', network_helpers)
+        metadata = method(network, 'bool gridMetadata(')
+        self.assertIn('"currency_uri"', metadata)
+        self.assertIn('if (!source.has(key)) continue', metadata)
+        self.assertIn('if (!source[key].isString()) return false', metadata)
+        self.assertIn('source[key].asString().find(\'?\')', metadata)
+        self.assertIn('if (!gridURL(source[key].asString())) return false', metadata)
+        persistence = method(network, 'bool LLGridManager::saveCustomGrids(')
+        self.assertIn('custom_grids[it->first] = it->second', persistence)
+        setter = method(network, 'bool LLGridManager::setGridMetadata(')
+        self.assertIn('if (!gridMetadata(data, metadata))', setter)
+        grid_floater = (NV/'llfloatergridmanager.cpp').read_text()
+        self.assertIn('"gatekeeper", "currency_uri"', grid_floater)
+        self.assertIn('{"currency_uri", "currency_uri"}', grid_floater)
+        for locale in ('en', 'pl'):
+            grid_xml = ET.parse(NV/f'skins/default/xui/{locale}/floater_grid_manager.xml').getroot()
+            self.assertIsNotNone(grid_xml.find(".//line_editor[@name='currency_uri']"))
         currency_ui = (NV/'llfloaterbuycurrency.cpp').read_text()
         for signature in ('void LLFloaterBuyCurrency::buyCurrency()','void LLFloaterBuyCurrency::buyCurrency(const std::string& name, S32 price)'):
             opener = method(currency_ui, signature)
@@ -467,6 +491,34 @@ int main() {
             xml = ET.parse(NV/f'skins/default/xui/{locale}/floater_grid_manager.xml').getroot()
             controls = {node.attrib.get('name') for node in xml.iter()}
             self.assertTrue({'grid_status', 'grid_status_rss'} <= controls)
+
+    def test_grid_info_discovery_and_currency_endpoint_metadata(self):
+        manager = (NV/'llfloatergridmanager.cpp').read_text()
+        discover = method(manager, 'void LLFloaterGridManager::discoverGrid()')
+        self.assertIn('"/get_grid_info"', discover)
+        self.assertIn('tasiaFetchConfig(', discover)
+        self.assertIn('65536', discover)
+        self.assertIn('!llsd_equals(self->metadata(), before)', discover)
+        for mapping in (
+            '{"welcome", "login_page"}', '{"economy", "helper_uri"}',
+            '{"helperuri", "helper_uri"}', '{"profileuri", "web_profile_url"}',
+            '{"currency_uri", "currency_uri"}',
+            '{"GridStatus", "grid_status"}', '{"GridStatusRSS", "grid_status_rss"}'):
+            self.assertIn(mapping, discover)
+
+        fetch = (NV/'lltasia_config_fetch.cpp').read_text()
+        self.assertIn('options->setSSLVerifyPeer(true)', fetch)
+        self.assertIn('options->setSSLVerifyHost(true)', fetch)
+        self.assertIn('options->setFollowRedirects(false)', fetch)
+        self.assertIn('allow_http && uri.scheme() == "http"', fetch)
+
+        network = (NV/'llviewernetwork.cpp').read_text()
+        metadata = method(network, 'bool gridMetadata(')
+        self.assertIn('"currency_uri"', metadata)
+        self.assertIn('source[key].asString().find(\'?\')', metadata)
+        helper = method(network, 'std::string LLGridManager::getCurrencyHelperURI(')
+        self.assertIn('mGridList[mGrid]["currency_uri"]', helper)
+        self.assertIn('uri.find(\'?\') == std::string::npos', helper)
 
     def test_marketplace_uses_grid_endpoint(self):
         network = (NV/'llviewernetwork.cpp').read_text()

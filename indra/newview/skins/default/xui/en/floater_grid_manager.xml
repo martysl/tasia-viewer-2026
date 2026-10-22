@@ -35,10 +35,11 @@
     <line_editor name="gatekeeper" label="Hypergrid gatekeeper URL" left="20" top="498" width="580" height="23" max_length_chars="2048" layout="topleft" />
     <line_editor name="grid_status" label="Grid Status page URL" left="20" top="525" width="580" height="23" max_length_chars="2048" layout="topleft" />
     <line_editor name="grid_status_rss" label="Grid Status RSS URL" left="20" top="552" width="580" height="23" max_length_chars="2048" layout="topleft" />
-    <check_box name="catalog_enabled" control_name="TasiaGridCatalogEnabled" label="Allow server grid-list additions (never replace my grids)" left="20" top="590" width="440" height="20" layout="topleft" />
-    <button name="update_catalog" label="Check grid list" left="470" top="590" width="130" height="23" layout="topleft" />
-    <check_box name="identity_enabled" control_name="TasiaRemoteUserConfigEnabled" label="Show grid + UUID cosmetic titles / aliases from Tasia config" left="20" top="620" width="580" height="20" layout="topleft" />
-    <text name="status" left="20" top="650" width="580" height="45" word_wrap="true" layout="topleft" />
+    <line_editor name="currency_uri" label="Currency XML-RPC endpoint URL (optional; complete endpoint, e.g. /currency.php)" left="20" top="579" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <check_box name="catalog_enabled" control_name="TasiaGridCatalogEnabled" label="Allow server grid-list additions (never replace my grids)" left="20" top="617" width="440" height="20" layout="topleft" />
+    <button name="update_catalog" label="Check grid list" left="470" top="617" width="130" height="23" layout="topleft" />
+    <check_box name="identity_enabled" control_name="TasiaRemoteUserConfigEnabled" label="Show grid + UUID cosmetic titles / aliases from Tasia config" left="20" top="647" width="580" height="20" layout="topleft" />
+    <text name="status" left="20" top="677" width="580" height="45" word_wrap="true" layout="topleft" />
     <button name="remove_grid" label="Remove selected" left="20" top="748" width="150" height="23" layout="topleft" />
     <button name="close" label="Close" left="480" top="748" width="120" height="23" layout="topleft" />
 </floater>

@@ -115,6 +115,8 @@ bool gridMetadata(LLSD& target, const LLSD& source)
     {
         if (!source.has(key)) continue;
         if (!source[key].isString()) return false;
+        if (std::string(key) == "currency_uri" && source[key].asString().find('?') != std::string::npos)
+            return false;
         if (std::string(key) == "login_page" && source[key].asString() == "about:blank")
         { target[key] = source[key]; continue; }
         if (!gridURL(source[key].asString())) return false;

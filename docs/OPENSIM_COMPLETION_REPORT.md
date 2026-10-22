@@ -175,6 +175,19 @@ The reviewer noted the 16-byte validation cap and that other currency displays
 require explicit markers. This is not native/runtime verification. Real
 quote/purchase semantics remain unverified and no financial request was sent.
 
+### GridInfo and economy metadata follow-on
+
+Added a selected-grid optional currency endpoint field to the English/Polish
+Grid Manager and wired it through metadata load/save and explicit `<currency_uri>`
+discovery. Query-bearing values are rejected; the ordinary OpenSim
+`economy`/`helperuri` remains the fallback, with HTTP support retained for
+HTTP-only grids. No Gloebit support was added. Audited legacy GridInfo fields:
+the current parser covers active URL fields and GridStatus; the server-returned
+`<login>` redirect remains intentionally ignored. Some older stored fields are
+unconsumed/Aurora-only, and the reference `DirectoryFee` getter remained zero.
+Focused offline tests pass 23/23. Live GridInfo retrieval, native build and
+financial behavior remain unverified; fresh Farm review is pending.
+
 ## Source-trace checkpoint
 
 The current-vs-reference login source trace found equivalent high-level startup

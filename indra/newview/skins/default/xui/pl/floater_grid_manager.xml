@@ -26,6 +26,7 @@
     <line_editor name="gatekeeper" label="Adres gatekeepera Hypergrid" />
     <line_editor name="grid_status" label="Adres strony statusu gridu" />
     <line_editor name="grid_status_rss" label="Adres RSS statusu gridu" />
+    <line_editor name="currency_uri" label="Adres endpointu walutowego XML-RPC (opcjonalny, pełny adres np. /currency.php)" />
     <check_box name="catalog_enabled" label="Zezwalaj na nowe gridy z serwera (bez zastępowania moich)" />
     <button name="update_catalog" label="Sprawdź listę" />
     <check_box name="identity_enabled" label="Pokaż tytuły / aliasy z konfiguracji Tasia według gridu i UUID" />

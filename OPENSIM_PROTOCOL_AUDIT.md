@@ -188,6 +188,43 @@ Native build, live endpoint behavior, production module semantics, grid-specific
 currency symbol/pricing, and all financial operations remain unverified. Do not
 claim working real purchases from this patch.
 
+### GridInfo discovery and economy metadata
+
+The checked OpenSim server registers XML `GET /get_grid_info`, JSON
+`GET /json_grid_info`, and XML-RPC `get_grid_info`. Its REST XML response is a
+`<gridinfo>` document containing configured key/value pairs. The current Grid
+Manager uses `GET /get_grid_info` from the entered login authority, allows HTTP
+for HTTP grids, and uses the bounded config-fetch helper (peer/host TLS
+verification on HTTPS, redirects disabled, 64 KiB response limit, no retry).
+The parser requires the expected root, caps child count/value sizes, rejects
+DTD/entity declarations, and maps `gridname`, `welcome`, `economy`/`helperuri`,
+`profileuri`/`web_profile_url`, registration/password/help/about/search,
+gatekeeper, and GridStatus page/RSS into validated per-grid URL metadata.
+Discovery is generation/login/form-snapshot guarded so a delayed response does
+not overwrite edits or a changed selection.
+
+The previous metadata form did not expose the currency endpoint override even
+though the selected-grid resolver already supported `currency_uri`. Added an
+optional full-endpoint field in both English and Polish layouts; it is persisted
+through the metadata allowlist, discovered when a matching `<currency_uri>` tag
+is supplied, and query-bearing values are rejected. The standard OpenSim
+`economy`/`helperuri` continues to be the fallback. This keeps HTTP usable for
+HTTP-only grids and adds no Gloebit integration.
+
+Reference parity limits verified from source: `gridInfoResponderCB()` also
+stores `gridnick`, `message`, `platform`, and `SendGridInfoToViewerOnLogin`, but
+current-repository relevant consumers are absent or the old `platform` check is
+Aurora-specific. The old `DirectoryFee` parser stores a LLSD value but never
+updates its `mDirectoryFee` backing member (initialized to zero), so claiming
+functional DirectoryFee support would be inaccurate. The old `<login>` element
+overwrites its selected login URI; current intentionally ignores it and retains
+the operator-entered endpoint rather than trusting a server-advertised redirect.
+These unported fields remain explicit gaps, not silently claimed parity.
+
+`tasia_opensim_services_test.py` now asserts GridInfo route/mapping/security and
+the explicit currency override path. 23/23 service tests pass with
+`git diff --check`; no live HTTP/HTTPS GridInfo fetch or native build was run.
+
 ### Grid Status page/RSS routing and TLS
 
 The current floater previously navigated unconditionally to the SL status page,
