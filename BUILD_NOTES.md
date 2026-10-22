@@ -3918,3 +3918,51 @@ made for those speculative concerns. Delta review
 redaction change and noted the lack of Windows/runtime tests. These reviews are
 advisory, not runtime evidence. Root cause of the recorded region-connect stall
 remains unresolved pending server-side event correlation.
+
+### Phase 2 AIS outfit-fetch failure guard (2026-10-22)
+
+After the Phase 1 commit `94e1fe3c53b7b03a3a174a5850e277ab05022c81`, re-audited
+the AIS `FetchCategoryLinks` route. Its callback contract was nullary at the
+background-fetch layer; the callback ran regardless of AIS success, and
+`InvokeAISCommandCoro` extracted category IDs from response bodies even when HTTP
+status failed. `wearCategoryFinal()` checks category completeness, but a failed
+refresh of a previously-complete cached folder could leave that check true.
+
+Added a completion-aware overload that preserves the old nullary overload for
+other consumers. AIS category updates/results are now applied only for successful
+HTTP status plus map responses; the outfit callback requires the confirmed
+category ID to equal the requested ID. Null/mismatched IDs settle the wearable
+loading signal and return before copy/apply. AIS logs no longer print capability
+URLs, full LLSD request/response bodies, or inventory UUIDs; generic status and
+operation messages remain. A category-fetch warning also no longer prints the
+category UUID. The null/mismatch branch stops the tracked
+`wear_inventory_category_fetch` phase and calls `notifyLoadingFinished()` before
+returning. No destructive inventory operation was changed.
+
+The new/extended test first failed against the old AIS nullary route (missing
+completion ID), then passed after the guard. Focused results:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_wear_category_fetch_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_initial_wearables_test.py PASS (12,000 snapshot cases + ASan/UBSan fixture)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_cof_library_fetch_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_wearable_asset_transport_test.py PASS (2 cases)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_legacy_inventory_fetch_test.py PASS (2 cases)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_cloud_readiness_test.py PASS
+git diff --check PASS
+```
+
+These are offline source/fixture results; there is no full target build or live
+AIS/grid verification on this Linux host. Tasia Farm review
+`job_mvjmn03u_909a6a3154` agreed with completion-ID gating and compatibility of
+the old nullary wrapper; it asked for confirmation that failure settles the
+loading state. The code now stops the tracked phase and signals loading finished,
+and the focused source contract asserts both. This confirms code ordering only,
+not live UI settlement. Follow-up review `job_mvjmpr5f_9bceab0be6` agreed the
+failure branch stops the phase, notifies wearables and returns before
+finalization. Its concurrency question was checked: `selfStopPhase` only forwards
+to the current avatar phase tracker; the AIS callback invokes the outfit callback
+once, then performs the background-fetch completion bookkeeping; repository search
+shows this phase has one start and exactly the error and normal stops. No later
+outfit callback depends on the phase remaining active. The independent reviewer
+still correctly notes that a Windows build and live AIS validation are missing.

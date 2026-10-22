@@ -436,6 +436,15 @@ void LLInventoryModelBackgroundFetch::scheduleItemFetch(const LLUUID& item_id, b
 
 void LLInventoryModelBackgroundFetch::fetchFolderAndLinks(const LLUUID& cat_id, nullary_func_t callback)
 {
+    fetchFolderAndLinks(cat_id, [callback](const LLUUID&)
+    {
+        if (callback) callback();
+    });
+}
+
+void LLInventoryModelBackgroundFetch::fetchFolderAndLinks(const LLUUID& cat_id,
+                                                           fetch_completion_func_t callback)
+{
     LLViewerInventoryCategory* cat = gInventory.getCategory(cat_id);
     if (cat)
     {
@@ -449,11 +458,11 @@ void LLInventoryModelBackgroundFetch::fetchFolderAndLinks(const LLUUID& cat_id, 
     AISAPI::FetchCategoryLinks(cat_id,
                                [callback, cat_id](const LLUUID& id)
                                {
-                                   callback();
-                                   if (id.isNull())
-                                   {
-                                       LL_WARNS() << "Failed to fetch category links " << cat_id << LL_ENDL;
-                                   }
+                                    if (callback) callback(id);
+                                    if (id.isNull())
+                                    {
+                                        LL_WARNS() << "Failed to fetch category links" << LL_ENDL;
+                                    }
                                    LLInventoryModelBackgroundFetch::getInstance()->onAISFolderCalback(cat_id, id, FT_DEFAULT);
                                });
 

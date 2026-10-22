@@ -54,9 +54,12 @@ public:
     void scheduleItemFetch(const LLUUID& item_id, bool forced = false);
 
     typedef std::function<void()> nullary_func_t;
+    typedef std::function<void(const LLUUID&)> fetch_completion_func_t;
     // AIS3 only, Fetches folder and everithing links inside the folder point to
     // Intended for outfits
     void fetchFolderAndLinks(const LLUUID& cat_id, nullary_func_t callback);
+    // AIS3 variant that reports the fetched category ID, or null on failure.
+    void fetchFolderAndLinks(const LLUUID& cat_id, fetch_completion_func_t callback);
     // AIS3 only
     void fetchCOF(nullary_func_t callback);
 
@@ -148,4 +151,3 @@ private:
 };
 
 #endif // LL_LLINVENTORYMODELBACKGROUNDFETCH_H
-

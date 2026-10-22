@@ -31,7 +31,7 @@ revision.
 | 2 | World-map region sizes | Optional `MapBlockReply.Size` and `SizeX/SizeY` are wired through template, prehash, OpenSim-only reply parsing, bounded `LLSimInfo` extents, tracking bounds and map drawing. | **Source fix, focused contracts and Windows Release build pass.** SL and old replies retain 256m defaults. Live SL/OpenSim map checks remain pending; Hypergrid/SLURL audit remains separate. |
 | 3 | Inventory delete/purge | Both protocols define remove/purge messages, and checked server handlers delete items/folders and purge asynchronously. Old viewer sends UDP `RemoveInventoryItem`, `RemoveInventoryFolder`, and `PurgeInventoryDescendents`; active inventory helpers are AIS-only and warn otherwise. The old client mutates local state and fires callbacks optimistically after sending. The checked server's purge handler queues `PurgeFolderAsync` via `FireAndForget`, logs service failure, and sends no application-level completion reply. | **Verified miss; deliberately not ported.** A fresh empty listing is a possible observation, not yet a safe completion signal: the async purge has no ack, legacy replies have no request ID, and current reply handling does not reconcile absent cached children. Do not delete the parent on a timeout, malformed/stale reply, or unresolved callback failure. See confirmation contract below; server/version semantics and reply correlation remain blockers. |
 | 4 | Legacy profile UDP | Current source now decodes supported Groups/Picks/Notes replies and requests Picks/Notes on OpenSim when `AgentProfile` is absent. Unsupported standalone groups request and unsafe full-record profile update were not copied. | **Source port complete; focused tests pass; live tab test pending.** See `plan.md`. |
-| 5 | Wearable assets and appearance | Current source keeps `ViewerAsset` HTTP and adds a guarded OpenSim transfer fallback only for bodypart/clothing when cap is absent or HTTP returns 404/410. Wearable acquisition, local bake/upload and appearance send have source fixtures. | **Source/fixture coverage; live avatar/bake incomplete.** Do not broaden to mesh/arbitrary assets or HTTP permission failures without evidence. |
+| 5 | Wearable assets and appearance | Current source keeps `ViewerAsset` HTTP and adds a guarded OpenSim transfer fallback only for bodypart/clothing when cap is absent or HTTP returns 404/410. Wearable acquisition, local bake/upload and appearance send have source fixtures. AIS outfit fetch now passes completion IDs and refuses a failed/mismatched `FetchCategoryLinks` result before applying a cached/partial outfit. | **Source/fixture coverage; live avatar/bake incomplete.** No stale or partial outfit mutation on the audited AIS error path. Do not broaden to mesh/arbitrary assets or HTTP permission failures without evidence. |
 | 6 | Region dimensions, terrain and parcel data | Login/event-queue region dimensions, extended terrain IDs and larger parcel overlays have OpenSim source handling and focused tests. Checked server `MaximumRegionSize` is 4096m; viewer allocation/map/parcel bounds now match it. | **Mostly implemented; source/live evidence varies.** Square power-of-two regions 256..4096 only; non-square/non-power-of-two rendering and some unequal-size seams remain unsupported/partial. Known terrain/composition arrays at 4096m total about 320MiB before patch/renderer resources; full allocation/crossing stress still needs Windows runtime evidence. |
 
 ### Neighbor discovery versus terrain connection (2026-10-21)
@@ -307,6 +307,38 @@ open.
   identity/grid 4/4; `git diff --check` passed in the same session.
 - These are source/fixture checks, not a full viewer build, live packet capture,
   or live grid test.
+
+### 2026-10-22 AIS outfit-fetch failure guard and redacted diagnostics
+
+The legacy `CallAfterCategoryFetch` route already fails closed when its observer
+invokes the callback after failure. The AIS route had a separate gap: its
+nullary callback ran regardless of the `FetchCategoryLinks` result, and AIS
+completion IDs were extracted from error responses. A previously complete cached
+category could therefore pass `isCategoryComplete()` after a failed refresh and
+be applied as though the request had succeeded. The new completion-aware overload
+retains the old nullary overload for existing callers, but lets the outfit path
+require a non-null ID matching the requested category before `wearCategoryFinal`.
+AIS update application and completion-ID extraction now require a successful
+HTTP status and an LLSD map. Failure still settles the outfit loading indicator
+and stops the matching diagnostic phase before returning without copy/apply. The
+nearby background-fetch warning no longer prints the category UUID. This is
+source-verified, not live AIS proof.
+
+Also removed AIS diagnostics that printed inventory capability URLs, full request
+or response LLSD, and inventory UUIDs. Generic request-size, operation and HTTP
+status messages remain. The AIS source-contract test checks callback ID/status
+gating, failure-before-mutation ordering and absence of URL/result logging.
+`tasia_wear_category_fetch_test.py`, `tasia_initial_wearables_test.py` (including
+its ASan/UBSan fixture), and `tasia_cof_library_fetch_test.py` pass. The Farm
+review `job_mvjmn03u_909a6a3154` agreed with the ID/status guard and legacy
+wrapper, and requested verifying loading-indicator settlement; the failure path
+now also stops the diagnostic phase. This follow-up is code/test checked, not
+live AIS proof. Follow-up review `job_mvjmpr5f_9bceab0be6` found the settlement
+delta correct and requested a callback-order check. Source tracing confirms one
+AIS completion callback followed by background-fetch bookkeeping, with no later
+consumer requiring this diagnostic phase to remain active; its sole start and
+error/normal stops are the three occurrences in `llappearancemgr.cpp`. No Windows
+build, live AIS failure injection, or outfit runtime test was run.
 
 ### Step 3 — legacy purge confirmation contract (design only)
 

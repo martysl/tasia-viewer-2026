@@ -113,7 +113,6 @@ void AISAPI::CreateInventory(const LLUUID& parentId, const LLSD& newInventory, c
     tid.generate();
 
     std::string url = cap + std::string("/category/") + parentId.asString() + "?tid=" + tid.asString();
-    LL_DEBUGS("Inventory") << "url: " << url << " parentID " << parentId << " newInventory " << newInventory << LL_ENDL;
 
     // I may be suffering from golden hammer here, but the first part of this bind
     // is actually a static cast for &HttpCoroutineAdapter::postAndSuspend so that
@@ -195,7 +194,6 @@ void AISAPI::RemoveCategory(const LLUUID &categoryId, completion_t callback)
     }
 
     std::string url = cap + std::string("/category/") + categoryId.asString();
-    LL_DEBUGS("Inventory") << "url: " << url << LL_ENDL;
 
     invokationFn_t delFn = boost::bind(
         // Humans ignore next line.  It is just a cast to specify which LLCoreHttpUtil::HttpCoroutineAdapter routine overload.
@@ -232,7 +230,6 @@ void AISAPI::RemoveItem(const LLUUID &itemId, completion_t callback)
     }
 
     std::string url = cap + std::string("/item/") + itemId.asString();
-    LL_DEBUGS("Inventory") << "url: " << url << LL_ENDL;
 
     invokationFn_t delFn = boost::bind(
         // Humans ignore next line.  It is just a cast to specify which LLCoreHttpUtil::HttpCoroutineAdapter routine overload.
@@ -267,7 +264,7 @@ void AISAPI::CopyLibraryCategory(const LLUUID& sourceId, const LLUUID& destId, b
         return;
     }
 
-    LL_DEBUGS("Inventory") << "Copying library category: " << sourceId << " => " << destId << LL_ENDL;
+    LL_DEBUGS("Inventory") << "Copying library category" << LL_ENDL;
 
     LLUUID tid;
     tid.generate();
@@ -277,7 +274,6 @@ void AISAPI::CopyLibraryCategory(const LLUUID& sourceId, const LLUUID& destId, b
     {
         url += ",depth=0";
     }
-    LL_INFOS() << url << LL_ENDL;
 
     std::string destination = destId.asString();
 
@@ -316,7 +312,6 @@ void AISAPI::PurgeDescendents(const LLUUID &categoryId, completion_t callback)
     }
 
     std::string url = cap + std::string("/category/") + categoryId.asString() + "/children";
-    LL_DEBUGS("Inventory") << "url: " << url << LL_ENDL;
 
     invokationFn_t delFn = boost::bind(
         // Humans ignore next line.  It is just a cast to specify which LLCoreHttpUtil::HttpCoroutineAdapter routine overload.
@@ -651,7 +646,7 @@ void AISAPI::FetchCategorySubset(const LLUUID& catId,
     const S32 MAX_URL_LENGH = 2000; // RFC documentation specifies a maximum length of 2048
     if (url.length() > MAX_URL_LENGH)
     {
-        LL_WARNS("Inventory") << "Request url is too long, url: " << url << LL_ENDL;
+        LL_WARNS("Inventory") << "Inventory request URL exceeds the supported length" << LL_ENDL;
     }
 
     invokationFn_t getFn = boost::bind(
@@ -867,7 +862,6 @@ void AISAPI::InvokeAISCommandCoro(LLCoreHttpUtil::HttpCoroutineAdapter::ptr_t ht
 
     httpOptions->setTimeout(HTTP_TIMEOUT);
 
-    LL_DEBUGS("Inventory") << "Request url: " << url << LL_ENDL;
 
     LLSD result;
     LLSD httpResults;
@@ -934,78 +928,82 @@ void AISAPI::InvokeAISCommandCoro(LLCoreHttpUtil::HttpCoroutineAdapter::ptr_t ht
                     {
                         LLNotificationsUtil::add("InventoryLimitReachedAIS");
                     }
-                    LL_WARNS("Inventory") << "Fetch failed, content is over limit, url: " << url << LL_ENDL;
+                    LL_WARNS("Inventory") << "Fetch failed: content is over the AIS limit" << LL_ENDL;
                 }
                 else
                 {
                     // Result was too big, but situation is recoverable by requesting with lower depth
-                    LL_DEBUGS("Inventory") << "Fetch failed, content is over limit, url: " << url << LL_ENDL;
+                    LL_DEBUGS("Inventory") << "Fetch failed: content is over the AIS limit" << LL_ENDL;
                 }
             }
         }
         LL_WARNS("Inventory") << "Inventory error: " << status.toString() << LL_ENDL;
-        LL_WARNS("Inventory") << ll_pretty_print_sd(result) << LL_ENDL;
     }
 
-    LL_DEBUGS("Inventory", "AIS3") << "Result: " << result << LL_ENDL;
-    onUpdateReceived(result, type, body);
+    if (status && result.isMap())
+    {
+        onUpdateReceived(result, type, body);
+    }
 
     if (callback != nullptr)
     {
         bool needs_callback = true;
         LLUUID id(LLUUID::null);
 
-        switch (type)
+        if (status && result.isMap())
         {
-        case COPYLIBRARYCATEGORY:
-        case FETCHCATEGORYCATEGORIES:
-        case FETCHCATEGORYCHILDREN:
-        case FETCHCATEGORYSUBSET:
-        case FETCHCATEGORYLINKS:
-        case FETCHCOF:
-            if (result.has("category_id"))
+            switch (type)
             {
-                id = result["category_id"];
-            }
-            break;
-        case FETCHITEM:
-            if (result.has("item_id"))
-            {
-                // Error message might contain an item_id!!!
-                id = result["item_id"];
-            }
-            if (result.has("linked_id"))
-            {
-                id = result["linked_id"];
-            }
-            break;
-        case CREATEINVENTORY:
-            // CREATEINVENTORY can have multiple callbacks
-            if (result.has("_created_categories"))
-            {
-                LLSD& cats = result["_created_categories"];
-                LLSD::array_const_iterator cat_iter;
-                for (cat_iter = cats.beginArray(); cat_iter != cats.endArray(); ++cat_iter)
+            case COPYLIBRARYCATEGORY:
+            case FETCHCATEGORYCATEGORIES:
+            case FETCHCATEGORYCHILDREN:
+            case FETCHCATEGORYSUBSET:
+            case FETCHCATEGORYLINKS:
+            case FETCHCOF:
+                if (result.has("category_id"))
                 {
-                    LLUUID cat_id = *cat_iter;
-                    callback(cat_id);
-                    needs_callback = false;
+                    id = result["category_id"];
                 }
-            }
-            if (result.has("_created_items"))
-            {
-                LLSD& items = result["_created_items"];
-                LLSD::array_const_iterator item_iter;
-                for (item_iter = items.beginArray(); item_iter != items.endArray(); ++item_iter)
+                break;
+            case FETCHITEM:
+                if (result.has("item_id"))
                 {
-                    LLUUID item_id = *item_iter;
-                    callback(item_id);
-                    needs_callback = false;
+                    // Error message might contain an item_id!!!
+                    id = result["item_id"];
                 }
+                if (result.has("linked_id"))
+                {
+                    id = result["linked_id"];
+                }
+                break;
+            case CREATEINVENTORY:
+                // CREATEINVENTORY can have multiple callbacks
+                if (result.has("_created_categories"))
+                {
+                    LLSD& cats = result["_created_categories"];
+                    LLSD::array_const_iterator cat_iter;
+                    for (cat_iter = cats.beginArray(); cat_iter != cats.endArray(); ++cat_iter)
+                    {
+                        LLUUID cat_id = *cat_iter;
+                        callback(cat_id);
+                        needs_callback = false;
+                    }
+                }
+                if (result.has("_created_items"))
+                {
+                    LLSD& items = result["_created_items"];
+                    LLSD::array_const_iterator item_iter;
+                    for (item_iter = items.beginArray(); item_iter != items.endArray(); ++item_iter)
+                    {
+                        LLUUID item_id = *item_iter;
+                        callback(item_id);
+                        needs_callback = false;
+                    }
+                }
+                break;
+            default:
+                break;
             }
-            break;
-        default:
-            break;
         }
 
         if (needs_callback)
@@ -1819,4 +1817,3 @@ void AISUpdate::doUpdate()
 
     gInventory.notifyObservers();
 }
-

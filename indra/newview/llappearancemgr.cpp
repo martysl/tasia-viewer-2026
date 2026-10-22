@@ -2851,8 +2851,15 @@ void LLAppearanceMgr::wearInventoryCategory(LLInventoryCategory* category, bool 
             LLUUID cat_id = category->getUUID();
             LLInventoryModelBackgroundFetch::getInstance()->fetchFolderAndLinks(
                                 cat_id,
-                                [cat_id, copy, append]
+                                [cat_id, copy, append](const LLUUID& fetched_id)
                                 {
+                                    if (fetched_id != cat_id)
+                                    {
+                                        LL_WARNS("Avatar") << "Cannot wear outfit: AIS fetch did not confirm the requested category" << LL_ENDL;
+                                        selfStopPhase("wear_inventory_category_fetch");
+                                        gAgentWearables.notifyLoadingFinished();
+                                        return;
+                                    }
                                     LLAppearanceMgr::instance().wearCategoryFinal(cat_id, copy, append);
                                 });
         }
