@@ -4096,3 +4096,76 @@ code findings, and its peer suggested extra branch/Windows tests based only on
 the summary. The source contract checks the OpenSim gate and route branches, but
 does not execute the UI or Windows code. Review is therefore recorded as limited,
 not independent source/runtime verification.
+
+### Completion report push and login/QUIC source trace (2026-10-22)
+
+Added `docs/OPENSIM_COMPLETION_REPORT.md` and committed it as
+`f3db260c406223111243be7e2ec8af3961296347`. Pushed without force to
+`tasia/fix/opensim-completion-20261022`; `git ls-remote` verified the remote ref
+at that SHA. The worktree was clean immediately after the push. The report
+explicitly leaves the live login stall, black `BAKED_HEAD`, live profile saves,
+Windows DX11 build, and QUIC idle/reconnect behavior unresolved or unverified.
+
+Continued the login trace across current and prior `llstartup.cpp`, current
+`llviewermessage.cpp` / `llviewergenericmessage.cpp` / `llcircuit.cpp`, and
+checked `telep-npc` QUIC + LLUDP handlers. Current and previous startup packet
+ordering is source-equivalent through UseCircuitCode ack, CompleteAgentMovement,
+and AgentMovementComplete wait. Current QUIC requires an advertised endpoint and
+OpenSim + `TasiaQuicEnabled`; a received `quicready` must come from the actual QUIC
+route and expected host before queued traffic flushes. Disabled setting falls
+back existing QUIC circuits to LLUDP. Current five-second readiness fallback is
+different from the reference, but source comparison does not establish it as the
+live stall cause. No handshake behavior was changed because server correlation
+and a controlled QUIC-on/off login are unavailable here.
+
+`PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_quic_transport_test.py`
+passes 6/6 tests, including compiled production routing/retry/fallback, readiness
+guards, and stream framing. This remains offline fixture evidence only. No Windows
+DX11 build, live login, client/server packet correlation, or QUIC enabled/disabled
+runtime comparison was performed. Detailed call-path evidence and next required
+correlation are in `OPENSIM_PROTOCOL_AUDIT.md`.
+
+Tasia Farm review `job_mvjnvfs4_0225653b20` completed as an independent
+documentation-consistency review. It repeated the offline-only testing gap and
+current-vs-old callback/timeout contrast (both are explicitly present in the
+audit); its concern that “no code changed” could be read broadly was addressed by
+clarifying that only this source-trace documentation update made no production
+code changes, while the branch's earlier Phase 1 movement guard/callback are
+implementation changes. The reviewers did not independently inspect local
+source or verify runtime behavior; this is not code or runtime approval.
+
+Also traced the complete head-bake source path. `BAKED_HEAD` is dictionary index
+0 and includes head bodypaint, tattoo, alpha, and universal tattoo; wearable
+classes include shape, skin, hair, tattoo, alpha, universal. Local missing asset
+inputs return discard -1 and block final/available readiness; default avatar
+textures are treated as intentionally empty. The DX11 path reads the render
+target, rejects all-black nontransparent head pixels, packs RGBA + morph mask as
+RGBHM J2C, uploads via cap or asset storage, assigns the accepted returned ID to
+the mapped baked TE, refreshes mesh/attachment magic textures, and emits
+AgentSetAppearance only after pending legacy bake uploads complete. This confirms
+call-path wiring but does not identify the historical black input layer/asset or
+validate actual D3D/J2C/server/render results.
+
+Reran focused bake suites:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bake_readback_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bake_upload_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bake_refresh_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_legacy_bake_port_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_bom_limits_test.py PASS
+```
+
+These fixtures cover helper/policy/call contracts, not a real Windows DX11
+candidate or visible avatar. No production code was changed in these source-trace
+steps.
+
+Tasia Farm review `job_mvjnxji2_e4bbf69f9d` completed as a documentation
+consistency review of the supplied bake-path evidence. It usefully flagged that
+black pixels can be intentional and that the all-black/nontransparent guard is
+not the only integrity control. Clarified the audit: black is not categorically
+invalid; the guard checks only the aggregate condition, readiness and ID/index
+guards are separate, and none proves final rendering. The review also emphasized
+the absent Windows D3D/live render evidence, already explicitly listed. Reviewers
+worked from the supplied source summary rather than independently inspecting the
+local repository; it is not source/build/runtime approval.

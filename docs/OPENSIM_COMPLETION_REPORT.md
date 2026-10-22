@@ -22,8 +22,14 @@ The implementation commits currently on this branch, newest first, are:
 | `4d1f0f4` | Reject failed/mismatched AIS outfit fetches |
 | `94e1fe3` | Isolate grid credentials and validate movement identity |
 
-The branch was six commits ahead of `tasia/broken` when this report was written.
-The exact branch head is `a9307ab8444c07d1c6629cb6386961febdab1726`.
+The implementation branch was six commits ahead of `tasia/broken` before this
+documentation-only report commit; its implementation head was
+`a9307ab8444c07d1c6629cb6386961febdab1726`.
+
+The report was committed as `f3db260c406223111243be7e2ec8af3961296347` and
+pushed without force to `tasia/fix/opensim-completion-20261022`. A subsequent
+`git ls-remote` verified that the remote ref matched this SHA. Later documentation
+checkpoints are tracked in `BUILD_NOTES.md` and the commit history.
 
 ## Verified source/test work
 
@@ -85,12 +91,36 @@ limitations are in `BUILD_NOTES.md`.
    OpenSim service parity, and some map/Hypergrid/economy/mesh/material behavior
    are not claimed complete.
 
+## Source-trace checkpoint
+
+The current-vs-reference login source trace found equivalent high-level startup
+ordering through `UseCircuitCode` acknowledgement, `CompleteAgentMovement`, and
+the `AgentMovementComplete` wait. Current QUIC additionally requires
+transport-authenticated `quicready` and has a five-second LLUDP fallback that the
+reference does not. The timeout is a verified source difference, **not a proven
+cause** of the reported circuit stall. The production QUIC harness passed 6/6;
+no live enabled/disabled comparison or server-side packet correlation was
+available.
+
+The `BAKED_HEAD` dictionary/source trace confirms slot 0 and explicit bodypaint,
+tattoo, alpha, and universal-tattoo inputs, plus missing-asset readiness guards
+and the DX11 readback → RGBHM/J2C → upload → baked-TE/appearance-send path. The
+readback, upload, attachment-refresh, legacy-bake, and BoM fixtures all pass. They
+do not identify the black-pixel input or prove a visible head; the guard remains
+containment only. Detailed trace and exact remaining evidence are in
+`OPENSIM_PROTOCOL_AUDIT.md`.
+
 ## Review and release boundary
 
 Tasia Farm reviews for profile, Search, and Destinations were limited because
 reviewers reported that they could not inspect the source; they are not treated
-as independent source or runtime validation. No merge, deployment, or force-push
-is authorized by this report. This branch is intended for review only.
+as independent source or runtime validation. The later login/QUIC and bake-path
+documentation checks (`job_mvjnvfs4_0225653b20` and
+`job_mvjnxji2_e4bbf69f9d`) were also summary-based consistency reviews, not source,
+build, or runtime validation. The bake review prompted the clarification that
+black pixels can be legitimate and that readiness/assignment guards do not prove
+the final composite or render. No merge, deployment, or force-push is authorized
+by this report. This branch is intended for review only.
 
 Next required evidence: correlate the login handshake on both client and server
 with QUIC enabled and disabled; trace the baked-head input-to-render pipeline on

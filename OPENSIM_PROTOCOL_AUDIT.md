@@ -731,3 +731,114 @@ said it could not access source; its lead provided no code findings, while its p
 gave summary-based branch/Windows test suggestions. The source contract checks the
 OpenSim gate and route branches, but does not execute UI/Windows code. Review is
 limited, not independent source/runtime verification.
+
+### 2026-10-22 client login/circuit and QUIC source trace
+
+Compared active `llstartup.cpp`, `llviewermessage.cpp`,
+`llviewergenericmessage.cpp`, `llmessage/llcircuit.cpp`, and
+`llmessage/message.cpp` with the prior viewer's startup and `quicready` handler,
+then checked the corresponding QUIC and LLUDP server handlers in the read-only
+`telep-npc` source. Current and prior viewer startup have the same state ordering:
+enable the first simulator circuit, send reliable `UseCircuitCode`, wait for its
+reliable callback/ack, send reliable `CompleteAgentMovement`, then wait for
+`AgentMovementComplete` before inventory startup. Current code adds
+identity/session validation to the movement-complete handler and a
+delivery-failure diagnostic callback; this comparison found no evidence that
+these additions change the packet fields or startup ordering.
+
+Current transport selection is conditional: `tasiaEnableAdvertisedQuic()` is
+OpenSim-only, requires `TasiaQuicEnabled`, and requires a validated advertised
+host/port. With the setting disabled, startup/event handlers do not negotiate a
+QUIC route and `LLAppViewer::idleNetwork()` falls back any existing QUIC circuits
+to LLUDP. With it enabled, `UseCircuitCode` is the bootstrap packet; ordinary
+traffic is queued until a `quicready` GenericMessage is received from the same
+sender over QUIC. The current handler checks AgentID, and the message layer checks
+the actual receive transport/host before accepting readiness. The client then
+flushes queued traffic and completes the bootstrap callback. If readiness does
+not arrive within five seconds, the circuit recovers over LLUDP and replays the
+bootstrap/queued packets under the existing reliable records.
+
+The old reference also waits for `quicready` before flushing its ordinary queue,
+but uses a different pending-reply-callback mechanism and does not impose the
+current five-second not-ready fallback timeout. This is a concrete behavior
+difference, **not proof that the timeout caused the reported stall**: no client
+packet trace or server event correlation for the affected attempt establishes
+whether `quicready`, the reliable ack, or `AgentMovementComplete` was absent or
+lost. The checked server's QUIC path associates the transport, sends `quicready`,
+then sends the region handshake; its plain LLUDP path is distinct. Deployed-server
+revision/configuration is not established by that source checkout.
+
+`PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_quic_transport_test.py`
+passes 6 tests, including compiled production circuit routing/retries, readiness
+guards, fallback, and stream framing. This is a deterministic offline harness;
+it does **not** exercise actual QUIC-enabled versus disabled login, a Windows
+build, or live server responses. This source-trace documentation work changed no
+production code; the earlier Phase 1 movement identity/session guard and delivery
+diagnostic callback remain implementation changes. No timeout or handshake
+behavior was changed in this audit.
+Next evidence required: a controlled client attempt with QUIC disabled and one
+enabled, correlating timestamped UseCircuitCode, quicready, CompleteAgentMovement,
+reliable ACK, and AgentMovementComplete on both ends without exposing identity or
+credentials. If server logs are unavailable, preserve the exact candidate's
+sanitized client trace and mark the server-side cause unresolved.
+
+### 2026-10-22 `BAKED_HEAD` local composition/upload source trace
+
+The active dictionary maps `BAKED_HEAD` to baked TE `TEX_HEAD_BAKED` at index 0.
+Its explicit local texture inputs are `TEX_HEAD_BODYPAINT`, `TEX_HEAD_TATTOO`,
+`TEX_HEAD_ALPHA`, and `TEX_HEAD_UNIVERSAL_TATTOO`; its wearable classes are shape,
+skin, hair, tattoo, alpha, and universal. The head layer therefore has explicit
+tattoo/alpha/universal coverage in the baked-entry definition, not just the older
+bodypaint layer. `LLTexLayerSet::render()` composites the configured layers and
+`renderAlphaMaskTextures()` applies the configured static alpha, alpha clear, and
+mask layers. The upload's morph-mask alpha is gathered separately before the
+five-channel `RGBHM` J2C encode.
+
+The viewer only starts legacy OpenSim uploads when the region has central bake
+version 0 and the bake index is valid. The readiness gates require loaded
+wearables, no appearance editing, final local texture data, and no upload already
+in flight. For each local input, missing assets map to discard level -1 and make
+the data unavailable/not final; `IMG_DEFAULT_AVATAR` is treated as the intentional
+empty/default layer. This is source behavior and does not establish that every
+required asset in the reported session was correctly requested or decoded.
+
+The active DX11 upload path reads the bound render target via `LLBake::readColor`,
+summarizes the RGBA output, and rejects an all-black/nontransparent head composite
+before encoding. It then packs RGBA plus the gathered morph mask into five-channel
+`RGBHM` J2C, validates encoded dimensions/components, and uploads through
+`UploadBakedTexture` or the asset-storage fallback. An accepted completion passes
+the returned ID to `LLVOAvatarSelf::setNewBakedTexture()`, which rejects a null ID
+or invalid/non-legacy bake index, fetches the texture from the region host as a
+host bake, assigns the mapped baked TE, updates mesh textures and marks the mesh
+dirty. All pending legacy bake uploads must finish before `sendLegacyAppearance()`
+serializes baked TEs plus visual parameters in `AgentSetAppearance`. The avatar
+and attachment magic-texture refresh is wired after accepted assignment.
+
+Source trace and fixtures do not verify the actual D3D pixel contents, J2C bytes
+from the reported session, server acceptance/returned UUID, decoded fetched bake,
+or visible face/attachment rendering. The black-head guard is containment: if it
+rejects the composite, it prevents replacing the previous head but does not repair
+the inputs. This does not mean all black pixels are invalid: black can be an
+intended color in a valid composite; the guard only rejects the aggregate
+all-black/nontransparent condition. Other integrity controls are separate: the
+missing-asset/readiness checks gate known unavailable inputs, and assignment
+rejects null IDs/invalid bake slots, but none prove the full composite or final
+render is correct. The historical black/nontransparent pixel observation remains
+unattributed to a specific wearable asset, alpha/tattoo/universal layer, render
+target/readback, or texture replacement event. Do not bypass readiness or synthesize
+body parts. Next diagnostic must correlate a sanitized input inventory/layer
+summary with the exact head composite before readback, the readback pixel summary,
+upload completion/result ID, assigned TE ID, and the fetched texture decode/render
+result on a Windows DX11 candidate.
+
+Focused offline checks rerun for this trace:
+
+```text
+tasia_bake_readback_test.py: PASS (RGBA/BGRA, padded pitch, alpha/five-channel packing, summaries/bounds; ASan/UBSan)
+tasia_bake_upload_test.py: PASS (upload policy, completion, sender guards/packet shape; ASan/UBSan)
+tasia_bake_refresh_test.py: PASS
+tasia_legacy_bake_port_test.py: PASS
+tasia_bom_limits_test.py: PASS
+```
+
+These do not substitute for a Windows DX11 build or live avatar validation.
