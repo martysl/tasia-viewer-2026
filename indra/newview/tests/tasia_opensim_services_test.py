@@ -320,6 +320,15 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         for locale in ('en', 'pl'):
             grid_xml = ET.parse(NV/f'skins/default/xui/{locale}/floater_grid_manager.xml').getroot()
             self.assertIsNotNone(grid_xml.find(".//line_editor[@name='currency_uri']"))
+        cpp_network_tests = (NV/'tests/llviewernetwork_test.cpp').read_text()
+        currency_test = method(cpp_network_tests, 'void viewerNetworkTestObject::test<8>()')
+        for evidence in ('explicit currency endpoint', 'empty optional currency endpoint clears',
+                         'empty optional currency endpoint uses helper fallback',
+                         'helper fallback trims trailing slash', 'query-bearing currency endpoint rejected',
+                         'invalid-port currency endpoint rejected', 'helper without scheme rejected',
+                         'helper without host rejected', 'helper fragment rejected',
+                         'relative helper path rejected'):
+            self.assertIn(evidence, currency_test)
         currency_ui = (NV/'llfloaterbuycurrency.cpp').read_text()
         for signature in ('void LLFloaterBuyCurrency::buyCurrency()','void LLFloaterBuyCurrency::buyCurrency(const std::string& name, S32 price)'):
             opener = method(currency_ui, signature)

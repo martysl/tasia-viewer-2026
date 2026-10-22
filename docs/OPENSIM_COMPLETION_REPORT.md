@@ -185,8 +185,12 @@ HTTP-only grids. No Gloebit support was added. Audited legacy GridInfo fields:
 the current parser covers active URL fields and GridStatus; the server-returned
 `<login>` redirect remains intentionally ignored. Some older stored fields are
 unconsumed/Aurora-only, and the reference `DirectoryFee` getter remained zero.
-Focused offline tests pass 23/23. Live GridInfo retrieval, native build and
-financial behavior remain unverified; fresh Farm review is pending.
+Focused offline tests pass 23/23. Added native C++ GridManager cases cover the
+full endpoint, empty-value fallback, trailing slash, query/port rejection and
+malformed helper URIs; they are **NOT RUN** because no build tree is available.
+Farm source reviews found no source defect in supplied excerpts and confirmed
+the malformed-URI cases align with validation. Live GridInfo retrieval, native
+build and financial behavior remain unverified.
 
 ## Source-trace checkpoint
 

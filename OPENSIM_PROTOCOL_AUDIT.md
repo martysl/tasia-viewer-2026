@@ -221,9 +221,16 @@ overwrites its selected login URI; current intentionally ignores it and retains
 the operator-entered endpoint rather than trusting a server-advertised redirect.
 These unported fields remain explicit gaps, not silently claimed parity.
 
-`tasia_opensim_services_test.py` now asserts GridInfo route/mapping/security and
-the explicit currency override path. 23/23 service tests pass with
-`git diff --check`; no live HTTP/HTTPS GridInfo fetch or native build was run.
+`tasia_opensim_services_test.py` now asserts GridInfo mapping/security and the
+explicit currency override path. 23/23 service tests pass with `git diff
+--check`. The native `llviewernetwork_test.cpp` suite now also has focused cases
+for the custom endpoint, empty override/helper fallback, trailing slash,
+query/invalid-port rejection, and malformed helper URLs (missing scheme/host or
+fragment); those C++ cases have **NOT RUN** because no build tree was found.
+Farm source review `job_mvjqeshx_4070aa7846` found no defect in supplied
+excerpts and requested stronger input tests; `job_mvjqi3ip_9bd1089e74` reviewed
+the malformed-URI cases and found them consistent with URL validation. Neither
+is native test evidence. No live HTTP/HTTPS GridInfo fetch was run.
 
 ### Grid Status page/RSS routing and TLS
 

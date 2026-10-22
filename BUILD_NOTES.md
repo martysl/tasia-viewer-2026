@@ -4376,5 +4376,17 @@ not being represented as functioning parity.
 Verification: `PYTHONDONTWRITEBYTECODE=1 python3
 indra/newview/tests/tasia_opensim_services_test.py` PASS (23 tests);
 `git diff --check` PASS. This is source/XML-contract testing only; live GridInfo
-fetch, native build and financial actions were not run. Fresh Farm review of this
-follow-on diff is pending.
+fetch, native build and financial actions were not run. Farm review
+`job_mvjqeshx_4070aa7846` found no source defect in supplied excerpts and
+requested stronger validation coverage. Added native `LLGridManager` test cases
+in `indra/newview/tests/llviewernetwork_test.cpp` for explicit endpoint,
+empty-value helper fallback, trailing-slash handling, query and invalid-port
+rejection, plus malformed helper URIs (missing scheme/host and fragment).
+The fragment rejection is documented in the test as intentional endpoint
+validation; a relative-path rejection case is included as well.
+Farm review `job_mvjqi3ip_9bd1089e74` confirmed the malformed-URI cases should be
+rejected and found no obvious API/test wiring issue. The native tests remain
+**NOT RUN** because no build tree is available; Farm review is not test
+execution. Exact-authority matching remains intentional for security (host and
+port must match), and helper path appending avoids duplicate slashes. No
+financial operations were run.

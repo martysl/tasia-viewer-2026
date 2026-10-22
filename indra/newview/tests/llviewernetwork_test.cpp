@@ -559,21 +559,46 @@ namespace tut
         std::string error;
         LLSD first = LLSD::emptyMap();
         first["helper_uri"] = "https://one.example/helpers/";
+        first["currency_uri"] = "https://one.example/economy/currency.php";
         LLSD second = LLSD::emptyMap();
-        second["helper_uri"] = "https://two.example/economy";
+        second["helper_uri"] = "https://two.example/economy/";
         ensure("first grid added", manager->addCustomGrid("https://one.example:8002/", "One", error, first));
         ensure("second grid added", manager->addCustomGrid("https://two.example:8002/", "Two", error, second));
 
         manager->setGridChoice("one.example:8002");
+        ensure_equals("explicit currency endpoint", manager->getCurrencyHelperURI(),
+            std::string("https://one.example/economy/currency.php"));
+        LLSD clear_currency = LLSD::emptyMap();
+        clear_currency["currency_uri"] = "";
+        ensure("empty optional currency endpoint clears", manager->setGridMetadata("one.example:8002", clear_currency, error));
+        ensure_equals("empty optional currency endpoint uses helper fallback", manager->getCurrencyHelperURI(),
+            std::string("https://one.example/helpers/currency.php"));
         ensure_equals("first grid land endpoint", manager->getLandTransactionURI(),
             std::string("https://one.example/helpers/landtool.php"));
         manager->setGridChoice("two.example:8002");
+        ensure_equals("helper fallback trims trailing slash", manager->getCurrencyHelperURI(),
+            std::string("https://two.example/economy/currency.php"));
         ensure_equals("second grid land endpoint", manager->getLandTransactionURI(),
             std::string("https://two.example/economy/landtool.php"));
 
         LLSD invalid = LLSD::emptyMap();
         invalid["helper_uri"] = "https://user:secret@two.example/helpers/";
         ensure("invalid helper rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
+        invalid = LLSD::emptyMap();
+        invalid["currency_uri"] = "https://two.example/currency.php?redirect=elsewhere";
+        ensure("query-bearing currency endpoint rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
+        invalid["currency_uri"] = "https://two.example:99999/currency.php";
+        ensure("invalid-port currency endpoint rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
+        invalid = LLSD::emptyMap();
+        invalid["helper_uri"] = "two.example/economy/";
+        ensure("helper without scheme rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
+        invalid["helper_uri"] = "https:///economy/";
+        ensure("helper without host rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
+        invalid["helper_uri"] = "https://two.example/economy/#currency.php";
+        // Grid metadata URLs must be absolute; fragments are never endpoint data.
+        ensure("helper fragment rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
+        invalid["helper_uri"] = "/economy/";
+        ensure("relative helper path rejected", !manager->setGridMetadata("two.example:8002", invalid, error));
         ensure_equals("invalid helper cannot route transaction", manager->getLandTransactionURI(),
             std::string("https://two.example/economy/landtool.php"));
     }
