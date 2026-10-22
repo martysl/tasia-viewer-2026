@@ -255,15 +255,21 @@ void LLTemplateMessageBuilder::addData(const char *varname, const void *data, EM
         // Gains: ~30-50 cycles per oversized variable add
         // Rationale: Truncation is intentional when it happens, caller knows size limit
         // Variable 1 can only store 255 bytes, clamp if necessary
+        const void* data_to_add = data;
+        U8 truncated_variable_data[255];
         if ((var_data->getSize() == 1) && (size > 255))
         {
             size = 255;
-            char *truncate = (char *)data;
-            truncate[254] = 0; // array size is 255 but the last element index is 254
+            // Do not write through the caller's pointer: addString() commonly
+            // passes std::string::c_str(), including cached profile snapshots.
+            // Preserve the legacy wire bytes while keeping the source unchanged.
+            memcpy(truncated_variable_data, data, 254);
+            truncated_variable_data[254] = 0;
+            data_to_add = truncated_variable_data;
         }
 
         // no correct size for MVT_VARIABLE, instead we need to tell how many bytes the size will be encoded as
-        mCurrentSDataBlock->addData(vnamep, data, size, type, var_data->getSize());
+        mCurrentSDataBlock->addData(vnamep, data_to_add, size, type, var_data->getSize());
         mCurrentSendTotal += size;
     }
     else

@@ -114,6 +114,12 @@ do not identify the black-pixel input or prove a visible head; the guard remains
 containment only. Detailed trace and exact remaining evidence are in
 `OPENSIM_PROTOCOL_AUDIT.md`.
 
+Profile follow-up found and fixed a caller-buffer mutation in the shared Variable
+1 serializer: it now clamps through a temporary copy, retaining the 255-byte
+wire format without modifying the cached description. A compiled fixture of the
+production method passes. The 254-byte payload limit, UTF-8 boundary behavior,
+live persistence, and delayed-reply session isolation remain open.
+
 ## Review and release boundary
 
 Tasia Farm reviews for profile, Search, and Destinations were limited because

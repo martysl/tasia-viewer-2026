@@ -864,6 +864,16 @@ description preservation. Before changing limits or adding validation, reconcile
 the intended field limits with the target OpenSim profile service and provide a
 clear user-facing outcome instead of silently choosing a new limit.
 
+The shared clamp previously wrote the terminating NUL through a cast of the
+caller's `const` pointer. This could alter a cached `std::string` when an
+overlength Variable 1 field (including FLAboutText) was serialized. The current
+change keeps the same 255-byte wire clamp but copies the first 254 bytes into a
+temporary buffer and terminates that copy; the caller's string remains unchanged.
+`tasia_message_variable1_test.py` compiles the actual production method and
+verifies a 400-byte source string remains intact while the serialized field is
+still 255 bytes including NUL. This fixes local snapshot mutation, **not** the
+protocol's overlength truncation or UTF-8 boundary policy.
+
 The sender's session check protects against reusing an already cached snapshot
 whose stored session ID differs from the active session. However,
 `AvatarPropertiesReply` includes AgentID and AvatarID but no SessionID. The receive

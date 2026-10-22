@@ -174,7 +174,9 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
                         builder.index('// no correct size for MVT_VARIABLE')]
         self.assertIn('size > 255', clamp)
         self.assertIn('size = 255', clamp)
-        self.assertIn('truncate[254] = 0', clamp)
+        self.assertIn('data_to_add = truncated_variable_data', clamp)
+        self.assertIn('truncated_variable_data[254] = 0', clamp)
+        self.assertNotIn('(char *)data', clamp)
 
     def test_search_uses_grid_scoped_opensim_endpoint(self):
         source = (NV/'llfloatersearch.cpp').read_text()

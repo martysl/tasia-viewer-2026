@@ -4218,3 +4218,28 @@ remain outside the evidence. The audit already distinguishes source-level
 session-tag comparison from delayed-reply proof, and the new test explicitly
 does not simulate reordering, wire bytes, or persistence. This was a
 summary-based consistency review, not independent repository/runtime validation.
+
+### Preserve profile source while clamping Variable 1 (2026-10-22)
+
+The source trace exposed that `LLTemplateMessageBuilder::addData()` handled an
+overlength Variable 1 field by casting away const and writing the terminating NUL
+into the caller buffer. `addStringFast()` passes `std::string::c_str()`, so a long
+first-life profile description could mutate the cached profile string during
+packet construction. Updated the generic clamp to copy the first 254 bytes into
+a 255-byte temporary, append NUL, and serialize that copy. Wire behavior remains
+the same (255 bytes total); only the unintended source mutation is removed.
+
+Added `tasia_message_variable1_test.py`, which extracts and compiles the actual
+production method with a focused message-data double. A 400-byte `std::string`
+remains unchanged while the captured Variable 1 payload is 255 bytes with a NUL
+at byte 254. Results:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_message_variable1_test.py PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_services_test.py PASS (19 tests)
+git diff --check PASS
+```
+
+This does not change the protocol truncation limit, prove multibyte UTF-8
+truncation is safe, test real UDP serialization, or verify OpenSim profile
+storage/save-reload. Windows build and live profile test remain outstanding.
