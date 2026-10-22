@@ -32,14 +32,101 @@
 #include "llcorehttputil.h"
 #include "llfloaterreg.h"
 #include "llhttpconstants.h"
+#include "llmd5.h"
 #include "llmediactrl.h"
+#include "llagent.h"
+#include "lldir.h"
+#include "lluri.h"
+#include "llviewernetwork.h"
+#include "llviewerregion.h"
 #include "llsdserialize.h"
 #include "lltoolbarview.h"
 #include "llviewercontrol.h"
 #include "llxmltree.h"
 
-std::map<std::string, std::string> LLFloaterGridStatus::sItemsMap;
+#include <algorithm>
+
+std::map<std::pair<std::string, std::string>, std::string> LLFloaterGridStatus::sItemsMap;
+std::set<std::string> LLFloaterGridStatus::sInitializedGrids;
 const std::string DEFAULT_GRID_STATUS_URL = "http://status.secondlifegrid.net/";
+
+namespace
+{
+bool isUsableGridStatusURL(const std::string& value)
+{
+    if (value.empty() || value.size() > 2048 || value.find('#') != std::string::npos ||
+        std::any_of(value.begin(), value.end(), [](unsigned char c) { return c <= 0x20 || c == 0x5c; }))
+        return false;
+    const LLURI uri(value);
+    const auto authority = uri.authority();
+    if ((uri.scheme() != "http" && uri.scheme() != "https") || uri.hostName().empty() ||
+        authority.find('@') != std::string::npos) return false;
+    std::string port;
+    if (!authority.empty() && authority.front() == '[')
+    {
+        const auto close_bracket = authority.find(']');
+        if (close_bracket == std::string::npos) return false;
+        const auto suffix = authority.substr(close_bracket + 1);
+        if (!suffix.empty())
+        {
+            if (suffix.front() != ':') return false;
+            port = suffix.substr(1);
+        }
+    }
+    else
+    {
+        const auto colon = authority.rfind(':');
+        if (colon != std::string::npos) port = authority.substr(colon + 1);
+    }
+    if (!port.empty())
+    {
+        if (port.size() > 5 || !std::all_of(port.begin(), port.end(),
+                [](unsigned char c) { return c >= '0' && c <= '9'; })) return false;
+        const auto number = std::stoul(port);
+        if (number == 0 || number > 65535) return false;
+    }
+    else if ((!authority.empty() && authority.back() == ':') ||
+             (authority.size() > 1 && authority.front() == '[' && authority.back() != ']')) return false;
+    return true;
+}
+
+std::string getGridStatusEndpoint(bool rss)
+{
+    LLGridManager* manager = LLGridManager::getInstance();
+    if (manager->isInSecondLife())
+    {
+        const std::string configured = rss ? gSavedSettings.getString("GridStatusRSS") :
+                                             DEFAULT_GRID_STATUS_URL;
+        return isUsableGridStatusURL(configured) ? configured : std::string();
+    }
+
+    if (!manager->isInOpenSim()) return {};
+    const char* feature_key = rss ? "GridStatusRSS" : "GridStatus";
+    const char* metadata_key = rss ? "grid_status_rss" : "grid_status";
+    if (LLViewerRegion* region = gAgent.getRegion())
+    {
+        LLSD features;
+        region->getSimulatorFeatures(features);
+        const LLSD& extras = features["OpenSimExtras"];
+        if (extras[feature_key].isString() && isUsableGridStatusURL(extras[feature_key].asString()))
+            return extras[feature_key].asString();
+    }
+
+    const LLSD info = manager->getGridInfo(manager->getGrid());
+    const std::string configured = info[metadata_key].asString();
+    return isUsableGridStatusURL(configured) ? configured : std::string();
+}
+
+std::string getGridStatusRSSFilename(const std::string& grid)
+{
+    LLMD5 digest;
+    digest.update(grid);
+    digest.finalize();
+    char hex_digest[MD5HEX_STR_SIZE];
+    digest.hex_digest(hex_digest);
+    return "grid_status_" + std::string(hex_digest) + ".xml";
+}
+}
 
 LLFloaterGridStatus::LLFloaterGridStatus(const Params& key) :
     LLFloaterWebContent(key),
@@ -58,15 +145,16 @@ bool LLFloaterGridStatus::postBuild()
 void LLFloaterGridStatus::onOpen(const LLSD& key)
 {
     Params p(key);
-    p.trusted_content = true;
+    p.trusted_content = LLGridManager::getInstance()->isInSecondLife();
     p.allow_address_entry = false;
 
     LLFloaterWebContent::onOpen(p);
     applyPreferredRect();
     if (mWebBrowser)
     {
-        // Convert string_view constant to std::string for navigateTo()
-        mWebBrowser->navigateTo(DEFAULT_GRID_STATUS_URL, std::string{HTTP_CONTENT_TEXT_HTML});
+        const std::string url = getGridStatusEndpoint(false);
+        mWebBrowser->navigateTo(url.empty() ? "about:blank" : url,
+                                std::string{HTTP_CONTENT_TEXT_HTML});
     }
 }
 
@@ -78,15 +166,17 @@ void LLFloaterGridStatus::startGridStatusTimer()
 
 bool LLFloaterGridStatus::checkGridStatusRSS()
 {
-    if(gToolBarView->hasCommand(LLCommandId("gridstatus")))
+    const std::string grid = LLGridManager::getInstance()->getGrid();
+    const std::string url = getGridStatusEndpoint(true);
+    if (!url.empty() && gToolBarView->hasCommand(LLCommandId("gridstatus")))
     {
         LLCoros::instance().launch("LLFloaterGridStatus::getGridStatusRSSCoro",
-                boost::bind(&LLFloaterGridStatus::getGridStatusRSSCoro));
+                [grid, url]() { getGridStatusRSSCoro(grid, url); });
     }
     return false;
 }
 
-void LLFloaterGridStatus::getGridStatusRSSCoro()
+void LLFloaterGridStatus::getGridStatusRSSCoro(const std::string& grid, const std::string& url)
 {
 
     LLCore::HttpRequest::policy_t httpPolicy(LLCore::HttpRequest::DEFAULT_POLICY_ID);
@@ -96,13 +186,9 @@ void LLFloaterGridStatus::getGridStatusRSSCoro()
     LLCore::HttpOptions::ptr_t httpOpts = std::make_shared<LLCore::HttpOptions>();
     LLCore::HttpHeaders::ptr_t httpHeaders = std::make_shared<LLCore::HttpHeaders>();
 
-    httpOpts->setSSLVerifyPeer(false); // We want this data even if SSL fails
-    
     // Convert string_view constants to std::string for HttpHeaders::append()
     httpHeaders->append(std::string{HTTP_OUT_HEADER_CONTENT_TYPE}, std::string{HTTP_CONTENT_TEXT_XML});
     
-    std::string url = gSavedSettings.getString("GridStatusRSS");
-
     LLSD result = httpAdapter->getRawAndSuspend(httpRequest, url, httpOpts, httpHeaders);
     LLSD httpResults = result[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS];
     LLCore::HttpStatus status = LLCoreHttpUtil::HttpCoroutineAdapter::getStatusFromLLSD(httpResults);
@@ -111,10 +197,15 @@ void LLFloaterGridStatus::getGridStatusRSSCoro()
         return;
     }
 
+    // A request started on one grid must not update another grid's cache or UI.
+    if (LLGridManager::getInstance()->getGrid() != grid) return;
+
     const LLSD::Binary &rawBody = result[LLCoreHttpUtil::HttpCoroutineAdapter::HTTP_RESULTS_RAW].asBinary();
     std::string body(rawBody.begin(), rawBody.end());
 
-    std::string fullpath = gDirUtilp->getExpandedFilename(LL_PATH_LOGS,"grid_status_rss.xml");
+    const std::string filename = LLGridManager::getInstance()->isInSecondLife() ?
+        "grid_status_rss.xml" : getGridStatusRSSFilename(grid);
+    std::string fullpath = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, filename);
     if(!gSavedSettings.getBOOL("TestGridStatusRSSFromFile"))
     {
         llofstream custom_file_out(fullpath.c_str(), std::ios::trunc);
@@ -141,20 +232,22 @@ void LLFloaterGridStatus::getGridStatusRSSCoro()
         }
         std::string guid = id_node->getContents();
         std::string date = updated_node->getContents();
-        if(sItemsMap.find( guid ) == sItemsMap.end())
+        const auto item_key = std::make_pair(grid, guid);
+        if(sItemsMap.find(item_key) == sItemsMap.end())
         {
             new_entries = true;
         }
         else
         {
-            if(sItemsMap[guid] != date)
+            if(sItemsMap[item_key] != date)
             {
                 new_entries = true;
             }
         }
-        sItemsMap[guid] = date;
+        sItemsMap[item_key] = date;
     }
-    if(new_entries && !getInstance()->isFirstUpdate())
+    const bool first_grid_update = sInitializedGrids.insert(grid).second;
+    if(new_entries && !first_grid_update && !getInstance()->isFirstUpdate())
     {
         gToolBarView->flashCommand(LLCommandId("gridstatus"), true);
     }

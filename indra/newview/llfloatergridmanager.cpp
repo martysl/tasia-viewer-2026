@@ -17,7 +17,7 @@
 namespace
 {
 const char* metadataKeys[] = {"login_page", "helper_uri", "web_profile_url", "register",
-    "password", "help", "about", "search", "gatekeeper"};
+    "password", "help", "about", "search", "gatekeeper", "grid_status", "grid_status_rss"};
 }
 
 LLFloaterGridManager::LLFloaterGridManager(const LLSD& key) : LLFloater(key)
@@ -194,7 +194,8 @@ void LLFloaterGridManager::discoverGrid()
             const std::map<std::string, std::string> names = {{"welcome", "login_page"},
                 {"economy", "helper_uri"}, {"helperuri", "helper_uri"}, {"profileuri", "web_profile_url"},
                 {"web_profile_url", "web_profile_url"}, {"register", "register"}, {"password", "password"},
-                {"help", "help"}, {"about", "about"}, {"search", "search"}, {"gatekeeper", "gatekeeper"}};
+                {"help", "help"}, {"about", "about"}, {"search", "search"}, {"gatekeeper", "gatekeeper"},
+                {"GridStatus", "grid_status"}, {"GridStatusRSS", "grid_status_rss"}};
             for (auto node = root->getFirstChild(); node.notNull(); node = node->getNextSibling())
             {
                 const std::string name = node->getName()->mString;

@@ -108,7 +108,8 @@ bool gridURL(const std::string& value, bool login = false)
 bool gridMetadata(LLSD& target, const LLSD& source)
 {
     for (const auto* key : {"login_page", "helper_uri", "web_profile_url", "register",
-        "password", "help", "about", "search", "gatekeeper", "currency_uri", "marketplace"})
+        "password", "help", "about", "search", "gatekeeper", "currency_uri", "marketplace",
+        "grid_status", "grid_status_rss"})
     {
         if (!source.has(key)) continue;
         if (!source[key].isString()) return false;

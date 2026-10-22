@@ -31,6 +31,9 @@
 #include "llviewermediaobserver.h"
 
 #include <string>
+#include <map>
+#include <set>
+#include <utility>
 
 class LLMediaCtrl;
 
@@ -47,7 +50,7 @@ public:
     /*virtual*/ void handleReshape(const LLRect& new_rect, bool by_user = false);
 
     static bool checkGridStatusRSS();
-    static void getGridStatusRSSCoro();
+    static void getGridStatusRSSCoro(const std::string& grid, const std::string& url);
 
     void startGridStatusTimer();
     bool isFirstUpdate() { return mIsFirstUpdate; }
@@ -61,11 +64,11 @@ private:
 
     void applyPreferredRect();
 
-    static std::map<std::string, std::string> sItemsMap;
+    static std::map<std::pair<std::string, std::string>, std::string> sItemsMap;
+    static std::set<std::string> sInitializedGrids;
 
     LLFrameTimer    mGridStatusTimer;
     bool            mIsFirstUpdate;
 };
 
 #endif  // LL_LLFLOATERGRIDSTATUS_H
-

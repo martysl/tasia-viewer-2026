@@ -4263,3 +4263,32 @@ runtime test.
 Expanded test/review notes were committed as `aebdbf34305d9712be6b3047106b38473b074e60`
 and pushed without force. `git ls-remote` verified the branch at that SHA before
 this documentation-only evidence update.
+
+### Grid Status isolation and TLS correction (2026-10-22)
+
+Compared current `LLFloaterGridStatus` with the legacy `LFSimFeatureHandler`.
+Current code had an unconditional Second Life status page, one global RSS URL
+and cache, and explicitly disabled TLS peer verification. Implemented source
+routing to OpenSim region `OpenSimExtras.GridStatus` / `GridStatusRSS`, with
+validated saved per-grid `grid_status` / `grid_status_rss` as fallback. Second
+Life defaults remain limited to SL; missing OpenSim status pages navigate to
+`about:blank`, and OpenSim browser content is not trusted. Removed the RSS
+peer-verification override, keyed RSS cache/files by grid, and discarded an
+in-flight result if the selected grid changed. RSS filenames use a deterministic
+digest of the exact grid identity to avoid sanitized-name collisions. Added
+discovery/persistence and English/Polish Grid Manager controls for both fields.
+
+Verification:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_services_test.py PASS (21 tests)
+git diff --check PASS
+```
+
+Tasia Farm source review `job_mvjp1pgw_2607d5b2e5` and focused re-review
+`job_mvjp3opc_fa09151a6d` found no actionable code defect. Reviewers noted
+unverified native/live behavior and suggested checking rapid switching and UI
+persistence; the digest filename uses the exact same grid string as the
+in-memory cache key. No native viewer test/build, Windows DX11 build, live RSS/TLS
+request or embedded browser test was run. Do not treat source fixtures as runtime
+verification.

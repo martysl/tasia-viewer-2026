@@ -343,6 +343,33 @@ int main() {
 '''
         compile_run(fixture)
 
+    def test_grid_status_is_grid_scoped_and_tls_verified(self):
+        source = (NV/'llfloatergridstatus.cpp').read_text()
+        endpoint = method(source, 'std::string getGridStatusEndpoint(')
+        validator = method(source, 'bool isUsableGridStatusURL(')
+        self.assertIn('isInSecondLife()', endpoint)
+        self.assertIn('DEFAULT_GRID_STATUS_URL', endpoint)
+        self.assertIn('isInOpenSim()', endpoint)
+        self.assertIn('features["OpenSimExtras"]', endpoint)
+        self.assertIn('metadata_key', endpoint)
+        self.assertIn('authority.find(\'@\')', validator)
+        self.assertIn('std::any_of', validator)
+        self.assertIn('p.trusted_content = LLGridManager::getInstance()->isInSecondLife()', source)
+        self.assertNotIn('setSSLVerifyPeer(false)', source)
+        self.assertIn('getGrid() != grid', source)
+        self.assertIn('getGridStatusRSSFilename(grid)', source)
+        filename = method(source, 'std::string getGridStatusRSSFilename(')
+        self.assertIn('digest.update(grid)', filename)
+        self.assertIn('"grid_status_"', filename)
+
+        manager = (NV/'llfloatergridmanager.cpp').read_text()
+        self.assertIn('{"GridStatus", "grid_status"}', manager)
+        self.assertIn('{"GridStatusRSS", "grid_status_rss"}', manager)
+        for locale in ('en', 'pl'):
+            xml = ET.parse(NV/f'skins/default/xui/{locale}/floater_grid_manager.xml').getroot()
+            controls = {node.attrib.get('name') for node in xml.iter()}
+            self.assertTrue({'grid_status', 'grid_status_rss'} <= controls)
+
     def test_marketplace_uses_grid_endpoint(self):
         network = (NV/'llviewernetwork.cpp').read_text()
         market = method(network,'std::string LLGridManager::getMarketplaceURL(')

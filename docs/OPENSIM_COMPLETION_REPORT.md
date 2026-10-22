@@ -56,6 +56,10 @@ remote branch at that exact SHA before this documentation-only evidence update.
   from the active-session reply snapshot.
 - OpenSim Search and Destinations endpoint selection with HTTP(S) validation and
   Second Life endpoint isolation.
+- Grid Status page/RSS routing now selects OpenSim region feature or saved
+  per-grid metadata, preserves SL-only defaults, avoids untrusted OpenSim browser
+  content, retains TLS peer verification, and separates RSS cache/file state by
+  grid. Grid Manager discovery, persistence and en/pl controls were extended.
 - Land transaction endpoint isolation: removed the function-static helper URI
   and resolve the selected grid's validated `/landtool.php` endpoint per request.
 - Relevant compatibility and protocol status is detailed in
@@ -123,6 +127,19 @@ recommended native integration testing; no purchase/preflight was executed.
 Native viewer test/build and live routing remain unverified. This does not
 complete currency purchase, economy discovery/presentation, or land transaction
 runtime support; details are in the protocol audit.
+
+## Grid Status fix in review
+
+The source diff now consumes OpenSim `OpenSimExtras.GridStatus` and
+`GridStatusRSS`, then per-grid persisted metadata; SL page and RSS settings are
+not used as OpenSim fallbacks. The RSS request no longer disables TLS peer
+verification, ignores results after a grid switch, and uses separate per-grid
+cache keys/files. Discovery/UI persistence was added in the Grid Manager. The
+focused service suite passes 21 tests and `git diff --check` passes. Tasia Farm
+reviews (`job_mvjp1pgw_2607d5b2e5`, follow-up `job_mvjp3opc_fa09151a6d`) found
+no actionable source defect and noted runtime/UI persistence, edge-case and
+native build gaps. Native viewer build, live RSS/TLS, and browser tests have not
+run. See `OPENSIM_PROTOCOL_AUDIT.md` for details.
 
 ## Source-trace checkpoint
 

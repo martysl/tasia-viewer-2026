@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
-<floater name="grid_manager" title="MANAGE GRIDS" width="620" height="710"
+<floater name="grid_manager" title="MANAGE GRIDS" width="620" height="790"
  layout="topleft" can_resize="false" can_minimize="false" help_topic="grid_manager">
     <floater.string name="choose_grid">Add a grid, then choose it in the login screen's Grid list.</floater.string>
     <floater.string name="added_grid">Grid saved. Select it in the login screen's Grid list.</floater.string>
@@ -33,10 +33,12 @@
     <line_editor name="about" label="About grid URL" left="20" top="444" width="580" height="23" max_length_chars="2048" layout="topleft" />
     <line_editor name="search" label="Search URL" left="20" top="471" width="580" height="23" max_length_chars="2048" layout="topleft" />
     <line_editor name="gatekeeper" label="Hypergrid gatekeeper URL" left="20" top="498" width="580" height="23" max_length_chars="2048" layout="topleft" />
-    <check_box name="catalog_enabled" control_name="TasiaGridCatalogEnabled" label="Allow server grid-list additions (never replace my grids)" left="20" top="535" width="440" height="20" layout="topleft" />
-    <button name="update_catalog" label="Check grid list" left="470" top="535" width="130" height="23" layout="topleft" />
-    <check_box name="identity_enabled" control_name="TasiaRemoteUserConfigEnabled" label="Show grid + UUID cosmetic titles / aliases from Tasia config" left="20" top="568" width="580" height="20" layout="topleft" />
-    <text name="status" left="20" top="603" width="580" height="45" word_wrap="true" layout="topleft" />
-    <button name="remove_grid" label="Remove selected" left="20" top="668" width="150" height="23" layout="topleft" />
-    <button name="close" label="Close" left="480" top="668" width="120" height="23" layout="topleft" />
+    <line_editor name="grid_status" label="Grid Status page URL" left="20" top="525" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <line_editor name="grid_status_rss" label="Grid Status RSS URL" left="20" top="552" width="580" height="23" max_length_chars="2048" layout="topleft" />
+    <check_box name="catalog_enabled" control_name="TasiaGridCatalogEnabled" label="Allow server grid-list additions (never replace my grids)" left="20" top="590" width="440" height="20" layout="topleft" />
+    <button name="update_catalog" label="Check grid list" left="470" top="590" width="130" height="23" layout="topleft" />
+    <check_box name="identity_enabled" control_name="TasiaRemoteUserConfigEnabled" label="Show grid + UUID cosmetic titles / aliases from Tasia config" left="20" top="620" width="580" height="20" layout="topleft" />
+    <text name="status" left="20" top="650" width="580" height="45" word_wrap="true" layout="topleft" />
+    <button name="remove_grid" label="Remove selected" left="20" top="748" width="150" height="23" layout="topleft" />
+    <button name="close" label="Close" left="480" top="748" width="120" height="23" layout="topleft" />
 </floater>

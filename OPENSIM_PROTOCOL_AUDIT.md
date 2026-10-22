@@ -140,6 +140,35 @@ This is a narrow endpoint-cache fix, not complete economy support. The
 gate, prices/symbols, fees, and no-service UI still require protocol-specific
 work; preserve UDP money transfers and do not run real-money tests.
 
+### Grid Status page/RSS routing and TLS
+
+The current floater previously navigated unconditionally to the SL status page,
+read the RSS URL from a global setting for every grid, shared one RSS file/cache,
+and explicitly disabled HTTP TLS peer verification. The older reference
+`LFSimFeatureHandler` instead reads `OpenSimExtras.GridStatus` and
+`OpenSimExtras.GridStatusRSS` for OpenSim. The current source now resolves these
+region feature values first, then uses the selected grid's persisted
+`grid_status` / `grid_status_rss` metadata. The Second Life page/global RSS
+setting remain limited to SL; a missing OpenSim page navigates to `about:blank`.
+OpenSim embedded content is not marked trusted. RSS uses default certificate
+verification, URL validation rejects unsupported schemes, userinfo, fragments,
+control/space/backslash characters and malformed/out-of-range ports, and
+responses are discarded if the selected grid changed while a request was
+pending. RSS item-date cache keys use the exact grid identity, and local RSS
+filenames use a deterministic digest of that identity to avoid ordinary filename
+scrubbing collisions between grids.
+
+`GridStatus` and `GridStatusRSS` are now mapped during `/get_grid_info`
+discovery, persisted through the existing grid metadata validation path, and
+editable in English and Polish Grid Manager layouts. Offline service tests pass
+21/21 and `git diff --check` passes. Farm source reviews
+`job_mvjp1pgw_2607d5b2e5` and follow-up `job_mvjp3opc_fa09151a6d` reported no
+actionable source defect. The follow-up noted remaining edge-case/runtime gaps;
+the exact key string is used for both the cache key and digest input. No native
+viewer build, live RSS fetch/TLS verification, or embedded-browser test was run.
+This is source-level implementation only, not proof a particular OpenSim
+deployment advertises or serves these optional fields.
+
 ### `MapBlockReply.Size` — source fix completed; runtime verification pending
 
 - Both templates now define the variable `Size` block with `SizeX` and `SizeY`;
