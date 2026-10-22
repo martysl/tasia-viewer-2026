@@ -152,6 +152,32 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         # through this legacy fallback.
         self.assertNotIn('saveLegacyProfileField("hide_age"', profile)
 
+    def test_search_uses_grid_scoped_opensim_endpoint(self):
+        source = (NV/'llfloatersearch.cpp').read_text()
+        endpoint = method(source, 'std::string getSearchEndpoint(')
+        validator = method(source, 'bool isUsableSearchEndpoint(')
+        self.assertIn('endpoint.size() > 2048', validator)
+        self.assertIn('uri.scheme() == "http" || uri.scheme() == "https"', validator)
+        self.assertIn('uri.authority().find(\'@\')', validator)
+        precedence = [endpoint.index('extras["search-server-url"]'),
+                      endpoint.index('getResponse("search")'),
+                      endpoint.index('grid_info["search"]'),
+                      endpoint.index('SearchURLOpenSim')]
+        self.assertEqual(precedence, sorted(precedence))
+        self.assertIn('authSuccess()', endpoint)
+        self.assertIn('return gSavedSettings.getString("SearchURL")', endpoint)
+        self.assertIn('isInSecondLife()', endpoint)
+
+        initiate = method(source, 'void LLFloaterSearch::initiateSearch(')
+        self.assertIn('std::string url = getSearchEndpoint()', initiate)
+        self.assertLess(initiate.index('if (url.empty())'),
+                        initiate.index('mWebBrowser->navigateTo(url'))
+        self.assertNotIn('gSavedSettings.getString("SearchURL")', initiate)
+
+        settings = ET.parse(NV/'app_settings/settings.xml').getroot()
+        names = {node.text for node in settings.iter('key')}
+        self.assertIn('SearchURLOpenSim', names)
+
     def test_opensim_legacy_profile_reply_family_is_consumed(self):
         processor = (NV/'llavatarpropertiesprocessor.cpp').read_text()
         cases = {

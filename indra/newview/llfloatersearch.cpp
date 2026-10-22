@@ -31,7 +31,11 @@
 #include "llagent.h"
 #include "llcommandhandler.h"
 #include "llfloaterreg.h"
+#include "lllogininstance.h"
 #include "llmediactrl.h"
+#include "lluri.h"
+#include "llviewernetwork.h"
+#include "llviewerregion.h"
 #include "lluictrlfactory.h"
 #include "llviewercontrol.h"
 #include "llweb.h"
@@ -63,6 +67,59 @@ class LLSearchHandler : public LLCommandHandler {
             return true;
         }
 };
+
+namespace
+{
+bool isUsableSearchEndpoint(const std::string& endpoint)
+{
+    if (endpoint.empty() || endpoint.size() > 2048 ||
+        endpoint.find_first_of("\\\r\n\t ") != std::string::npos ||
+        endpoint.find('#') != std::string::npos)
+    {
+        return false;
+    }
+    const LLURI uri(endpoint);
+    return (uri.scheme() == "http" || uri.scheme() == "https") &&
+           !uri.hostName().empty() && uri.authority().find('@') == std::string::npos;
+}
+
+std::string getSearchEndpoint()
+{
+    LLGridManager* grid_manager = LLGridManager::getInstance();
+    if (grid_manager->isInSecondLife())
+    {
+        return gSavedSettings.getString("SearchURL");
+    }
+
+    // Match the legacy OpenSim precedence: simulator feature, login response,
+    // then grid-specific configuration. Never fall through to the SL URL.
+    if (LLViewerRegion* region = gAgent.getRegion())
+    {
+        LLSD features;
+        region->getSimulatorFeatures(features);
+        const LLSD& extras = features["OpenSimExtras"];
+        if (extras["search-server-url"].isString() &&
+            isUsableSearchEndpoint(extras["search-server-url"].asString()))
+        {
+            return extras["search-server-url"].asString();
+        }
+    }
+
+    if (LLLoginInstance::instanceExists() && LLLoginInstance::getInstance()->authSuccess())
+    {
+        const LLSD search = LLLoginInstance::getInstance()->getResponse("search");
+        if (search.isString() && isUsableSearchEndpoint(search.asString())) return search.asString();
+    }
+
+    const LLSD grid_info = grid_manager->getGridInfo(grid_manager->getGrid());
+    if (grid_info["search"].isString() && isUsableSearchEndpoint(grid_info["search"].asString()))
+    {
+        return grid_info["search"].asString();
+    }
+    const std::string fallback = gSavedSettings.getString("SearchURLOpenSim");
+    return isUsableSearchEndpoint(fallback) ? fallback : std::string();
+}
+}
 LLSearchHandler gSearchHandler;
 
 LLFloaterSearch::LLFloaterSearch(const LLSD& key)
@@ -96,7 +153,12 @@ void LLFloaterSearch::onClose(bool app_quitting)
 
 void LLFloaterSearch::initiateSearch(const LLSD& tokens)
 {
-    std::string url = gSavedSettings.getString("SearchURL");
+    std::string url = getSearchEndpoint();
+    if (url.empty())
+    {
+        LL_WARNS("Search") << "Search URL unavailable for the selected grid" << LL_ENDL;
+        return;
+    }
 
     LLSD subs;
 

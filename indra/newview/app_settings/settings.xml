@@ -3787,6 +3787,17 @@
       <key>Value</key>
       <string>https://search.[GRID]/viewer/?query_term=[QUERY]&amp;search_type=[TYPE][COLLECTION]&amp;maturity=[MATURITY]&amp;lang=[LANGUAGE]&amp;g=[GODLIKE]&amp;sid=[SESSION_ID]&amp;rid=[REGION_ID]&amp;pid=[PARCEL_ID]&amp;channel=[CHANNEL]&amp;version=[VERSION]&amp;major=[VERSION_MAJOR]&amp;minor=[VERSION_MINOR]&amp;patch=[VERSION_PATCH]&amp;build=[VERSION_BUILD]</string>
     </map>
+    <key>SearchURLOpenSim</key>
+    <map>
+      <key>Comment</key>
+      <string>Fallback URL for the OpenSim search website when neither the simulator nor login service provides one.</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>http://search.metaverseink.com/opensim/results.jsp?query=[QUERY]&amp;submit=[CATEGORY]</string>
+    </map>
     <key>GuidebookURL</key>
     <map>
       <key>Comment</key>

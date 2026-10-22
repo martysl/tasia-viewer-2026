@@ -4039,3 +4039,35 @@ same viewer thread, so a reply cannot interleave between validation, merge and
 packet construction. There is no dedicated concurrency stress test, and live
 session behavior remains unverified. The review's concern about missing build
 validation remains valid.
+
+### Phase 5 OpenSim search endpoint routing (2026-10-22)
+
+Compared the old `LLFloaterSearch::initiateSearch()` and
+`LFSimFeatureHandler::searchURL()` with current search and grid metadata code.
+Current code always selected the global Second Life `SearchURL`; the OpenSim
+`SearchURLOpenSim` setting and simulator/login response sources were missing even
+though grid-catalog import already validates a per-grid `search` endpoint.
+Restored endpoint precedence as OpenSimExtras `search-server-url`, login response
+`search`, selected-grid `search` metadata, then the OpenSim-specific fallback
+setting. Second Life continues to use only `SearchURL`. Empty endpoints now stop
+before browser navigation rather than navigating to a blank URL. OpenSim endpoint
+candidates are limited to HTTP(S), nonempty host, no embedded userinfo, no literal
+fragment, whitespace, backslash, or overlong URL; stale login-response values are
+ignored unless the login instance reports successful authentication.
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_services_test.py PASS (17 tests, includes endpoint precedence + SL isolation)
+git diff --check PASS
+```
+
+The contract test verifies source selection order and setting registration; no
+live SimulatorFeatures/login service, browser navigation, or Windows build was
+tested. Farm review jobs `job_mvjndb5z_c8725986d8` and
+`job_mvjnehqx_c63a875882` did not independently inspect the actual source; the
+delta review explicitly said source was inaccessible. It cited nonexistent
+`Http::IsHttp()` / `g_pObject` code and raised URL cases that were checked against
+the actual `LLURI` implementation. Those claims are not treated as validation or
+actionable findings. The actual code's userinfo rejection is intentional; encoded
+`%23` is URL data, not a fragment; bad/non-HTTP endpoint candidates fall through
+the precedence chain. These reviews are limited feedback, not independent source,
+Windows, or runtime verification.

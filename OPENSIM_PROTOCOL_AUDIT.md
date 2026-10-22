@@ -682,3 +682,29 @@ legacy replies run from the viewer's `idleNetwork()` packet dispatch, so the
 single-threaded viewer cannot interleave a reply during one merge/send call.
 There is no concurrency stress fixture, and the review correctly notes no Windows
 build or live update test.
+
+### 2026-10-22 OpenSim search endpoint routing
+
+Reference `llfloatersearch.cpp::initiateSearch()` uses the
+`LFSimFeatureHandler::searchURL()` result; its `lfsimfeaturehandler.cpp` selects
+OpenSim `OpenSimExtras.search-server-url`, login response `search`, then
+`SearchURLOpenSim`. The active `llfloatersearch.cpp` previously always loaded the
+global Second Life `SearchURL`. Meanwhile `LLGridManager::gridMetadata()` already
+validates the catalog's per-grid `search` field, but it had no consumer.
+
+Current search now selects OpenSimExtras, login response, per-grid `search`, and
+the OpenSim-specific setting in that order. Second Life remains routed only to
+`SearchURL`; no endpoint means no browser navigation. Restored the reference
+`SearchURLOpenSim` default setting. `tasia_opensim_services_test.py` passes 17
+tests, including source precedence and SL isolation; `git diff --check` passes.
+OpenSim candidate URLs are HTTP(S)-only, have a nonempty host, reject embedded
+userinfo, literal fragments, whitespace, backslashes and lengths over 2048; login
+response values are read only after authenticated login success. Malformed source
+values fall through to the next configured endpoint. These are source/XML
+contracts, not live SimulatorFeatures/login or browser tests. No Windows build was
+run. Farm jobs `job_mvjndb5z_c8725986d8` and `job_mvjnehqx_c63a875882` could not
+independently inspect the source; the delta worker stated this limitation and
+misattributed nonexistent identifiers. Their feedback is recorded as limited,
+not an independent source review. Userinfo is deliberately rejected; percent-
+encoded `#` is not a URI fragment; URI parsing behavior was checked in
+`indra/llcommon/lluri.cpp`. Windows/live validation remains outstanding.
