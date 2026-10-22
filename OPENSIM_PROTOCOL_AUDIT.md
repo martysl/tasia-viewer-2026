@@ -842,3 +842,45 @@ tasia_bom_limits_test.py: PASS
 ```
 
 These do not substitute for a Windows DX11 build or live avatar validation.
+
+### 2026-10-22 legacy profile wire-bound and session audit
+
+The restored self-profile sender passes `mLegacySelfProfile.about_text` and
+`fl_about_text` directly to `addStringFast`; comparison with the prior viewer's
+sender also shows direct string fields, with no new viewer-side substring or
+trim operation in this branch. This does **not** mean arbitrary descriptions are
+unbounded on the wire. `AvatarPropertiesUpdate` defines `AboutText` as Variable 2
+(template comment: up to 512) and `FLAboutText` as Variable 1. The generic
+`LLTemplateMessageBuilder::addData()` clamps Variable 1 data to 255 bytes including
+the terminating NUL (254 bytes of payload) and inserts a terminator. The profile
+XUI fields permit 65,000 characters, so the UI limit is not the legacy UDP field
+limit. The checked server's reply serialization uses `StringToBytes1024` for
+AboutText and `StringToBytes256` for FirstLifeText; that is evidence about its
+reply encoding, not proof of the deployed profile service's update/storage limit.
+The old and restored paths both use `addStringFast`, but a long first-life edit
+can be truncated by the shared Variable 1 serializer; multibyte boundary behavior
+and actual save/reload have not been tested. Do not claim arbitrary-length
+description preservation. Before changing limits or adding validation, reconcile
+the intended field limits with the target OpenSim profile service and provide a
+clear user-facing outcome instead of silently choosing a new limit.
+
+The sender's session check protects against reusing an already cached snapshot
+whose stored session ID differs from the active session. However,
+`AvatarPropertiesReply` includes AgentID and AvatarID but no SessionID. The receive
+handler verifies both IDs, then tags the reply with the *current* session ID at
+receive time. Therefore the code does not independently prove that a delayed
+reply from a prior session cannot be accepted and re-tagged if it arrives on a
+still-valid circuit after session change. Session/circuit teardown and stale
+reply behavior have not been exercised. This is a residual verification gap, not
+evidence that such a stale packet was observed. Do not describe session
+isolation as proven until the reply/circuit lifecycle is traced or tested.
+
+The source-contract test `tasia_opensim_services_test.py` currently verifies
+session guards, field merge, and complete packet construction, but does not
+exercise overlength wire serialization or a delayed prior-session reply. Live
+tests remain required on an HTTP-capable grid and a legacy-only grid; test a
+shorter-field edit with a long unchanged description, descriptions around the
+legacy byte limits (including multibyte UTF-8), and reconnect to the same region
+with a delayed old reply where safely reproducible. The legacy reply/packet format
+has no request nonce, so any strict stale-reply fix must preserve valid
+server-triggered profile refreshes and be based on circuit lifecycle evidence.

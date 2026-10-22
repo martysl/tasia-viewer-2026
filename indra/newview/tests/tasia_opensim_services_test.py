@@ -152,6 +152,30 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         # through this legacy fallback.
         self.assertNotIn('saveLegacyProfileField("hide_age"', profile)
 
+    def test_legacy_profile_text_passes_snapshot_to_protocol_field_limits(self):
+        processor_source = (NV/'llavatarpropertiesprocessor.cpp').read_text()
+        sender = method(processor_source,
+                        'bool LLAvatarPropertiesProcessor::sendLegacyAvatarPropertiesUpdate(')
+        self.assertIn('addStringFast(_PREHASH_AboutText, mLegacySelfProfile.about_text)', sender)
+        self.assertIn('addStringFast(_PREHASH_FLAboutText, mLegacySelfProfile.fl_about_text)', sender)
+        self.assertNotIn('.substr(', sender)
+        self.assertNotIn('truncate', sender.lower())
+
+        template = (ROOT/'scripts/messages/message_template.msg').read_text()
+        update = template[template.index('// AvatarPropertiesUpdate'):]
+        update = update[:update.index('// AvatarInterestsUpdate')]
+        self.assertRegex(update, r'AboutText\s+Variable 2')
+        self.assertRegex(update, r'FLAboutText\s+Variable 1')
+
+        # The shared serializer's 1-byte variable-field limit is 255 bytes total,
+        # including its terminating NUL; this is a wire bound, not a sender trim.
+        builder = (ROOT/'indra/llmessage/lltemplatemessagebuilder.cpp').read_text()
+        clamp = builder[builder.index('// Variable 1 can only store 255 bytes'):
+                        builder.index('// no correct size for MVT_VARIABLE')]
+        self.assertIn('size > 255', clamp)
+        self.assertIn('size = 255', clamp)
+        self.assertIn('truncate[254] = 0', clamp)
+
     def test_search_uses_grid_scoped_opensim_endpoint(self):
         source = (NV/'llfloatersearch.cpp').read_text()
         endpoint = method(source, 'std::string getSearchEndpoint(')

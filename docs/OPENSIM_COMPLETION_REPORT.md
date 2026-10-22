@@ -79,9 +79,13 @@ limitations are in `BUILD_NOTES.md`.
    input layer/asset has not been identified. No current-candidate D3D readback,
    J2C upload, returned bake UUID, or rendered avatar validation is recorded.
 3. **Profile runtime correctness:** packet mapping and source fixtures support
-   preservation of unedited fields and session-scoped snapshots, but live
-   HTTP-capable and legacy-only grid saves, long descriptions, and session
-   isolation have not been exercised.
+   preservation of unedited fields. The sender checks the cache's session tag,
+   but `AvatarPropertiesReply` contains no SessionID and the handler tags replies
+   with the current session when received; delayed-reply isolation is therefore
+   not proven. The legacy Variable 1 `FLAboutText` field clamps to 255 bytes
+   including NUL, despite the 65,000-character UI limit. Live saves against
+   HTTP-capable and legacy-only grids, byte-limit/UTF-8 behavior, and stale-reply
+   handling have not been exercised.
 4. **Build/runtime:** no Windows DX11 build or current-candidate live OpenSim/SL
    verification is included in this branch evidence. QUIC idle >300s,
    interruption/reconnect, crossing, teleport, and packet-loss behavior remain
@@ -119,8 +123,11 @@ documentation checks (`job_mvjnvfs4_0225653b20` and
 `job_mvjnxji2_e4bbf69f9d`) were also summary-based consistency reviews, not source,
 build, or runtime validation. The bake review prompted the clarification that
 black pixels can be legitimate and that readiness/assignment guards do not prove
-the final composite or render. No merge, deployment, or force-push is authorized
-by this report. This branch is intended for review only.
+the final composite or render. Profile audit review `job_mvjo4mx9_5efe0c6038`
+found no factual errors in the supplied summary, while reiterating the lack of
+stale-packet, wire-byte, and persistence tests; it also did not independently
+inspect the repository. No merge, deployment, or force-push is authorized by this
+report. This branch is intended for review only.
 
 Next required evidence: correlate the login handshake on both client and server
 with QUIC enabled and disabled; trace the baked-head input-to-render pipeline on

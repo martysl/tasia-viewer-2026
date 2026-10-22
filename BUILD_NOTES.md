@@ -4009,9 +4009,14 @@ runtime or source verification.
 Restored the old reference's no-`AgentProfile` self-profile update behavior for
 about text, profile image, first-life text/image and publish state. The legacy
 packet is a complete record, so the processor now merges a supported partial edit
-into the last self `AvatarPropertiesReply` snapshot, checks that the snapshot is
-from the active session, and sends all fields including the untouched profile
-URL and image/text values. Unknown edits are rejected before cache mutation.
+into the last self `AvatarPropertiesReply` snapshot and sends all fields including
+the untouched profile URL and image/text values. The sender checks that the
+snapshot was tagged with the current session when received. Important limit:
+`AvatarPropertiesReply` has no SessionID field, and the receive handler tags the
+snapshot with the current session ID at receive time. This prevents reuse of an
+already-tagged prior-session cache after a session change, but does not by itself
+prove that a delayed prior-session reply cannot be received and re-tagged. Unknown
+edits are rejected before cache mutation.
 `hide_age` remains cap-only because the legacy update packet has no hide-age
 field. If no snapshot is available, handlers do not clear their dirty state.
 
@@ -4169,3 +4174,47 @@ guards are separate, and none proves final rendering. The review also emphasized
 the absent Windows D3D/live render evidence, already explicitly listed. Reviewers
 worked from the supplied source summary rather than independently inspecting the
 local repository; it is not source/build/runtime approval.
+
+### Legacy profile wire/session follow-up (2026-10-22)
+
+Compared the restored sender with the prior viewer and inspected the active
+message template, shared variable-field serializer, and checked OpenSim reply
+serialization. The sender passes full snapshot strings directly, with no added
+substring/trim. `FLAboutText` is `Variable 1`, and the shared serializer clamps
+such fields to 255 bytes including NUL (254 content bytes); the profile UI allows
+65,000 characters. AboutText is `Variable 2` (template comment: 512). Checked
+OpenSim response encoding uses 1024/256-byte buffers, but that does not prove the
+deployed profile backend's accepted update limits. No live save/reload or
+multibyte boundary behavior was tested, so arbitrary long-description preservation
+is explicitly not claimed.
+
+Session guard audit found that the reply includes AgentID/AvatarID but no
+SessionID. The handler checks both IDs and stamps the reply with the current
+session at receive time; the sender rejects a cache whose stored session tag is
+not current. This prevents reuse of a previously tagged old-session cache, but
+does not independently prove that an in-flight old reply cannot be re-tagged
+after session change. No stale reply was observed; circuit teardown/reconnect
+behavior needs safe runtime correlation. The completion report and protocol
+ledger now state this limitation rather than claiming absolute isolation.
+
+Extended `tasia_opensim_services_test.py` with a source-contract test for direct
+string pass-through and the declared Variable 2/Variable 1 wire fields/clamp.
+Results:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_services_test.py PASS (19 tests)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_login_flow_test.py PASS (10 tests)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_profile_partner_link_test.py PASS (4 tests)
+git diff --check PASS
+```
+
+This added test verifies source/template contracts, not runtime serialization,
+profile service persistence, or stale-packet behavior.
+
+Tasia Farm review `job_mvjo4mx9_5efe0c6038` found no factual errors in the
+supplied profile audit summary. It noted that the stale-session gate and
+Variable 1 behavior are not stress-tested, and that backend persistence limits
+remain outside the evidence. The audit already distinguishes source-level
+session-tag comparison from delayed-reply proof, and the new test explicitly
+does not simulate reordering, wire bytes, or persistence. This was a
+summary-based consistency review, not independent repository/runtime validation.
