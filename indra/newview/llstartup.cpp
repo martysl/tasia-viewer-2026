@@ -139,6 +139,7 @@
 #include "llsky.h"
 #include "llstatview.h"
 #include "llstatusbar.h"		// sendMoneyBalanceRequest(), owns L$ balance
+#include "lluistring.h"
 #include "llbuycurrencyhtml.h"
 #include "llsurface.h"
 #include "lltexturecache.h"
@@ -1384,6 +1385,15 @@ bool idle_startup()
 	//---------------------------------------------------------------------
 	if (STATE_WORLD_INIT == LLStartUp::getStartupState())
 	{
+		const LLSD login_response = LLLoginInstance::getInstance()->getResponse();
+		std::string currency_symbol = login_response["currency"].asString();
+		if (currency_symbol.empty())
+		{
+			currency_symbol = LLGridManager::getInstance()->isInOpenSim() ? "OS$" : "L$";
+		}
+		LLUIString::setGridCurrencySymbol(currency_symbol);
+		LLUIString::setRegionCurrencySymbol(std::string());
+
 		set_startup_status(0.30f, LLTrans::getString("LoginInitializingWorld"), gAgent.mMOTD);
 		update_tech_status(); // S24: Update tech panel
 		do_startup_frame();

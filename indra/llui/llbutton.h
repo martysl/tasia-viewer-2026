@@ -252,6 +252,12 @@ public:
     virtual bool    setLabelArg( const std::string& key, const LLStringExplicit& text ) override;
     void            setLabelUnselected(const LLStringExplicit& label);
     void            setLabelSelected(const LLStringExplicit& label);
+    void            updateCurrencySymbols()
+    {
+        mUnselectedLabel.updateCurrencySymbols();
+        mSelectedLabel.updateCurrencySymbols();
+        mDisabledSelectedLabel.updateCurrencySymbols();
+    }
     void            setDisabledLabelColor(const LLUIColor& c);
 
     void            setFont(const LLFontDX* font);

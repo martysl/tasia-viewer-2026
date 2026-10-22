@@ -1218,6 +1218,7 @@ void LLAgent::setRegion(LLViewerRegion *regionp)
         LLViewerParcelMgr::getInstance()->resetAgentParcelOverlay(regionp->getWidth());
     }
     mRegionp = regionp;
+    regionp->updateCurrencySymbol();
 
     // TODO - most of what follows probably should be moved into callbacks
 

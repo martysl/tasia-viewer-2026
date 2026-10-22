@@ -322,6 +322,25 @@ void LLFloaterBuyCurrency::buyCurrency(const std::string& name, S32 price)
     sPropertiesRequest = new LLFetchAvatarPaymentInfo(true, name, price);
 }
 
+void LLFloaterBuyCurrency::updateCurrencySymbols()
+{
+    LLFloater* floater = LLFloaterReg::findInstance("buy_currency");
+    if (!floater) return;
+
+    floater->updateCurrencySymbols();
+    static const std::vector<std::string> text_boxes = {
+        "info_need_more", "info_buying", "target_price", "required_amount",
+        "currency_label", "purchase_warning_repurchase"
+    };
+    for (const std::string& name : text_boxes)
+    {
+        if (LLTextBox* text_box = floater->findChild<LLTextBox>(name))
+        {
+            text_box->updateCurrencySymbols();
+        }
+    }
+}
+
 // static
 void LLFloaterBuyCurrency::handleBuyCurrency(bool has_piof, bool has_target, const std::string name, S32 price)
 {

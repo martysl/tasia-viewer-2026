@@ -156,6 +156,19 @@ workers were unavailable and the lead's response was description-based, not an
 inspection of the local source diff. No financial request or native/live test
 was run.
 
+### OpenSim currency-symbol presentation
+
+Restored legacy currency-symbol selection: login response `currency`, OpenSim
+fallback `OS$` (Second Life remains `L$`), and active-region
+`OpenSimExtras.currency`. Status-bar and static buy-currency controls refresh on
+region changes; OpenSim region data is applied on the main coroutine and only
+when its region UUID is still active. A compiled helper fixture and source
+contracts are included in the 22/22 offline service suite. No native build or
+live grid/UI verification was run. Farm review `job_mvjppk0x_779bf3dcd4` produced
+zero reviews because its file-inspector peer was unavailable; **REVIEW PENDING —
+TASIA FARM UNAVAILABLE.** Real quote/purchase semantics remain unverified and no
+financial request was sent.
+
 ## Source-trace checkpoint
 
 The current-vs-reference login source trace found equivalent high-level startup

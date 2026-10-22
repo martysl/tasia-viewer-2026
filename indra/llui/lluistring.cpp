@@ -28,8 +28,16 @@
 #include "lluistring.h"
 
 #include "llfasttimer.h"
+#include "llcurrency_symbol.h"
 #include "llsd.h"
 #include "lltrans.h"
+
+namespace
+{
+std::string sGridCurrencySymbol = "L$";
+std::string sRegionCurrencySymbol;
+
+}
 
 LLTrace::BlockTimerStatHandle FTM_UI_STRING("UI String");
 
@@ -78,6 +86,21 @@ void LLUIString::setArg(const std::string& key, const std::string& replacement)
 {
 	getArgs()[key] = replacement;
 	dirty();
+}
+
+void LLUIString::setGridCurrencySymbol(const std::string& symbol)
+{
+    sGridCurrencySymbol = LLCurrencySymbol::grid(symbol);
+}
+
+void LLUIString::setRegionCurrencySymbol(const std::string& symbol)
+{
+    sRegionCurrencySymbol = LLCurrencySymbol::region(symbol);
+}
+
+std::string LLUIString::getCurrencySymbol()
+{
+    return sRegionCurrencySymbol.empty() ? sGridCurrencySymbol : sRegionCurrencySymbol;
 }
 
 void LLUIString::truncate(S32 maxchars)
@@ -142,7 +165,8 @@ void LLUIString::updateResult() const
 	{
 		combined_args.insert(mArgs->begin(), mArgs->end());
 	}
-	LLStringUtil::format(mResult, combined_args);
+    LLStringUtil::format(mResult, combined_args);
+    LLCurrencySymbol::replaceLindenSymbol(mResult, getCurrencySymbol());
 }
 
 void LLUIString::updateWResult() const

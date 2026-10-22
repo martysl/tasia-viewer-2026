@@ -52,6 +52,7 @@
 #include "lldir.h"
 #include "lleventpoll.h"
 #include "llfloatergodtools.h"
+#include "llfloaterbuycurrency.h"
 #include "llfloaterreporter.h"
 #include "llfloaterregioninfo.h"
 #include "llgltfmateriallist.h"
@@ -78,6 +79,8 @@
 #include "llvieweroctree.h"
 #include "llviewerdisplay.h"
 #include "llviewerwindow.h"
+#include "llstatusbar.h"
+#include "lluistring.h"
 #include "llprogressview.h"
 #include "llcoros.h"
 #include "lleventcoro.h"
@@ -2558,6 +2561,8 @@ void LLViewerRegion::setSimulatorFeatures(const LLSD& sim_features)
     LL_INFOS() << "region " << getName() << " "  << str.str() << LL_ENDL;
     mSimulatorFeatures = sim_features;
 
+    const LLUUID feature_region_id = getRegionID();
+
     mMinSimHeight = 0.f;
     mSayRange = 20.f;
     if (LLGridManager::getInstance()->isInOpenSim() &&
@@ -2647,10 +2652,32 @@ void LLViewerRegion::setSimulatorFeatures(const LLSD& sim_features)
             {
                 gSavedSettings.setBOOL("RenderTerrainPBRTransformsEnabled", false);
             }
+
+            // SimulatorFeatures is processed from a coroutine. Refresh the
+            // symbol only in the existing main-coroutine work item and only
+            // when these features still belong to the active region.
+            LLViewerRegion* active_region = gAgent.getRegion();
+            if (active_region && active_region->getRegionID() == feature_region_id)
+            {
+                active_region->updateCurrencySymbol();
+            }
         };
 
 
     LLAppViewer::instance()->postToMainCoro(work);
+}
+
+void LLViewerRegion::updateCurrencySymbol()
+{
+    std::string symbol;
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        const LLSD& extras = mSimulatorFeatures["OpenSimExtras"];
+        if (extras["currency"].isString()) symbol = extras["currency"].asString();
+    }
+    LLUIString::setRegionCurrencySymbol(symbol);
+    if (gStatusBar) gStatusBar->updateCurrencySymbols();
+    LLFloaterBuyCurrency::updateCurrencySymbols();
 }
 
 //this is called when the parent is not cacheable.

@@ -72,6 +72,11 @@ public:
 	void setArgs(const LLStringUtil::format_map_t& args) { setArgList(args); }
 	void setArgs(const class LLSD& sd);
 	void setArg(const std::string& key, const std::string& replacement);
+	void updateCurrencySymbols() { dirty(); }
+
+	static void setGridCurrencySymbol(const std::string& symbol);
+	static void setRegionCurrencySymbol(const std::string& symbol);
+	static std::string getCurrencySymbol();
 
 	const std::string& getString() const { return getUpdatedResult(); }
 	operator std::string() const { return getUpdatedResult(); }

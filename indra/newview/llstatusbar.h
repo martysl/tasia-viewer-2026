@@ -69,6 +69,7 @@ public:
 
     // MANIPULATORS
     void        setBalance(S32 balance);
+    void        updateCurrencySymbols();
     void        debitBalance(S32 debit);
     void        creditBalance(S32 credit);
 

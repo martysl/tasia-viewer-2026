@@ -345,6 +345,7 @@ public:
 
     void getSimulatorFeatures(LLSD& info) const;
     void setSimulatorFeatures(const LLSD& info);
+    void updateCurrencySymbol();
     F32 getMinSimHeight() const { return mMinSimHeight; }
     F32 getSayRange() const { return mSayRange; }
 

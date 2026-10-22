@@ -160,15 +160,27 @@ query-bearing values are rejected; otherwise the selected grid's configured
 helper remains the fallback.
 No arbitrary region-advertised host is accepted as a financial endpoint.
 
+The legacy reference also supports a login-level `currency` symbol (default
+`OS$` on OpenSim) and a region-level `OpenSimExtras.currency` override. The
+current source now restores this behavior through `LLUIString`, applies login
+defaults and active-region updates, and refreshes the status-bar balance and
+static buy-currency floater. The region update is applied in the existing main
+coroutine work item and checked against the active region UUID; Second Life
+ignores OpenSim region overrides. A compiled helper fixture covers symbol
+validation, default/region selection inputs, and replacement; source-contract
+checks cover login and region call paths.
+
 Important limitation: the checked `SampleMoneyModule` quote/buy methods are
 under “Standalone box enablers only”; `quote_func` returns a zero-cost estimate
 and `buy_func` returns success without implementing a real purchase. That source
 proves handler names/routes only, not production money fulfillment. No quote,
-purchase, transfer, or land operation was executed. Offline service tests remain
-21/21 with `git diff --check` clean; source review is pending as
-`job_mvjp7uu2_31b65d4ec4`. Native build, live endpoint behavior, production
-module semantics, currency symbol/pricing, and all financial operations remain
-unverified. Do not claim working real purchases from this patch.
+purchase, transfer, or land operation was executed. Offline service tests pass
+22/22 and `git diff --check` is clean. Farm job
+`job_mvjppk0x_779bf3dcd4` returned zero reviews because the file-inspector peer
+was unavailable: **REVIEW PENDING — TASIA FARM UNAVAILABLE.** Native build, live
+endpoint behavior, production module semantics, grid-specific currency
+symbol/pricing, and all financial operations remain unverified. Do not claim
+working real purchases from this patch.
 
 ### Grid Status page/RSS routing and TLS
 

@@ -67,6 +67,12 @@ public:
 
     LLSD getValue() const override;
     bool setTextArg(const std::string& key, const LLStringExplicit& text) override;
+    void updateCurrencySymbols()
+    {
+        mText.updateCurrencySymbols();
+        LLTextBase::setText(mText.getString());
+        mLabel.updateCurrencySymbols();
+    }
 
 	void			setShowCursorHand(bool show_cursor) { mShowCursorHand = show_cursor; }
 

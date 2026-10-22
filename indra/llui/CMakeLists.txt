@@ -169,6 +169,7 @@ set(llui_HEADER_FILES
     llconsole.h
     llcontainerview.h
     llctrlselectioninterface.h
+    llcurrency_symbol.h
     lldraghandle.h
     lldockablefloater.h
     lldockcontrol.h
@@ -297,4 +298,3 @@ target_link_libraries(llui
 if(DX_RENDER)
     target_link_libraries(llui ${DXRENDER_LIBRARIES})
 endif()
-

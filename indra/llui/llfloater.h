@@ -257,6 +257,12 @@ public:
     bool isDetachedAndNotMinimized();
 
     void            applyTitle();
+    void            updateCurrencySymbols()
+    {
+        mTitle.updateCurrencySymbols();
+        mShortTitle.updateCurrencySymbols();
+        applyTitle();
+    }
     std::string     getCurrentTitle() const;
     void            setTitle( const std::string& title);
     std::string     getTitle() const;
@@ -642,6 +648,5 @@ private:
 extern LLFloaterView* gFloaterView;
 
 #endif  // LL_FLOATER_H
-
 
 

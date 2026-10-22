@@ -460,6 +460,15 @@ void LLStatusBar::setBalance(S32 balance)
     }
 }
 
+void LLStatusBar::updateCurrencySymbols()
+{
+    if (LLButton* buy_button = getChild<LLButton>("buyL"))
+    {
+        buy_button->updateCurrencySymbols();
+    }
+    setBalance(mBalance);
+}
+
 
 // static
 void LLStatusBar::sendMoneyBalanceRequest()

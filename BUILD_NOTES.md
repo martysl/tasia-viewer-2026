@@ -4316,3 +4316,22 @@ independent inspection of the local diff: peer workers were unavailable and the
 lead stated its response was based on the description. No native viewer build,
 live quote, purchase, or transfer test was run. Production module behavior,
 currency symbol/pricing, fees, and commerce fulfillment remain open.
+
+### OpenSim currency-symbol presentation (2026-10-22)
+
+Restored the reference's login-level currency symbol (`currency`, fallback
+`OS$` on OpenSim / `L$` on SL) and active-region `OpenSimExtras.currency`
+override. Region changes refresh status-bar balance and the legacy static buy
+currency floater. SimulatorFeatures refresh runs in the existing main-coroutine
+work item and only when the feature response's region UUID remains active; SL
+does not consume OpenSim region overrides. Added small production helper
+`indra/llui/llcurrency_symbol.h` for validation and substitution, plus a compiled
+fixture and source-contract assertions.
+
+Verification: `PYTHONDONTWRITEBYTECODE=1 python3
+indra/newview/tests/tasia_opensim_services_test.py` PASS (22 tests), including
+the compiled helper fixture; `git diff --check` PASS. No configured CMake build
+tree was found, so no native viewer build was run. No live grid/UI or financial
+request was performed. **REVIEW PENDING — TASIA FARM UNAVAILABLE:** job
+`job_mvjppk0x_779bf3dcd4` returned no reviews because the file-inspector peer was
+unavailable.
