@@ -4230,9 +4230,11 @@ a 255-byte temporary, append NUL, and serialize that copy. Wire behavior remains
 the same (255 bytes total); only the unintended source mutation is removed.
 
 Added `tasia_message_variable1_test.py`, which extracts and compiles the actual
-production method with a focused message-data double. A 400-byte `std::string`
-remains unchanged while the captured Variable 1 payload is 255 bytes with a NUL
-at byte 254. Results:
+production method with a focused message-data double. Short (100-byte), exact
+255-byte, oversized, and null/zero inputs are covered. A 400-byte `std::string`
+remains unchanged while the captured message-data field is 255 bytes with a NUL
+at byte 254. This captures the field passed into the synchronous message-data
+copy; it is not a complete LLUDP wire-packet test. Results:
 
 ```text
 PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_message_variable1_test.py PASS
@@ -4242,4 +4244,18 @@ git diff --check PASS
 
 This does not change the protocol truncation limit, prove multibyte UTF-8
 truncation is safe, test real UDP serialization, or verify OpenSim profile
-storage/save-reload. Windows build and live profile test remain outstanding.
+storage/save-reload. Windows build and live profile test remain outstanding. The
+production fix and initial test were committed as
+`d3e1d6acb3cb05ed8ae826f1c2271a4a6e5f91db`, pushed to
+`tasia/fix/opensim-completion-20261022`, and verified with `git ls-remote` at that
+SHA. The boundary-case additions below are a later test-only follow-up.
+
+Farm review `job_mvjo96gd_cd6e02a45d` endorsed the copy approach but raised
+boundary questions. Source inspection confirmed the old and new methods both
+clamp only when `size > 255`; shorter values pass their original size. The
+`memcpy` branch cannot run for null/zero input, and `LLMsgData::addData` copies
+synchronously before the stack buffer expires. Expanded the fixture for those
+boundaries. Follow-up Farm review `job_mvjob864_6f502b43e4` confirmed these points
+and found no remaining concrete issue based on the supplied evidence. Both Farm
+reviews were summary-based; neither is a full source audit, viewer build, or
+runtime test.

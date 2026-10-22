@@ -55,8 +55,11 @@ struct LLMessageDataBlock {
     std::vector<U8> bytes;
     int prefix_size = 0;
     void addData(char*, const void* data, int size, EMsgVariableType, int prefix) {
-        const auto* begin = static_cast<const U8*>(data);
-        bytes.assign(begin, begin + size);
+        if (size == 0) bytes.clear();
+        else {
+            const auto* begin = static_cast<const U8*>(data);
+            bytes.assign(begin, begin + size);
+        }
         prefix_size = prefix;
     }
     void addData(char*, const void*, int, EMsgVariableType) {}
@@ -74,27 +77,42 @@ struct LLTemplateMessageBuilder {
 def main():
     fixture = PRELUDE + production_method() + r'''
 int main() {
-    LLMessageTemplate message_template;
-    LLMessageDataBlock data_block;
-    char block_name[] = "PropertiesData";
-    LLTemplateMessageBuilder builder;
-    builder.mCurrentSMessageTemplate = &message_template;
-    builder.mCurrentSDataBlock = &data_block;
-    builder.mCurrentSBlockName = block_name;
+    auto serialize = [](const void* data, int size) {
+        LLMessageTemplate message_template;
+        LLMessageDataBlock data_block;
+        char block_name[] = "PropertiesData";
+        LLTemplateMessageBuilder builder;
+        builder.mCurrentSMessageTemplate = &message_template;
+        builder.mCurrentSDataBlock = &data_block;
+        builder.mCurrentSBlockName = block_name;
+        builder.addData("FLAboutText", data, MVT_VARIABLE, size);
+        assert(builder.mCurrentSendTotal == static_cast<int>(data_block.bytes.size()));
+        return data_block.bytes;
+    };
 
-    std::string description(400, 'x');
-    const std::string before = description;
-    builder.addData("FLAboutText", description.c_str(), MVT_VARIABLE,
-                    static_cast<S32>(description.size() + 1));
+    std::string short_text(99, 's');
+    const std::string short_before = short_text;
+    auto short_payload = serialize(short_text.c_str(), short_text.size() + 1);
+    assert(short_text == short_before);
+    assert(short_payload.size() == 100 && short_payload.back() == 0);
 
-    assert(description == before); // serialization must not mutate cached input
-    assert(data_block.prefix_size == 1);
-    assert(data_block.bytes.size() == 255);
-    for (int i = 0; i < 254; ++i) assert(data_block.bytes[i] == 'x');
-    assert(data_block.bytes[254] == 0);
-    assert(builder.mCurrentSendTotal == 255);
+    std::string boundary_text(254, 'b');
+    const std::string boundary_before = boundary_text;
+    auto boundary_payload = serialize(boundary_text.c_str(), boundary_text.size() + 1);
+    assert(boundary_text == boundary_before);
+    assert(boundary_payload.size() == 255 && boundary_payload.back() == 0);
 
-    std::cout << "production Variable-1 clamp preserves input and emits 255 bytes PASS\n";
+    std::string long_text(400, 'x');
+    const std::string long_before = long_text;
+    auto clamped_payload = serialize(long_text.c_str(), long_text.size() + 1);
+    assert(long_text == long_before); // serialization must not mutate cached input
+    assert(clamped_payload.size() == 255);
+    for (int i = 0; i < 254; ++i) assert(clamped_payload[i] == 'x');
+    assert(clamped_payload[254] == 0);
+
+    auto empty_payload = serialize(nullptr, 0);
+    assert(empty_payload.empty()); // empty strings do not enter the clamp path
+    std::cout << "production Variable-1 clamp preserves source and wire bounds PASS\n";
 }
 '''
     with tempfile.TemporaryDirectory(dir='/tmp/opencode', prefix='var1-clamp-') as tmp:

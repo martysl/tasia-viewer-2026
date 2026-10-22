@@ -870,9 +870,11 @@ overlength Variable 1 field (including FLAboutText) was serialized. The current
 change keeps the same 255-byte wire clamp but copies the first 254 bytes into a
 temporary buffer and terminates that copy; the caller's string remains unchanged.
 `tasia_message_variable1_test.py` compiles the actual production method and
-verifies a 400-byte source string remains intact while the serialized field is
-still 255 bytes including NUL. This fixes local snapshot mutation, **not** the
-protocol's overlength truncation or UTF-8 boundary policy.
+verifies short, exact-boundary, oversized, and null/zero cases; a 400-byte source
+string remains intact while the captured message-data field is 255 bytes
+including NUL. The fixture captures the payload synchronously passed to the
+message-data copy, not a full encoded LLUDP packet. This fixes local snapshot
+mutation, **not** the protocol's overlength truncation or UTF-8 boundary policy.
 
 The sender's session check protects against reusing an already cached snapshot
 whose stored session ID differs from the active session. However,

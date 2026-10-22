@@ -11,7 +11,8 @@ completion is done**. It records source changes and offline verification in this
 branch. A visible, correctly textured avatar and a reliable live login have not
 been demonstrated for the current candidate.
 
-The implementation commits currently on this branch, newest first, are:
+The initial implementation commits present when this report was opened, newest
+first, were:
 
 | Commit | Change |
 |---|---|
@@ -30,6 +31,17 @@ The report was committed as `f3db260c406223111243be7e2ec8af3961296347` and
 pushed without force to `tasia/fix/opensim-completion-20261022`. A subsequent
 `git ls-remote` verified that the remote ref matched this SHA. Later documentation
 checkpoints are tracked in `BUILD_NOTES.md` and the commit history.
+
+Follow-up commits after that first report:
+
+| Commit | Change |
+|---|---|
+| `a51b859` | Trace login/QUIC and `BAKED_HEAD` source paths; update audit/report |
+| `9a6d05f` | Document profile wire/session limits and add source-contract test |
+| `d3e1d6acb3cb05ed8ae826f1c2271a4a6e5f91db` | Preserve caller data in Variable-1 clamp; compile focused production-method fixture |
+
+The last commit above was pushed without force, and `git ls-remote` verified the
+remote branch at that exact SHA before the current documentation-only review note.
 
 ## Verified source/test work
 
@@ -117,8 +129,13 @@ containment only. Detailed trace and exact remaining evidence are in
 Profile follow-up found and fixed a caller-buffer mutation in the shared Variable
 1 serializer: it now clamps through a temporary copy, retaining the 255-byte
 wire format without modifying the cached description. A compiled fixture of the
-production method passes. The 254-byte payload limit, UTF-8 boundary behavior,
-live persistence, and delayed-reply session isolation remain open.
+production method passes short, exact-limit, oversized, and null/empty cases.
+Follow-up Farm review `job_mvjob864_6f502b43e4` confirmed the guarded copy,
+synchronous lifetime, and unchanged wire-bound behavior from the supplied source
+facts; it identified no remaining concrete issue in that narrow patch. The
+review was summary-based, not independent source/build/runtime validation. The
+254-byte payload limit, UTF-8 boundary behavior, live persistence, and
+delayed-reply session isolation remain open.
 
 ## Review and release boundary
 
