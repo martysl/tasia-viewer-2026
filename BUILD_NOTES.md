@@ -4404,7 +4404,10 @@ and it does not alter the rejection, retry, or upload behavior.
 `tasia_bake_readback_test.py` source-contract assertions were extended for the
 diagnostic cap, source input list, actual wearable count, availability/discard
 access, scan cap, and absence of UUID access in the guard. The five focused bake/
-BoM fixture tests pass in this session. Farm source review
-`job_mvjr0ck0_4cfd9d045f` is pending; its earlier context-only response was not
-counted as source review. No Windows build, D3D readback, J2C upload, or visual
-validation has run; the black-head cause remains unresolved.
+BoM fixture tests pass in this session. Farm review `job_mvjr0ck0_4cfd9d045f`
+inspected the supplied exact production/test excerpt and found no concrete source
+defect, including the zero-wearable and 16-slot bounds cases. It is an advisory
+source review; the test assertions do not execute the production diagnostic loop.
+The first context-only Farm response was not counted. No Windows build, D3D
+readback, J2C upload, or visual validation has run; the black-head cause remains
+unresolved.
