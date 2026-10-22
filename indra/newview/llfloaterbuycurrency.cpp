@@ -43,6 +43,7 @@
 #include "llweb.h"
 #include "llwindow.h"
 #include "llappviewer.h"
+#include "llviewernetwork.h"
 
 static const S32 MINIMUM_BALANCE_AMOUNT = 0;
 
@@ -297,6 +298,14 @@ LLFetchAvatarPaymentInfo* LLFloaterBuyCurrency::sPropertiesRequest = NULL;
 void LLFloaterBuyCurrency::buyCurrency()
 {
     delete sPropertiesRequest;
+    sPropertiesRequest = NULL;
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        // OpenSim grids do not use Linden payment-info-on-file. Let the
+        // selected grid's currency helper determine whether its service exists.
+        handleBuyCurrency(true, false, std::string(), 0);
+        return;
+    }
     sPropertiesRequest = new LLFetchAvatarPaymentInfo(false);
 }
 
@@ -304,6 +313,12 @@ void LLFloaterBuyCurrency::buyCurrency()
 void LLFloaterBuyCurrency::buyCurrency(const std::string& name, S32 price)
 {
     delete sPropertiesRequest;
+    sPropertiesRequest = NULL;
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        handleBuyCurrency(true, true, name, price);
+        return;
+    }
     sPropertiesRequest = new LLFetchAvatarPaymentInfo(true, name, price);
 }
 

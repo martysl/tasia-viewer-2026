@@ -28,7 +28,9 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llviewernetwork.h"
+#include "llagent.h"
 #include "llviewercontrol.h"
+#include "llviewerregion.h"
 #include "llsdserialize.h"
 #include "llsecapi.h"
 #include "lltrans.h"
@@ -499,7 +501,60 @@ std::string LLGridManager::resolveGridKey(const std::string& grid)
 std::string LLGridManager::getCurrencyHelperURI()
 {
     std::string uri = mGridList[mGrid]["currency_uri"].asString();
-    if (!uri.empty()) return gridURL(uri) ? uri : std::string();
+    if (!uri.empty())
+        return gridURL(uri) && uri.find('?') == std::string::npos ? uri : std::string();
+
+    // OpenSim's SampleMoneyModule advertises currency-base-uri in
+    // OpenSimExtras. Accept it only when its authority (host and port) is
+    // already anchored by this selected grid's configured helper or login URI.
+    // Region features must not independently authorize a financial URL.
+    if (isInOpenSim())
+    {
+        if (LLViewerRegion* region = gAgent.getRegion())
+        {
+            LLSD features;
+            region->getSimulatorFeatures(features);
+            const std::string advertised = features["OpenSimExtras"]["currency-base-uri"].asString();
+            if (gridURL(advertised) && advertised.find('?') == std::string::npos)
+            {
+                const LLURI advertised_uri(advertised);
+                bool trusted_host = false;
+                bool requires_https = false;
+                const std::string configured_helper = getHelperURI();
+                if (gridURL(configured_helper))
+                {
+                    const LLURI helper_uri(configured_helper);
+                    if (utf8str_tolower(advertised_uri.authority()) == utf8str_tolower(helper_uri.authority()))
+                    {
+                        trusted_host = true;
+                        requires_https = helper_uri.scheme() == "https";
+                    }
+                }
+                std::vector<std::string> login_uris;
+                getLoginURIs(mGrid, login_uris);
+                for (const std::string& login : login_uris)
+                {
+                    if (!gridURL(login, true)) continue;
+                    const LLURI login_uri(login);
+                    if (utf8str_tolower(advertised_uri.authority()) == utf8str_tolower(login_uri.authority()))
+                    {
+                        trusted_host = true;
+                        requires_https = requires_https || login_uri.scheme() == "https";
+                    }
+                }
+                if (trusted_host && (!requires_https || advertised_uri.scheme() == "https"))
+                {
+                    uri = advertised;
+                    if (uri.back() != '/') uri += '/';
+                    uri += "currency.php";
+                    if (gridURL(uri)) return uri;
+                }
+            }
+        }
+    }
+
+    // GridInfo economy/helper metadata is an explicit per-grid configuration
+    // and is the fallback supported by legacy OpenSim money modules.
     uri = getHelperURI();
     if (uri.empty() || !gridURL(uri) || uri.find('?') != std::string::npos) return {};
     // Some OpenSim grids advertise the complete XML-RPC endpoint, others a base.

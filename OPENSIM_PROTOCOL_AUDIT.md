@@ -140,6 +140,36 @@ This is a narrow endpoint-cache fix, not complete economy support. The
 gate, prices/symbols, fees, and no-service UI still require protocol-specific
 work; preserve UDP money transfers and do not run real-money tests.
 
+### OpenSim currency helper and payment-info gate — source fix under review
+
+The checked `SampleMoneyModule.AddRegion()` registers XML-RPC
+`getCurrencyQuote` and `buyCurrency` on `/currency.php`, and `RegionLoaded()` can
+advertise `OpenSimExtras.currency-base-uri`. The viewer previously consulted
+Linden payment-info-on-file before opening its legacy currency UI, preventing an
+OpenSim account with no Linden billing record from reaching the grid's own
+currency helper. The OpenSim path now enters that legacy viewer UI directly;
+Second Life still uses its payment-info flow and HTML option as before.
+
+The currency URL resolver consumes `currency-base-uri` only on OpenSim and only
+when its full authority (host and port) matches a configured selected-grid
+helper or login URI. HTTP is allowed when all matching anchors use HTTP; if any
+matching anchor uses HTTPS, an HTTP-advertised base is rejected. It appends the
+server-evidenced `/currency.php` route. Explicit
+selected-grid `currency_uri` metadata remains supported as a full endpoint but
+query-bearing values are rejected; otherwise the selected grid's configured
+helper remains the fallback.
+No arbitrary region-advertised host is accepted as a financial endpoint.
+
+Important limitation: the checked `SampleMoneyModule` quote/buy methods are
+under “Standalone box enablers only”; `quote_func` returns a zero-cost estimate
+and `buy_func` returns success without implementing a real purchase. That source
+proves handler names/routes only, not production money fulfillment. No quote,
+purchase, transfer, or land operation was executed. Offline service tests remain
+21/21 with `git diff --check` clean; source review is pending as
+`job_mvjp7uu2_31b65d4ec4`. Native build, live endpoint behavior, production
+module semantics, currency symbol/pricing, and all financial operations remain
+unverified. Do not claim working real purchases from this patch.
+
 ### Grid Status page/RSS routing and TLS
 
 The current floater previously navigated unconditionally to the SL status page,

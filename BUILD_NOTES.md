@@ -4292,3 +4292,27 @@ persistence; the digest filename uses the exact same grid string as the
 in-memory cache key. No native viewer test/build, Windows DX11 build, live RSS/TLS
 request or embedded browser test was run. Do not treat source fixtures as runtime
 verification.
+
+### OpenSim currency endpoint and payment gate (2026-10-22)
+
+Checked `SampleMoneyModule` evidence: registers `getCurrencyQuote` and
+`buyCurrency` on `/currency.php`, but its actual quote/buy methods are demo
+stubs (zero-cost quote / success response) and do not prove real purchase
+fulfillment. Added OpenSim-only bypass of Linden payment-info-on-file so the
+viewer currency UI can query the selected grid's helper; SL still runs the
+existing payment-info flow. Currency endpoint resolution accepts the region's
+`OpenSimExtras.currency-base-uri` only when its full authority (host and port)
+matches the selected grid's configured helper or login URI. HTTP is supported
+when all matching anchors use HTTP; if any matching anchor uses HTTPS, the
+advertised URL must use HTTPS. It appends `/currency.php`; explicit
+`currency_uri` rejects query components; configured helper remains the fallback.
+No financial operation was issued.
+
+Results: `PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_services_test.py`
+passes 21 tests; `git diff --check` passes. **REVIEW PENDING — TASIA FARM
+UNAVAILABLE.** Farm jobs `job_mvjp7uu2_31b65d4ec4`,
+`job_mvjp93cw_579cef1cb2`, and `job_mvjpeqzv_96ba03eec4` did not yield verified
+independent inspection of the local diff: peer workers were unavailable and the
+lead stated its response was based on the description. No native viewer build,
+live quote, purchase, or transfer test was run. Production module behavior,
+currency symbol/pricing, fees, and commerce fulfillment remain open.

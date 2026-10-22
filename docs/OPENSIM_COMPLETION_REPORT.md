@@ -141,6 +141,21 @@ no actionable source defect and noted runtime/UI persistence, edge-case and
 native build gaps. Native viewer build, live RSS/TLS, and browser tests have not
 run. See `OPENSIM_PROTOCOL_AUDIT.md` for details.
 
+## OpenSim currency routing fix in review
+
+The OpenSim currency UI no longer requires Linden payment-info-on-file, while
+Second Life retains the existing check. `currency-base-uri` is used only when
+its authority (host and port) is anchored to the selected grid's configured
+helper/login URI. HTTP stays supported for HTTP-only anchors; an HTTPS anchor
+requires HTTPS. The helper routes to the checked
+`/currency.php`. Explicit per-grid `currency_uri` is also supported. The checked
+OpenSim sample module's quote/buy handlers are demonstration stubs, so this
+proves routing compatibility only—not real purchase fulfillment. The focused
+21-test service suite passes. **REVIEW PENDING — TASIA FARM UNAVAILABLE:** peer
+workers were unavailable and the lead's response was description-based, not an
+inspection of the local source diff. No financial request or native/live test
+was run.
+
 ## Source-trace checkpoint
 
 The current-vs-reference login source trace found equivalent high-level startup
