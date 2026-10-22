@@ -176,6 +176,15 @@ assert 'LL_VLOGS(LLError::LEVEL_INFO, "LocalBake")' in upload_src
 assert 'LL_DISABLE_INFOS' in (indra / 'llcommon/llerror.h').read_text()
 assert 'std::array<U32, LLAvatarAppearanceDefines::BAKED_NUM_INDICES>' in upload_src
 assert 'pixel_summary_samples[bake_slot] < 2' in upload_src
+assert 'black_head_diagnostic_samples < 2' in upload_src
+assert 'TEX_HEAD_BODYPAINT' in upload_src and 'TEX_HEAD_UNIVERSAL_TATTOO' in upload_src
+assert 'getTEWearableType(texture_index)' in upload_src
+assert 'gAgentWearables.getWearableCount(wearable_type)' in upload_src
+assert 'llmin(wearable_count, MAX_DIAGNOSTIC_WEARABLES)' in upload_src
+assert 'avatar->getLocalDiscardLevel(texture_index, wearable_index)' in upload_src
+assert 'avatar->isTextureDefined(texture_index, wearable_index)' in upload_src
+assert 'wearable_scan_capped=' in upload_src
+assert 'getID()' not in upload_src[black_guard:encode_buffer]
 print('PASS: production bake helper: RGBA/BGRA, padded pitch fixture, alpha/five-channel '
       'packing, aggregate pixel summaries, bounds/canaries/failures, ASan+UBSan. '
-      'Real GPU/J2C untested.')
+      'Black-head input diagnostics are bounded/source-checked. Real GPU/J2C untested.')

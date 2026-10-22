@@ -519,7 +519,14 @@ not independently observe the viewer image; the unresolved visual status is
 Mom's reported result plus the inspected log, not a new runtime test. No source
 evidence identifies which wearable/texture or compositor layer produced the black
 pixels. Do not change texture routing, bypass readiness, or weaken the head-bake
-guard without a new sanitized per-input failure trace.
+guard based on these diagnostics alone. A bounded source change now emits up to
+two identifier-free snapshots when the guard fires: for each of the four
+dictionary-defined head inputs it records defined/unavailable counts and discard
+level range, scanning at most 16 wearable slots per input. It does not log asset
+UUIDs or inspect actual decoded pixels, so it can identify readiness/fetch clues
+but cannot attribute a fully loaded black texture or prove the compositor layer.
+This diagnostic has not yet run in a Windows candidate; the existing black-face
+root cause remains unresolved.
 
 Focused fixtures pass in this worktree (command output summarized in
 `BUILD_NOTES.md` → “Phase 3 legacy local-bake / BoM parity audit”):

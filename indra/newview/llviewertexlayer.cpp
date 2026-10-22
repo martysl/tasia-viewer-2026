@@ -45,6 +45,7 @@
 #include "llviewerassetupload.h"
 #include "llviewernetwork.h"
 #include <array>
+#include <limits>
 #include <mutex>
 
 // Upload callbacks hold only this result mailbox, never a layerset/avatar
@@ -340,6 +341,51 @@ void LLViewerTexLayerSetBuffer::doUpload()
     {
         // Never replace the current head bake with the empty compositor clear.
         LL_WARNS("LocalBake") << "Rejecting all-black nontransparent BAKED_HEAD composite before upload" << LL_ENDL;
+        // The aggregate readback identifies the symptom, not its source. Emit a
+        // bounded, identifier-free snapshot of the head bake's local inputs so
+        // a later failure can distinguish unavailable-input clues from cases
+        // where all inputs appear available, without exposing UUIDs or names.
+        static U32 black_head_diagnostic_samples = 0;
+        if (black_head_diagnostic_samples < 2)
+        {
+            ++black_head_diagnostic_samples;
+            constexpr std::array<LLAvatarAppearanceDefines::ETextureIndex, 4> head_inputs = {
+                LLAvatarAppearanceDefines::TEX_HEAD_BODYPAINT,
+                LLAvatarAppearanceDefines::TEX_HEAD_TATTOO,
+                LLAvatarAppearanceDefines::TEX_HEAD_ALPHA,
+                LLAvatarAppearanceDefines::TEX_HEAD_UNIVERSAL_TATTOO
+            };
+            constexpr U32 MAX_DIAGNOSTIC_WEARABLES = 16;
+            const LLVOAvatarSelf* avatar = layer->getAvatar();
+            for (const auto texture_index : head_inputs)
+            {
+                U32 defined = 0;
+                U32 unavailable = 0;
+                const LLWearableType::EType wearable_type =
+                    LLAvatarAppearance::getDictionary()->getTEWearableType(texture_index);
+                const U32 wearable_count = gAgentWearables.getWearableCount(wearable_type);
+                const U32 scan_count = llmin(wearable_count, MAX_DIAGNOSTIC_WEARABLES);
+                S32 min_discard = std::numeric_limits<S32>::max();
+                S32 max_discard = std::numeric_limits<S32>::min();
+                for (U32 wearable_index = 0; wearable_index < scan_count; ++wearable_index)
+                {
+                    if (!avatar->isTextureDefined(texture_index, wearable_index)) continue;
+                    ++defined;
+                    const S32 discard = avatar->getLocalDiscardLevel(texture_index, wearable_index);
+                    if (discard < 0) ++unavailable;
+                    min_discard = llmin(min_discard, discard);
+                    max_discard = llmax(max_discard, discard);
+                }
+                LL_WARNS("LocalBake") << "BAKED_HEAD input state; sample="
+                    << black_head_diagnostic_samples << "; texture_index="
+                    << static_cast<S32>(texture_index) << "; defined=" << defined
+                    << "; unavailable=" << unavailable << "; min_discard="
+                    << (defined ? min_discard : -1) << "; max_discard="
+                    << (defined ? max_discard : -1)
+                    << "; wearable_scan_capped=" << (wearable_count > MAX_DIAGNOSTIC_WEARABLES)
+                    << LL_ENDL;
+            }
+        }
         completion->complete(false);
         return;
     }

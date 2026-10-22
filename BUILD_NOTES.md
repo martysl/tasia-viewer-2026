@@ -4390,3 +4390,21 @@ rejected and found no obvious API/test wiring issue. The native tests remain
 execution. Exact-authority matching remains intentional for security (host and
 port must match), and helper path appending avoids duplicate slashes. No
 financial operations were run.
+
+### Bounded BAKED_HEAD input-state diagnostics (2026-10-22)
+
+When the existing all-black/nontransparent head-bake guard fires, the viewer now
+emits at most two diagnostic samples. Each sample summarizes the four
+dictionary-defined head inputs by texture enum index, defined/unavailable counts,
+and discard-level range, scanning at most 16 wearable slots per input. The output
+contains no asset UUIDs or wearable names. It is diagnostic only: it cannot
+distinguish a fully loaded black source asset from a compositor/shader failure,
+and it does not alter the rejection, retry, or upload behavior.
+
+`tasia_bake_readback_test.py` source-contract assertions were extended for the
+diagnostic cap, source input list, actual wearable count, availability/discard
+access, scan cap, and absence of UUID access in the guard. The five focused bake/
+BoM fixture tests pass in this session. Farm source review
+`job_mvjr0ck0_4cfd9d045f` is pending; its earlier context-only response was not
+counted as source review. No Windows build, D3D readback, J2C upload, or visual
+validation has run; the black-head cause remains unresolved.

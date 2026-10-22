@@ -95,8 +95,10 @@ limitations are in `BUILD_NOTES.md`.
    event correlation or current QUIC-on/off controlled test is recorded.
 2. **Black `BAKED_HEAD`:** the prior visual failure remains unresolved. The
    all-black/nontransparent upload rejection is containment; the bad composite
-   input layer/asset has not been identified. No current-candidate D3D readback,
-   J2C upload, returned bake UUID, or rendered avatar validation is recorded.
+   input layer/asset has not been identified. A source change now logs bounded,
+   identifier-free head-input availability/discard summaries when the guard fires;
+   it has not run in a Windows candidate. No current-candidate D3D readback, J2C
+   upload, returned bake UUID, or rendered avatar validation is recorded.
 3. **Profile runtime correctness:** packet mapping and source fixtures support
    preservation of unedited fields. The sender checks the cache's session tag,
    but `AvatarPropertiesReply` contains no SessionID and the handler tags replies
