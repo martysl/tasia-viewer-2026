@@ -1682,7 +1682,8 @@ void LLSecAPIBasicHandler::saveCredential(LLPointer<LLCredential> cred, bool sav
     {
         credential["authenticator"] = cred->getAuthenticator();
     }
-    LL_DEBUGS("SECAPI") << "Saving Credential " << cred->getGrid() << ":" << cred->userID() << " " << save_authenticator << LL_ENDL;
+    LL_DEBUGS("SECAPI") << "Saving credential; authenticator persistence requested: "
+                          << save_authenticator << LL_ENDL;
     setProtectedData(DEFAULT_CREDENTIAL_STORAGE, cred->getGrid(), credential);
     //*TODO: If we're saving Agni credentials, should we write the
     // credentials to the legacy password.dat/etc?
@@ -1795,7 +1796,8 @@ void LLSecAPIBasicHandler::addToCredentialMap(const std::string& storage, LLPoin
     {
         credential["authenticator"] = cred->getAuthenticator();
     }
-    LL_DEBUGS("SECAPI") << "Saving Credential " << cred->getGrid() << ":" << cred->userID() << " " << save_authenticator << LL_ENDL;
+    LL_DEBUGS("SECAPI") << "Saving credential map entry; authenticator persistence requested: "
+                          << save_authenticator << LL_ENDL;
     addToProtectedMap(storage, cred->getGrid(), user_id, credential);
 
     _writeProtectedData();

@@ -415,7 +415,7 @@ void give_money(const LLUUID& uuid, LLViewerRegion* region, S32 amount, bool is_
 
 void send_complete_agent_movement(const LLHost& sim_host)
 {
-    LL_DEBUGS("Teleport", "Messaging") << "Sending CompleteAgentMovement to sim_host " << sim_host << LL_ENDL;
+    LL_DEBUGS("Teleport", "Messaging") << "Sending CompleteAgentMovement" << LL_ENDL;
     LLMessageSystem* msg = gMessageSystem;
     msg->newMessageFast(_PREHASH_CompleteAgentMovement);
     msg->nextBlockFast(_PREHASH_AgentData);
@@ -2928,8 +2928,7 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
     gAgent.standUp();
 
     // now, use the circuit info to tell simulator about us!
-    LL_INFOS("Teleport","Messaging") << "process_teleport_finish() sending UseCircuitCode to enable sim_host "
-            << sim_host << " with code " << msg->mOurCircuitCode << LL_ENDL;
+    LL_DEBUGS("Teleport","Messaging") << "process_teleport_finish() sending UseCircuitCode" << LL_ENDL;
     msg->newMessageFast(_PREHASH_UseCircuitCode);
     msg->nextBlockFast(_PREHASH_CircuitCode);
     msg->addU32Fast(_PREHASH_Code, msg->getOurCircuitCode());
@@ -2977,9 +2976,6 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 {
     LL_INFOS("Teleport","Messaging") << "Received ProcessAgentMovementComplete" << LL_ENDL;
 
-    gShiftFrame = true;
-    gAgentMovementCompleted = true;
-
     LLUUID agent_id;
     msg->getUUIDFast(_PREHASH_AgentData, _PREHASH_AgentID, agent_id);
     LLUUID session_id;
@@ -2988,6 +2984,11 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
     {
 		return; // ignore messages not meant for us
     }
+
+    // Do not advance login/teleport state until the completion belongs to this
+    // agent session. A stale or unrelated reply must not unblock startup.
+    gShiftFrame = true;
+    gAgentMovementCompleted = true;
 
     if (LLGridManager::getInstance()->isInOpenSim())
     {

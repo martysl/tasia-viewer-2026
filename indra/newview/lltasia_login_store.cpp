@@ -121,6 +121,8 @@ bool unprotect(const void* bytes, int size, std::string& value)
 
 namespace TasiaLoginStore
 {
+bool isAvailable() { return true; }
+
 bool list(const std::string& path, const std::string& grid, std::vector<Account>& accounts)
 {
     accounts.clear();
@@ -241,6 +243,8 @@ bool importDatabase(const std::string& path, const std::string& source, int& imp
 #else
 namespace TasiaLoginStore
 {
+bool isAvailable() { return false; }
+
 bool list(const std::string&, const std::string&, std::vector<Account>& a) { a.clear(); return false; }
 bool password(const std::string&, const std::string&, const std::string&, std::string& p) { p.clear(); return false; }
 bool save(const std::string&, const Account&, const std::string*) { return false; }

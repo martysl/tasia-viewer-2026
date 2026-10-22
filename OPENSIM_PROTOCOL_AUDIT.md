@@ -75,7 +75,39 @@ selection remains unchanged.
 | 9 | SimulatorFeatures and limits | Checked server emits per-simulator scale limits, `MinSimHeight`, `MaxSimHeight`, terrain-heightmap limits, grid/search/guide/currency URLs, and chat ranges. Current viewer now consumes finite OpenSim `MinSimHeight` for world-map Z and `say-range` for local-speaker proximity. | **Partial source fixes:** negative-Z input/display and per-region speaker-list radius are restored; SL retains its prior 0..4096 Z and 20m speaker radius. Prim/physics scale, whisper/shout presentation, and remaining extras are still unconsumed or under audit. Do not apply per-region scale values to global `LLWorld`; audit region-aware edit paths separately. Focused source/helper tests pass; no full build or live map/chat test. |
 | 10 | Mesh/material/upload | Current source has grid-aware mesh capability routing, while historical logs include mesh/asset HTTP 404s. Old viewer has additional OpenSim-specific mesh/upload paths. | **Method-by-method audit pending.** Classify endpoint, status and returned body first; 404s do not establish a QUIC cause. GLTF material parse failures also need their own reproduction. |
 | 11 | Map URLs/Hypergrid | Old viewer contains Hypergrid map-name handling and variable region-map display; current map block size extension is restored (Step 2). Reference also preserves SLURL region origins for non-teleport place details; current source now carries `ox`/`oy` into region-local parcel-coordinate calculation. | **Partial.** Focused source checks pass; live SL/OpenSim SLURL, place-detail and teleport behavior remain unverified. Continue exact-name lookup, Hypergrid parsing/routing and grid-authority audits. |
-| 12 | Login, grid metadata, saved accounts | Current tree adds bounded grid catalog/metadata discovery absent from the old Tasia UI. Remembered passwords use encrypted per-grid SQLite/DPAPI; only the login authenticator uses MD5. | **Source reviewed; no credential changes.** Hypergrid login variants and Windows UI/DPAPI flow remain unverified. |
+| 12 | Login, grid metadata, saved accounts | Current tree adds bounded grid catalog/metadata discovery absent from the old Tasia UI. Windows account-history passwords use per-grid SQLite/DPAPI; only the login authenticator uses MD5. | **Phase 1 source fixes + offline contracts:** typed username survives grid changes without password/remember-password carry-over; unbound legacy credentials are SL-only; movement completion validates agent/session before changing startup state; identity/circuit values are not emitted by the touched diagnostics. The raw-password SQLite/import extension explicitly reports unavailable off Windows and leaves the existing `LLSecAPIHandler` remembered-credential path in use; raw-password recovery/import parity is unsupported there. Windows UI/DPAPI and live login remain unverified. |
+
+### 2026-10-22 login failure-stage evidence and Phase 1 corrections
+
+The reported candidate is recorded in `BUILD_NOTES.md` as the isolated Windows
+Release package `self-avatar-cof-fallback-20261022-01`, EXE SHA-256
+`bd104eecfa892c88561d95da53364864908a3329048907a2b3546b212c1c218b`. Its
+portable log records QUIC establishment without simulator-session confirmation,
+fallback to UDP, `CompleteAgentMovement` reliable-delivery timeout `-23016`, then
+no circuit ping for 103.17 seconds and circuit drop. This establishes the observed
+failure at **stage D (simulator circuit/movement confirmation)** for that
+candidate; it does not establish whether the server failed to receive/process
+`UseCircuitCode` or `CompleteAgentMovement`, or whether the server's reply/ACK was
+lost. The exact candidate's complete source-tree SHA and server-side event
+correlation are unavailable. No login credentials, account, or live grid were
+used in this audit.
+
+| Stage | Evidence in candidate record | Assessment |
+|---|---|---|
+| A — login UI / credential selection | No recorded UI/credential-selection error in the inspected connection lines. | Not observed; no reproduction with Mom's account. |
+| B — XML-RPC authentication | Candidate reached world initialization and attempted simulator connection; authenticated response was accepted. | Authentication succeeded for the recorded attempt. |
+| C — response parsing / benefits | `process_login_success_response()` advanced into world initialization and enabled the first simulator circuit. | No parsing/benefits failure observed. |
+| D — region seed / circuit / movement | QUIC session confirmation absent, UDP fallback; `CompleteAgentMovement` delivery timed out; later circuit ping timeout; no verified `AgentMovementComplete`. | Failure stage established; root cause unresolved without server-side correlation of UseCircuitCode, CompleteAgentMovement, quicready, ACK and AgentMovementComplete. Do not alter credentials, disable ViewerAsset, or infer TCP failure from legacy error name `LL_ERR_TCP_TIMEOUT`. |
+| E — inventory / COF / appearance | The candidate did not reach usable-world validation; outfit/COF result was not tested in this attempt. | Not reached / not verified. |
+
+This branch additionally restores typed-username convenience on a grid switch
+while clearing password state, prevents unbound legacy `UserLoginInfo` from being
+rebound to custom grids, checks the AgentID/SessionID before advancing movement
+state, and removes username/host/circuit identifiers from the touched log lines.
+These are code/source-contract checks, not proof of successful SL or OpenSim
+login. `tasia_login_flow_test.py` passes; see `BUILD_NOTES.md` for environment and
+review limits. The `tasia` remote is the configured alias in this checkout; no
+`origin` remote is configured.
 
 ## Protocol-definition details
 

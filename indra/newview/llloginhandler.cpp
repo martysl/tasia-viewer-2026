@@ -139,9 +139,11 @@ LLPointer<LLCredential> LLLoginHandler::initializeLoginInfo()
     LLPointer<LLCredential> result = NULL;
     // Try per-grid credential first (OpenSim and multiple grids support)
     result = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
-    if (result.isNull())
+    if (result.isNull() && LLGridManager::getInstance()->isInSecondLife())
     {
-        // Fall back to legacy UserLoginInfo (single grid, backwards compatibility)
+        // UserLoginInfo predates per-grid credentials and has no grid binding.
+        // Only reuse it on the Second Life system grids; rebinding it to a custom
+        // grid could silently submit a saved SL identity/password there.
         result = loadSavedUserLoginInfo();
     }
 

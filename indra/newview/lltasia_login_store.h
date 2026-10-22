@@ -6,6 +6,9 @@
 
 namespace TasiaLoginStore
 {
+// This account-history database is implemented only on Windows with DPAPI.
+bool isAvailable();
+
 struct Account
 {
     std::string grid;

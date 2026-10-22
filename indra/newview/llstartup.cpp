@@ -1035,8 +1035,7 @@ bool idle_startup()
 		}
 		gSavedSettings.setBOOL("RememberPassword", gRememberPassword);
 		gSavedSettings.setBOOL("RememberUser", gRememberUser);
-		LL_INFOS("AppInit") << "Attempting login as: " << userid << LL_ENDL;
-		gDebugInfo["LoginName"] = userid;
+		LL_DEBUGS("AppInit") << "Attempting login with selected credential" << LL_ENDL;
 
 		// create necessary directories
 		// *FIX: these mkdir's should error check
@@ -1195,8 +1194,7 @@ bool idle_startup()
 		emsg << LLTrans::getString("LoginFailedHeader") << "\n";
 		if (LLLoginInstance::getInstance()->authFailure())
 		{
-			LL_INFOS("LLStartUp") << "Login failed, LLLoginInstance::getResponse(): "
-				<< LLLoginInstance::getInstance()->getResponse() << LL_ENDL;
+			LL_DEBUGS("LLStartUp") << "Login authentication failed; processing server response" << LL_ENDL;
 			LLSD response = LLLoginInstance::getInstance()->getResponse();
 			// Still have error conditions that may need some
 			// sort of handling - dig up specific message

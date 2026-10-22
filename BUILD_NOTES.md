@@ -3849,3 +3849,72 @@ the same login/circuit: receipt and processing of UseCircuitCode,
 CompleteAgentMovement, emitted `quicready`, and any AgentMovementComplete/ACK
 back to the client. Keep the candidate running; request Mom's outcome before
 reading any further candidate logs.
+
+### Phase 1 login-state and movement guard audit (2026-10-22)
+
+Target and branch were verified before edits: isolated worktree
+`/home/marty/opensim/tasia-kirsten-completion`, branch
+`fix/opensim-completion-20261022`, based on fetched GitHub `broken` SHA
+`4a257ba7fd876ff36b3e8789312ed8fd578af768`. The original target worktree remains
+untouched (its pre-existing untracked Python cache and session transcript remain
+there). The configured Git remote is `tasia`, not `origin`.
+
+The recorded COF-fallback candidate and log establish failure after login
+authentication/world initialization at simulator circuit/movement confirmation;
+they do not prove a cause at the server/transport boundary. No live account,
+credential, or grid access was performed in this audit. The failure-stage table
+is in `OPENSIM_PROTOCOL_AUDIT.md`.
+
+Phase 1 changes:
+
+- `llpanellogin.cpp::updateServer()` preserves a nonempty manually typed username
+  across grid-list refresh while clearing password UI state and the remembered-
+  password checkbox. A selected remembered account continues to be populated
+  using the destination grid's credentials.
+- Credential-format diagnostics no longer log the typed username.
+- Startup auth-failure diagnostics no longer stream the full LLSD response, and
+  the shared secure-handler save logs no longer emit grid/account identifiers.
+- `llloginhandler.cpp::initializeLoginInfo()` only binds legacy, unscoped
+  `UserLoginInfo` to Second Life system grids; custom grids require their own
+  per-grid credential or manual input.
+- `TasiaLoginStore::isAvailable()` makes the platform boundary explicit. On
+  non-Windows the raw-password SQLite/import controls are unavailable and the
+  existing `LLSecAPIHandler` credential path remains in use; the UI no longer
+  reports the deliberately unsupported SQLite extension as an account-save
+  failure. Raw password recovery/import is not claimed as Linux parity.
+- `process_agent_movement_complete()` validates both AgentID and SessionID before
+  setting flags that advance startup/teleport. Movement diagnostics no longer
+  print simulator host or circuit code.
+- Added source-contract tests in
+  `indra/newview/tests/tasia_login_flow_test.py`. These tests do not instantiate
+  the login UI or simulate network packets.
+
+Offline results on the isolated branch:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_login_flow_test.py       PASS (10 tests)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_identity_grid_test.py   PASS (4 tests)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_compat_test.py  PASS
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_opensim_services_test.py PASS (15 tests)
+PYTHONDONTWRITEBYTECODE=1 python3 indra/newview/tests/tasia_quic_transport_test.py PASS (6 tests)
+c++ -std=c++17 -Wall -Wextra -Werror -Iindra/newview indra/newview/lltasia_login_store.cpp indra/newview/tests/tasia_login_store_platform_test.cpp -o /tmp/opencode/tasia-login-store-platform-test && /tmp/opencode/tasia-login-store-platform-test PASS (non-Windows store explicitly unavailable)
+git diff --check                                                               PASS
+```
+
+Baseline build unavailable in this Linux environment: there is no configured
+build tree, no `msbuild`, `devenv`, or `cl`, and the active target is Windows
+DX11. This is not a Windows build or login proof. Live SL/OpenSim flows and
+Windows SQLite/DPAPI UI behavior remain unverified. The non-Windows extension
+availability contract has a compiled native fixture; actual `LLSecAPIHandler`
+credential persistence/security on Linux and recoverable password/import parity
+remain unverified/not implemented. Tasia Farm review jobs
+`job_mvjmew5r_0f531b312b` (lead plus independent peer) flagged four concerns. We
+checked them against the code: selected-account branch is intentionally sourced
+from the destination grid; a manually typed username is deliberately retained for
+manual authentication; clearing credentials on a grid boundary is required; and
+legacy global fallback is intentionally restricted to SL. No source change was
+made for those speculative concerns. Delta review
+`job_mvjmgiaf_2592f31ec1` found no actionable issue in the additional identifier-
+redaction change and noted the lack of Windows/runtime tests. These reviews are
+advisory, not runtime evidence. Root cause of the recorded region-connect stall
+remains unresolved pending server-side event correlation.

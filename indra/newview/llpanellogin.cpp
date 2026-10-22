@@ -281,11 +281,18 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
     }
     if (auto* button = findChild<LLButton>("import_login_accounts"))
     {
-        button->setCommitCallback([](LLUICtrl*, const LLSD&)
+        if (TasiaLoginStore::isAvailable())
         {
-            LLFilePickerReplyThread::startPicker(boost::bind(&LLPanelLogin::onImportLoginAccounts, _1),
-                                                LLFilePicker::FFLOAD_ALL, false);
-        });
+            button->setCommitCallback([](LLUICtrl*, const LLSD&)
+            {
+                LLFilePickerReplyThread::startPicker(boost::bind(&LLPanelLogin::onImportLoginAccounts, _1),
+                                                    LLFilePicker::FFLOAD_ALL, false);
+            });
+        }
+        else
+        {
+            button->setVisible(false);
+        }
     }
 
     childSetAction("connect_btn", onClickConnect, this);
@@ -726,7 +733,7 @@ void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
     std::string password = sInstance->getChild<LLUICtrl>("password_edit")->getValue().asString();
     LLStringUtil::trim(username);
 
-    LL_INFOS("Credentials", "Authentication") << "retrieving username:" << username << LL_ENDL;
+    LL_DEBUGS("Credentials", "Authentication") << "retrieving login fields" << LL_ENDL;
     // Determine if username is in "first last" format
     size_t separator_index = username.find_first_of(' ');
     {
@@ -750,7 +757,7 @@ void LLPanelLogin::getFields(LLPointer<LLCredential>& credential,
 
         if (last.find_first_of(' ') == last.npos)
         {
-            LL_INFOS("Credentials", "Authentication") << "agent: " << username << LL_ENDL;
+            LL_DEBUGS("Credentials", "Authentication") << "agent identifier format selected" << LL_ENDL;
             // Check if username is in traditional "firstname lastname" format
             identifier["type"] = CRED_IDENTIFIER_TYPE_AGENT;
             identifier["first_name"] = first;
@@ -1220,7 +1227,8 @@ void LLPanelLogin::onRememberPasswordCheck(void*)
 
         std::string grid(LLGridManager::getInstance()->getGridId());
         std::string user_id(cred->userID());
-        if (!remember_password && !TasiaLoginStore::clearPassword(loginDatabasePath(), cred->getGrid(), user_id))
+        if (TasiaLoginStore::isAvailable() && !remember_password &&
+            !TasiaLoginStore::clearPassword(loginDatabasePath(), cred->getGrid(), user_id))
         {
             LLSD args;
             args["MESSAGE"] = sInstance->getString("accounts_save_failed");
@@ -1284,6 +1292,11 @@ void LLPanelLogin::hidePassword()
 void LLPanelLogin::saveLoginAccount(LLPointer<LLCredential> credential, bool remember_user, bool remember_password)
 {
     if (!sInstance || credential.isNull()) return;
+    sInstance->hidePassword();
+    // On non-Windows, the normal LLSecAPI credential store remains authoritative.
+    // Do not report the deliberately unavailable DPAPI/SQLite extension as a
+    // failed login-account save on platforms where it is not implemented.
+    if (!TasiaLoginStore::isAvailable()) return;
     const std::string path = loginDatabasePath();
     const std::string grid = credential->getGrid();
     if (!remember_user)
@@ -1311,12 +1324,11 @@ void LLPanelLogin::saveLoginAccount(LLPointer<LLCredential> credential, bool rem
         args["MESSAGE"] = sInstance->getString("accounts_save_failed");
         LLNotificationsUtil::add("GenericAlertOK", args);
     }
-    sInstance->hidePassword();
 }
 
 void LLPanelLogin::onImportLoginAccounts(const std::vector<std::string>& filenames)
 {
-    if (!sInstance || filenames.empty()) return;
+    if (!sInstance || !TasiaLoginStore::isAvailable() || filenames.empty()) return;
     int count = 0;
     bool ok = TasiaLoginStore::importDatabase(loginDatabasePath(), filenames.front(), count);
     LLSD args;
@@ -1351,9 +1363,28 @@ void LLPanelLogin::updateServer()
     {
         try
         {
+            LLComboBox* user_combo = sInstance->getChild<LLComboBox>("username_combo");
+            const bool preserve_manual_username = user_combo && user_combo->getCurrentIndex() == -1;
+            std::string manual_username = preserve_manual_username ? user_combo->getValue().asString() : std::string();
+            LLStringUtil::trim(manual_username);
+            const bool restore_manual_username = preserve_manual_username && !manual_username.empty();
+
             // Never carry one grid's visible or saved password into another grid.
             LLPointer<LLCredential> credential = gSecAPIHandler->loadCredential(LLGridManager::getInstance()->getGrid());
             sInstance->populateUserList(credential);
+
+            // Preserve a manually typed identity for convenience, but never pair it
+            // with the previous grid's password or an unrelated remembered account.
+            if (restore_manual_username)
+            {
+                user_combo->setTextEntry(manual_username);
+                sInstance->mUsernameLength = static_cast<unsigned int>(manual_username.size());
+                sInstance->getChild<LLLineEditor>("password_edit")->setValue(std::string());
+                sInstance->mPasswordLength = 0;
+                sInstance->mPasswordModified = false;
+                sInstance->getChild<LLUICtrl>("remember_password")->setValue(false);
+                sInstance->updateLoginButtons();
+            }
 
             // update the login panel links
             bool system_grid = LLGridManager::getInstance()->isSystemGrid();
