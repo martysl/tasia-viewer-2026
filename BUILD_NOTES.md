@@ -4071,3 +4071,28 @@ actionable findings. The actual code's userinfo rejection is intentional; encode
 `%23` is URL data, not a fragment; bad/non-HTTP endpoint candidates fall through
 the precedence chain. These reviews are limited feedback, not independent source,
 Windows, or runtime verification.
+
+### Phase 5 follow-up — OpenSim Destinations guide routing (2026-10-22)
+
+The adjacent `LLFloaterDestinations::postBuild()` also always loaded the global
+SL `DestinationGuideURL`. The old reference selects OpenSim simulator feature
+`destination-guide-url` or login response `destination_guide_url`, and requests
+that response field during OpenSim login. Current login code requested neither
+that field nor `search`; the search patch's login-response branch therefore also
+needed the matching OpenSim `requested_options` entry.
+
+Now OpenSim login requests both `search` and `destination_guide_url`. Destinations
+uses the OpenSim region feature first, then an authenticated login response; it
+does not use the SL setting on OpenSim. The SL path remains `DestinationGuideURL`.
+The floater resolves again on open, avoids reloading an unchanged endpoint, and
+clears the old guide to `about:blank` when the selected grid has no guide URL or
+URL expansion fails validation.
+Candidates are restricted to HTTP(S), nonempty-host, no-userinfo URLs under the
+same local policy as search. `tasia_opensim_services_test.py` passes 18 tests,
+including login-option and routing contracts; `tasia_login_flow_test.py` passes
+10 tests. Live login/browser behavior and a Windows build remain untested. Farm job
+`job_mvjnk8ia_ead4ea3b0a` stated it could not access source; its lead provided no
+code findings, and its peer suggested extra branch/Windows tests based only on
+the summary. The source contract checks the OpenSim gate and route branches, but
+does not execute the UI or Windows code. Review is therefore recorded as limited,
+not independent source/runtime verification.

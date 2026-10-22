@@ -29,6 +29,7 @@
 #define LL_FLOATER_DESTINATIONS_H
 
 #include "llfloater.h"
+#include <string>
 
 class LLFloaterDestinations:
     public LLFloater
@@ -38,6 +39,10 @@ private:
     LLFloaterDestinations(const LLSD& key);
     ~LLFloaterDestinations();
     bool postBuild() override;
+    void onOpen(const LLSD& key) override;
+
+    void navigateToDestinationGuide();
+    std::string mDestinationGuideURL;
 };
 
 #endif

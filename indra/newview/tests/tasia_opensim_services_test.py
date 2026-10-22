@@ -167,6 +167,7 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         self.assertIn('authSuccess()', endpoint)
         self.assertIn('return gSavedSettings.getString("SearchURL")', endpoint)
         self.assertIn('isInSecondLife()', endpoint)
+        self.assertIn('isInOpenSim()', endpoint)
 
         initiate = method(source, 'void LLFloaterSearch::initiateSearch(')
         self.assertIn('std::string url = getSearchEndpoint()', initiate)
@@ -177,6 +178,31 @@ int main(){ LLAvatarData full=tasiaLegacyProfileFields(LLAvatarLegacyData{});
         settings = ET.parse(NV/'app_settings/settings.xml').getroot()
         names = {node.text for node in settings.iter('key')}
         self.assertIn('SearchURLOpenSim', names)
+
+    def test_destinations_uses_grid_scoped_endpoint_and_login_fields(self):
+        source = (NV/'llfloaterdestinations.cpp').read_text()
+        endpoint = method(source, 'std::string getDestinationGuideEndpoint(')
+        self.assertIn('isInSecondLife()', endpoint)
+        self.assertIn('isInOpenSim()', endpoint)
+        self.assertIn('getString("DestinationGuideURL")', endpoint)
+        self.assertIn('extras["destination-guide-url"]', endpoint)
+        self.assertIn('getResponse("destination_guide_url")', endpoint)
+        self.assertIn('authSuccess()', endpoint)
+        self.assertNotIn('getString("DestinationGuideURL")',
+                         endpoint[endpoint.index('if (LLViewerRegion'):])
+
+        floater = method(source, 'void LLFloaterDestinations::navigateToDestinationGuide(')
+        self.assertIn('if (endpoint.empty())', floater)
+        self.assertIn('navigateTo("about:blank"', floater)
+        self.assertIn('if (url == mDestinationGuideURL) return', floater)
+        invalid_expanded = floater.index('if (!isUsableDestinationGuideURL(url))')
+        self.assertIn('navigateTo("about:blank"', floater[invalid_expanded:])
+
+        login = (NV/'lllogininstance.cpp').read_text()
+        options = method(login, 'void LLLoginInstance::constructAuthParams(')
+        for option in ('"search"', '"destination_guide_url"'):
+            self.assertIn(f'requested_options.append({option})', options)
+        self.assertIn('isInOpenSim()', options)
 
     def test_opensim_legacy_profile_reply_family_is_consumed(self):
         processor = (NV/'llavatarpropertiesprocessor.cpp').read_text()

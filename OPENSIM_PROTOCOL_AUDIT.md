@@ -708,3 +708,26 @@ misattributed nonexistent identifiers. Their feedback is recorded as limited,
 not an independent source review. Userinfo is deliberately rejected; percent-
 encoded `#` is not a URI fragment; URI parsing behavior was checked in
 `indra/llcommon/lluri.cpp`. Windows/live validation remains outstanding.
+
+### 2026-10-22 OpenSim Destinations guide endpoint
+
+The reference `LLFloaterDestinations` uses the OpenSim feature
+`destination-guide-url` or login response `destination_guide_url`; the current
+floater always loaded `DestinationGuideURL` (the SL setting). Current login
+request options also omitted both `search` and `destination_guide_url`, so merely
+reading those response values was insufficient.
+
+The viewer now requests both response fields only when the selected grid is
+OpenSim. Destination resolution prefers region OpenSimExtras, then the
+authenticated login response; the SL setting remains SL-only. The floater
+resolves on first build and each open, skips unchanged URLs, and clears the prior
+grid's page to `about:blank` when no endpoint exists or expansion fails validation.
+URL validation matches the search policy (HTTP(S), nonempty host,
+no credentials/whitespace/backslash/literal fragment, bounded length).
+`tasia_opensim_services_test.py` passes 18 tests,
+`tasia_login_flow_test.py` passes 10 tests, and `git diff --check` passes. No live
+service/browser or Windows build was tested. Farm job `job_mvjnk8ia_ead4ea3b0a`
+said it could not access source; its lead provided no code findings, while its peer
+gave summary-based branch/Windows test suggestions. The source contract checks the
+OpenSim gate and route branches, but does not execute UI/Windows code. Review is
+limited, not independent source/runtime verification.

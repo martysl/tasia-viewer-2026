@@ -28,11 +28,61 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llfloaterdestinations.h"
+#include "llagent.h"
+#include "lllogininstance.h"
 #include "llmediactrl.h"
+#include "lluri.h"
+#include "llviewernetwork.h"
+#include "llviewerregion.h"
 #include "lluictrlfactory.h"
 #include "llviewercontrol.h"
 #include "llweb.h"
 
+namespace
+{
+bool isUsableDestinationGuideURL(const std::string& endpoint)
+{
+    if (endpoint.empty() || endpoint.size() > 2048 ||
+        endpoint.find_first_of("\\\r\n\t ") != std::string::npos ||
+        endpoint.find('#') != std::string::npos)
+    {
+        return false;
+    }
+    const LLURI uri(endpoint);
+    return (uri.scheme() == "http" || uri.scheme() == "https") &&
+           !uri.hostName().empty() && uri.authority().find('@') == std::string::npos;
+}
+
+std::string getDestinationGuideEndpoint()
+{
+    LLGridManager* grid_manager = LLGridManager::getInstance();
+    if (grid_manager->isInSecondLife())
+    {
+        const std::string url = gSavedSettings.getString("DestinationGuideURL");
+        return isUsableDestinationGuideURL(url) ? url : std::string();
+    }
+    if (!grid_manager->isInOpenSim()) return std::string();
+
+    if (LLViewerRegion* region = gAgent.getRegion())
+    {
+        LLSD features;
+        region->getSimulatorFeatures(features);
+        const LLSD& extras = features["OpenSimExtras"];
+        if (extras["destination-guide-url"].isString() &&
+            isUsableDestinationGuideURL(extras["destination-guide-url"].asString()))
+        {
+            return extras["destination-guide-url"].asString();
+        }
+    }
+
+    if (LLLoginInstance::instanceExists() && LLLoginInstance::getInstance()->authSuccess())
+    {
+        const LLSD url = LLLoginInstance::getInstance()->getResponse("destination_guide_url");
+        if (url.isString() && isUsableDestinationGuideURL(url.asString())) return url.asString();
+    }
+    return std::string();
+}
+}
 
 LLFloaterDestinations::LLFloaterDestinations(const LLSD& key)
     :   LLFloater(key)
@@ -47,8 +97,7 @@ bool LLFloaterDestinations::postBuild()
 {
     LLMediaCtrl* destinations = getChild<LLMediaCtrl>("destination_guide_contents");
     destinations->setErrorPageURL(gSavedSettings.getString("GenericErrorPageURL"));
-    std::string url = gSavedSettings.getString("DestinationGuideURL");
-    destinations->navigateTo(url, std::string{HTTP_CONTENT_TEXT_HTML});
+    navigateToDestinationGuide();
 
     // If cookie is there, will set it now. Otherwise will have to wait for login completion
     // which will also update destinations instance if it already exists.
@@ -56,4 +105,37 @@ bool LLFloaterDestinations::postBuild()
     return true;
 }
 
+void LLFloaterDestinations::onOpen(const LLSD& key)
+{
+    LLFloater::onOpen(key);
+    navigateToDestinationGuide();
+}
 
+void LLFloaterDestinations::navigateToDestinationGuide()
+{
+    LLMediaCtrl* destinations = getChild<LLMediaCtrl>("destination_guide_contents");
+    const std::string endpoint = getDestinationGuideEndpoint();
+    if (endpoint.empty())
+    {
+        if (!mDestinationGuideURL.empty())
+        {
+            mDestinationGuideURL.clear();
+            destinations->navigateTo("about:blank", std::string{HTTP_CONTENT_TEXT_HTML});
+        }
+        return;
+    }
+
+    const std::string url = LLWeb::expandURLSubstitutions(endpoint, LLSD());
+    if (!isUsableDestinationGuideURL(url))
+    {
+        if (!mDestinationGuideURL.empty())
+        {
+            mDestinationGuideURL.clear();
+            destinations->navigateTo("about:blank", std::string{HTTP_CONTENT_TEXT_HTML});
+        }
+        return;
+    }
+    if (url == mDestinationGuideURL) return;
+    mDestinationGuideURL = url;
+    destinations->navigateTo(url, std::string{HTTP_CONTENT_TEXT_HTML});
+}

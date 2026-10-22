@@ -90,6 +90,7 @@ std::string getSearchEndpoint()
     {
         return gSavedSettings.getString("SearchURL");
     }
+    if (!grid_manager->isInOpenSim()) return std::string();
 
     // Match the legacy OpenSim precedence: simulator feature, login response,
     // then grid-specific configuration. Never fall through to the SL URL.

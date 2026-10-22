@@ -191,6 +191,11 @@ void LLLoginInstance::constructAuthParams(LLPointer<LLCredential> user_credentia
 #endif
     requested_options.append("max-agent-groups");
     requested_options.append("map-server-url");
+    if (LLGridManager::getInstance()->isInOpenSim())
+    {
+        requested_options.append("search");
+        requested_options.append("destination_guide_url");
+    }
     requested_options.append("voice-config");
     requested_options.append("tutorial_setting");
     requested_options.append("login-flags");
@@ -663,4 +668,3 @@ std::string construct_start_string()
     }
     return start;
 }
-
