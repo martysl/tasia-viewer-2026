@@ -4441,7 +4441,9 @@ void process_crossed_region(LLMessageSystem* msg, void**)
     // enabled). If EnableSimulator already pre-seeded a circuit here, keep
     // it (including any existing QUIC connection); otherwise establish one,
     // preferring QUIC when advertised. Matches Misfitz's handling.
-    if (!msg->mCircuitInfo.findCircuit(sim_host))
+    // A neighbour may already have an LLUDP circuit from EnableSimulator.
+    // CrossedRegion must still upgrade that circuit when QUIC is advertised.
+    LLCircuitData* previous_cdp = msg->mCircuitInfo.findCircuit(sim_host);
     {
         std::string quic_host;
         U16         quic_port = 0;
@@ -4464,7 +4466,7 @@ void process_crossed_region(LLMessageSystem* msg, void**)
             static LLCachedControl<bool> quic_fallback_lludp(gSavedSettings, "TasiaQuicFallbackLLUDP");
             if (!msg->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err, quic_retries))
             {
-                if (quic_fallback_lludp)
+                if (quic_fallback_lludp && (!previous_cdp || !previous_cdp->isQuic()))
                 {
                     LL_WARNS("CrossingCaps","Messaging") << "CrossedRegion: QUIC enable failed for " << sim_host
                                                          << ": " << quic_err
@@ -4486,8 +4488,15 @@ void process_crossed_region(LLMessageSystem* msg, void**)
                 }
             }
         }
+        else if (!previous_cdp)
+        {
+            msg->enableCircuit(sim_host, true);
+        }
         else
         {
+            LL_INFOS("CrossingCaps","Messaging") << "CrossedRegion: no QUIC advertised, keeping existing "
+                                                 << (previous_cdp->isQuic() ? "QUIC" : "LLUDP")
+                                                 << " circuit to " << sim_host << LL_ENDL;
             msg->enableCircuit(sim_host, true);
         }
     }
