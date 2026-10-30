@@ -1635,6 +1635,7 @@ bool LLMessageSystem::enableQuicCircuit(const LLHost &host, const std::string &q
         const auto& existing = cdp->getQuicConnection();
         if (existing
             && existing->getHost() == quic_host
+            && existing->getPort() == quic_port
             && (existing->getState() == LLQuicConnection::State::CONNECTING
              || existing->getState() == LLQuicConnection::State::CONNECTED))
         {
