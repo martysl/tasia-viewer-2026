@@ -76,6 +76,7 @@ public:
     uint64_t getLastAppErrorCode() const     { return mLastAppErrorCode.load(std::memory_order_acquire); }
     bool     wasClosedByPeer() const         { return mClosedByPeer.load(std::memory_order_acquire); }
     const std::string& getHost() const       { return mHost; }
+    U16      getPort() const                 { return mPort; }
 
     std::string describeFailure() const;
 
@@ -104,6 +105,7 @@ private:
     std::atomic<bool>                                                 mClosedByPeer          { false };
     std::atomic<bool>                                                 mReachedConnected      { false };
     std::string                                                       mHost;
+    U16                                                               mPort                 { 0 };
     std::mutex                                                        mRxMutex;
     std::deque<std::vector<uint8_t>>                                  mRxQueue;
     std::mutex                                                        mDatagramRxMutex;
