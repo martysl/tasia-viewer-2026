@@ -3951,32 +3951,18 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
         if (info.has("SimQuicPort")) quic_port = static_cast<U16>(info["SimQuicPort"].asInteger());
     }
 
+    // Even if EnableSimulator already created an LLUDP circuit, TeleportFinish
+    // must upgrade it when the destination advertises QUIC. A stale QUIC
+    // circuit is reconnected by enableQuicCircuit, which checks host and port.
     LLCircuitData* existing_cdp = gMessageSystem->mCircuitInfo.findCircuit(sim_host);
-    if (existing_cdp)
-    {
-        LL_INFOS("Teleport","Messaging") << "TeleportFinish: reusing existing "
-                                         << (existing_cdp->isQuic() ? "QUIC" : "LLUDP")
-                                         << " circuit to " << sim_host
-                                         << LL_ENDL;
-        gMessageSystem->enableCircuit(sim_host, true);
-        if (existing_cdp->isQuic())
-        {
-            s_active_quic_teleport_dest = sim_host;
-            gMessageSystem->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
-        }
-        else
-        {
-            s_active_quic_teleport_dest = LLHost();
-        }
-    }
-    else if (quic_port > 0 && !quic_host.empty())
+    if (quic_port > 0 && !quic_host.empty())
     {
         std::string quic_err;
         static LLCachedControl<S32> quic_retries(gSavedSettings, "TasiaQuicConnectionRetries");
         static LLCachedControl<bool> quic_fallback_lludp(gSavedSettings, "TasiaQuicFallbackLLUDP");
         if (!gMessageSystem->enableQuicCircuit(sim_host, quic_host, quic_port, true, &quic_err, quic_retries))
         {
-            if (quic_fallback_lludp)
+            if (quic_fallback_lludp && (!existing_cdp || !existing_cdp->isQuic()))
             {
                 LL_WARNS("Teleport","Messaging") << "TeleportFinish: QUIC enable failed for " << sim_host
                                                  << " (host=" << quic_host << " port=" << quic_port
@@ -4005,6 +3991,23 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
         {
             s_active_quic_teleport_dest = sim_host;
             gMessageSystem->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
+        }
+    }
+    else if (existing_cdp)
+    {
+        LL_INFOS("Teleport","Messaging") << "TeleportFinish: reusing existing "
+                                         << (existing_cdp->isQuic() ? "QUIC" : "LLUDP")
+                                         << " circuit to " << sim_host
+                                         << LL_ENDL;
+        gMessageSystem->enableCircuit(sim_host, true);
+        if (existing_cdp->isQuic())
+        {
+            s_active_quic_teleport_dest = sim_host;
+            gMessageSystem->setCircuitTimeoutCallback(sim_host, on_quic_circuit_failed_vm, NULL);
+        }
+        else
+        {
+            s_active_quic_teleport_dest = LLHost();
         }
     }
     else
