@@ -119,6 +119,7 @@ bool LLQuicConnection::connect(const std::string& host, U16 port)
     }
 
     mHost = host;
+    mPort = port;
     const QUIC_API_TABLE* api = config->apiTable();
 
     QUIC_HANDLE* raw = nullptr;
